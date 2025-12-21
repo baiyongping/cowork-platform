@@ -1,0 +1,9 @@
+{
+  "name": "fix-admin",
+  "version": "1.0.0",
+  "description": "修复admin用户审核状态",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

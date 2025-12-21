@@ -1,0 +1,809 @@
+import { useState, useEffect } from 'react';
+import { User, Phone, Lock, Save, Send, Users, ChevronDown, ChevronUp, Building2 } from 'lucide-react';
+import { changePassword, changePhone, sendVerificationCode } from '../../lib/auth-service';
+import { db } from '../../lib/cloudbase';
+
+interface AccountSettingsProps {
+  currentUser: any;
+  onUserUpdate: (updatedUser: any) => void;
+}
+
+export function AccountSettings({ currentUser, onUserUpdate }: AccountSettingsProps) {
+  const [activeTab, setActiveTab] = useState<'info' | 'team' | 'phone' | 'password'>('info');
+  const [userInfo, setUserInfo] = useState<any>(currentUser);
+  const [loadingUserInfo, setLoadingUserInfo] = useState(false);
+  
+  // 团队数据状态
+  const [departments, setDepartments] = useState<any[]>([]);
+  const [departmentEmployees, setDepartmentEmployees] = useState<Map<string, any[]>>(new Map());
+  const [loadingTeam, setLoadingTeam] = useState(false);
+  const [expandedDepartments, setExpandedDepartments] = useState<Set<string>>(new Set());
+  
+  // 从数据库加载最新的用户信息
+  useEffect(() => {
+    loadUserInfoFromDB();
+  }, [currentUser.userId]);
+  
+  // 加载团队信息
+  useEffect(() => {
+    if (activeTab === 'team') {
+      loadTeamData();
+    }
+  }, [activeTab]);
+  
+  const loadUserInfoFromDB = async () => {
+    if (!currentUser.userId) return;
+    
+    setLoadingUserInfo(true);
+    try {
+      console.log('📝 [账户设置] 从数据库加载用户信息, userId:', currentUser.userId);
+      const result = await db.collection('users').doc(currentUser.userId).get();
+      
+      if (result.data && result.data.length > 0) {
+        const dbUser = result.data[0];
+        console.log('✅ [账户设置] 数据库用户信息:', dbUser);
+        
+        // 查询用户所属部门
+        const deptResult = await db.collection('departments').get();
+        const userDepartments: string[] = [];
+        
+        deptResult.data.forEach((dept: any) => {
+          if (dept.memberIds && dept.memberIds.includes(dbUser._id)) {
+            userDepartments.push(dept.name);
+          }
+        });
+        
+        const updatedUser = {
+          ...currentUser,
+          ...dbUser,
+          userId: dbUser._id,
+          departments: userDepartments,
+          departmentNames: userDepartments.length > 0 ? userDepartments.join('、') : '未分配'
+        };
+        
+        console.log('✅ [账户设置] 合并后的用户信息:', updatedUser);
+        setUserInfo(updatedUser);
+        
+        // 同步更新到父组件
+        onUserUpdate(updatedUser);
+      }
+    } catch (error) {
+      console.error('❌ [账户设置] 加载用户信息失败:', error);
+      setUserInfo(currentUser);
+    } finally {
+      setLoadingUserInfo(false);
+    }
+  };
+  
+  // 加载团队数据(部门及员工)
+  const loadTeamData = async () => {
+    setLoadingTeam(true);
+    try {
+      // 1. 加载所有部门
+      const deptResult = await db.collection('departments').get();
+      const allDepartments = deptResult.data || [];
+      
+      // 2. 加载所有已审核的员工
+      const usersResult = await db.collection('users')
+        .where({ approvalStatus: 'approved' })
+        .get();
+      const allUsers = usersResult.data.filter((user: any) => user.deleted !== true);
+      
+      // 3. 构建部门-员工映射
+      const deptEmpMap = new Map<string, any[]>();
+      const deptIdSet = new Set<string>();
+      
+      allDepartments.forEach((dept: any) => {
+        deptIdSet.add(dept._id);
+        const employees = allUsers.filter((user: any) => 
+          dept.memberIds && dept.memberIds.includes(user._id)
+        );
+        deptEmpMap.set(dept._id, employees);
+      });
+      
+      // 4. 设置默认所有部门展开
+      setExpandedDepartments(deptIdSet);
+      
+      setDepartments(allDepartments);
+      setDepartmentEmployees(deptEmpMap);
+    } catch (error) {
+      console.error('❌ 加载团队数据失败:', error);
+    } finally {
+      setLoadingTeam(false);
+    }
+  };
+  
+  // 切换部门展开/折叠
+  const toggleDepartment = (deptId: string) => {
+    setExpandedDepartments(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(deptId)) {
+        newSet.delete(deptId);
+      } else {
+        newSet.add(deptId);
+      }
+      return newSet;
+    });
+  };
+  
+  // 修改手机号表单
+  const [phoneForm, setPhoneForm] = useState({
+    newPhone: '',
+    verificationCode: ''
+  });
+  const [phoneSendingCode, setPhoneSendingCode] = useState(false);
+  const [phoneCountdown, setPhoneCountdown] = useState(0);
+  const [phoneSubmitting, setPhoneSubmitting] = useState(false);
+
+  // 修改密码表单
+  const [passwordForm, setPasswordForm] = useState({
+    oldPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [passwordSubmitting, setPasswordSubmitting] = useState(false);
+
+  // 发送验证码（修改手机号）
+  const handleSendPhoneCode = async () => {
+    if (!phoneForm.newPhone) {
+      alert('请输入新手机号');
+      return;
+    }
+
+    const phoneRegex = /^1[3-9]\d{9}$/;
+    if (!phoneRegex.test(phoneForm.newPhone)) {
+      alert('手机号格式不正确');
+      return;
+    }
+
+    if (phoneForm.newPhone === currentUser.phone) {
+      alert('新手机号与当前手机号相同');
+      return;
+    }
+
+    setPhoneSendingCode(true);
+
+    try {
+      const result = await sendVerificationCode(phoneForm.newPhone);
+      
+      if (result.success) {
+        alert(result.message);
+        
+        // 开始倒计时
+        setPhoneCountdown(60);
+        const timer = setInterval(() => {
+          setPhoneCountdown((prev) => {
+            if (prev <= 1) {
+              clearInterval(timer);
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+      } else {
+        alert(result.message);
+      }
+    } catch (error) {
+      alert('发送验证码失败，请稍后重试');
+    } finally {
+      setPhoneSendingCode(false);
+    }
+  };
+
+  // 提交修改手机号
+  const handlePhoneSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!phoneForm.newPhone || !phoneForm.verificationCode) {
+      alert('请填写完整信息');
+      return;
+    }
+
+    const phoneRegex = /^1[3-9]\d{9}$/;
+    if (!phoneRegex.test(phoneForm.newPhone)) {
+      alert('手机号格式不正确');
+      return;
+    }
+
+    if (phoneForm.verificationCode.length !== 6) {
+      alert('验证码格式不正确');
+      return;
+    }
+
+    setPhoneSubmitting(true);
+
+    try {
+      const result = await changePhone(
+        currentUser.userId,
+        phoneForm.newPhone,
+        phoneForm.verificationCode
+      );
+
+      if (result.success) {
+        alert(result.message);
+        
+        // 更新用户信息
+        const updatedUser = { ...currentUser, phone: phoneForm.newPhone };
+        onUserUpdate(updatedUser);
+        
+        // 重置表单
+        setPhoneForm({ newPhone: '', verificationCode: '' });
+        
+        // 返回基本信息页面
+        setActiveTab('info');
+      } else {
+        alert(result.message);
+      }
+    } catch (error) {
+      alert('修改手机号失败，请稍后重试');
+    } finally {
+      setPhoneSubmitting(false);
+    }
+  };
+
+  // 提交修改密码
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!passwordForm.oldPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+      alert('请填写完整信息');
+      return;
+    }
+
+    if (passwordForm.newPassword.length < 6) {
+      alert('新密码长度不能少于6位');
+      return;
+    }
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      alert('两次输入的密码不一致');
+      return;
+    }
+
+    setPasswordSubmitting(true);
+
+    try {
+      const result = await changePassword(
+        currentUser.userId,
+        passwordForm.oldPassword,
+        passwordForm.newPassword
+      );
+
+      if (result.success) {
+        alert(result.message);
+        
+        // 重置表单
+        setPasswordForm({
+          oldPassword: '',
+          newPassword: '',
+          confirmPassword: ''
+        });
+      } else {
+        alert(result.message);
+      }
+    } catch (error) {
+      alert('修改密码失败，请稍后重试');
+    } finally {
+      setPasswordSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="p-8">
+      <div className="mb-8">
+        <h1 className="text-gray-900 mb-2">个人信息</h1>
+        <p className="text-gray-600">管理您的个人信息、安全设置和查看团队成员</p>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-2 mb-6">
+        <button
+          onClick={() => setActiveTab('info')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+            activeTab === 'info' ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50'
+          }`}
+        >
+          <User className="w-5 h-5" />
+          基本信息
+        </button>
+        
+        <button
+          onClick={() => setActiveTab('team')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+            activeTab === 'team' ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50'
+          }`}
+        >
+          <Users className="w-5 h-5" />
+          团队
+        </button>
+        
+        <button
+          onClick={() => setActiveTab('phone')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+            activeTab === 'phone' ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50'
+          }`}
+        >
+          <Phone className="w-5 h-5" />
+          修改手机号
+        </button>
+        
+        <button
+          onClick={() => setActiveTab('password')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+            activeTab === 'password' ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50'
+          }`}
+        >
+          <Lock className="w-5 h-5" />
+          修改密码
+        </button>
+      </div>
+
+      {/* 基本信息 */}
+      {activeTab === 'info' && (
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900">基本信息</h3>
+            <p className="text-sm text-gray-600 mt-1">查看您的个人账户信息</p>
+          </div>
+          <div className="p-6">
+            {loadingUserInfo ? (
+              <div className="flex justify-center items-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <span className="ml-3 text-gray-600">加载中...</span>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between py-4 px-4 hover:bg-gray-50 rounded-lg transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                        <User className="w-5 h-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <span className="text-sm text-gray-500">用户名</span>
+                        <p className="text-gray-900 font-medium">{userInfo.username}</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between py-4 px-4 hover:bg-gray-50 rounded-lg transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                        <User className="w-5 h-5 text-green-600" />
+                      </div>
+                      <div>
+                        <span className="text-sm text-gray-500">姓名</span>
+                        <p className="text-gray-900 font-medium">{userInfo.name || '-'}</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between py-4 px-4 hover:bg-gray-50 rounded-lg transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
+                        <Phone className="w-5 h-5 text-purple-600" />
+                      </div>
+                      <div>
+                        <span className="text-sm text-gray-500">手机号</span>
+                        <p className="text-gray-900 font-medium">{userInfo.phone || userInfo.username || '未设置'}</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setActiveTab('phone')}
+                      className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                    >
+                      修改
+                    </button>
+                  </div>
+                
+                  <div className="flex items-center justify-between py-4 px-4 hover:bg-gray-50 rounded-lg transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-cyan-100 flex items-center justify-center">
+                        <svg className="w-5 h-5 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                        </svg>
+                      </div>
+                      <div>
+                        <span className="text-sm text-gray-500">部门</span>
+                        <p className="text-gray-900 font-medium">{userInfo.departmentNames || '未分配'}</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between py-4 px-4 hover:bg-gray-50 rounded-lg transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
+                        <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <span className="text-sm text-gray-500">职务</span>
+                        <p className="text-gray-900 font-medium">{userInfo.position || '未设置'}</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between py-4 px-4 hover:bg-gray-50 rounded-lg transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center">
+                        <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <span className="text-sm text-gray-500">角色</span>
+                      </div>
+                    </div>
+                    {(() => {
+                      // 过滤掉user角色
+                      const displayRoles = userInfo.roles && userInfo.roles.length > 0
+                        ? userInfo.roles.filter((r: string) => r !== 'user')
+                        : (userInfo.role && userInfo.role !== 'user' ? [userInfo.role] : []);
+                      
+                      if (displayRoles.length === 0) {
+                        return <span className="text-sm px-3 py-1 rounded-full font-medium bg-gray-100 text-gray-500">--</span>;
+                      }
+                      
+                      // 只显示第一个角色
+                      const firstRole = displayRoles[0];
+                      const isAdmin = firstRole === 'admin';
+                      
+                      return (
+                        <span className={`text-sm px-3 py-1 rounded-full font-medium ${
+                          isAdmin 
+                            ? 'bg-purple-100 text-purple-700' 
+                            : 'bg-blue-100 text-blue-700'
+                        }`}>
+                          {isAdmin ? '管理员' : firstRole}
+                        </span>
+                      );
+                    })()}
+                  </div>
+                </div>
+                
+                <div className="px-6 pb-6">
+                  <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
+                    <div className="flex items-start gap-3">
+                      <div className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-blue-900">温馨提示</p>
+                        <p className="text-sm text-blue-700 mt-1">
+                          用户名、姓名、部门等信息需要联系管理员修改
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 团队 */}
+      {activeTab === 'team' && (
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="bg-gradient-to-r from-cyan-50 to-blue-50 px-6 py-4 border-b border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900">团队成员</h3>
+            <p className="text-sm text-gray-600 mt-1">查看各部门的团队成员信息</p>
+          </div>
+          
+          <div className="p-6">
+            {loadingTeam ? (
+              <div className="flex justify-center items-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <span className="ml-3 text-gray-600">加载中...</span>
+              </div>
+            ) : departments.length === 0 ? (
+              <div className="text-center py-12">
+                <Building2 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <p className="text-gray-500">暂无部门数据</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {departments.map((dept) => {
+                  const isExpanded = expandedDepartments.has(dept._id);
+                  const employees = departmentEmployees.get(dept._id) || [];
+                  
+                  return (
+                    <div key={dept._id} className="border border-gray-200 rounded-lg overflow-hidden">
+                      {/* 部门头部 */}
+                      <button
+                        onClick={() => toggleDepartment(dept._id)}
+                        className="w-full px-5 py-4 bg-gradient-to-r from-gray-50 to-gray-100 hover:from-gray-100 hover:to-gray-200 transition-colors flex items-center justify-between"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
+                            <Building2 className="w-5 h-5 text-white" />
+                          </div>
+                          <div className="text-left">
+                            <h4 className="font-semibold text-gray-900">{dept.name}</h4>
+                            <p className="text-sm text-gray-500">{employees.length} 名成员</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {isExpanded ? (
+                            <ChevronUp className="w-5 h-5 text-gray-500" />
+                          ) : (
+                            <ChevronDown className="w-5 h-5 text-gray-500" />
+                          )}
+                        </div>
+                      </button>
+                      
+                      {/* 员工列表 */}
+                      {isExpanded && (
+                        <div className="divide-y divide-gray-100">
+                          {employees.length === 0 ? (
+                            <div className="px-5 py-8 text-center text-gray-500 text-sm">
+                              暂无成员
+                            </div>
+                          ) : (
+                            employees.map((employee) => (
+                              <div key={employee._id} className="px-5 py-4 hover:bg-gray-50 transition-colors">
+                                <div className="flex items-center gap-4">
+                                  {/* 头像 */}
+                                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-semibold text-lg flex-shrink-0">
+                                    {employee.name ? employee.name.charAt(0) : employee.username.charAt(0)}
+                                  </div>
+                                  
+                                  {/* 信息列 */}
+                                  <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-2">
+                                    {/* 姓名 */}
+                                    <div>
+                                      <span className="text-xs text-gray-500">姓名</span>
+                                      <p className="text-sm font-medium text-gray-900">
+                                        {employee.name || '-'}
+                                      </p>
+                                    </div>
+                                    
+                                    {/* 用户名 */}
+                                    <div>
+                                      <span className="text-xs text-gray-500">用户名</span>
+                                      <p className="text-sm text-gray-700">
+                                        {employee.username}
+                                      </p>
+                                    </div>
+                                    
+                                    {/* 手机号 */}
+                                    <div>
+                                      <span className="text-xs text-gray-500">手机号</span>
+                                      <p className="text-sm text-gray-700">
+                                        {employee.phone || employee.username || '-'}
+                                      </p>
+                                    </div>
+                                    
+                                    {/* 职务 */}
+                                    <div>
+                                      <span className="text-xs text-gray-500">职务</span>
+                                      <p className="text-sm text-gray-700">
+                                        {employee.position || '-'}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          
+          {/* 底部提示 */}
+          {!loadingTeam && departments.length > 0 && (
+            <div className="px-6 pb-6">
+              <div className="p-4 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg border border-blue-100">
+                <div className="flex items-start gap-3">
+                  <div className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-blue-900">提示</p>
+                    <p className="text-sm text-blue-700 mt-1">
+                      点击部门名称可以展开或折叠成员列表
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 修改手机号 */}
+      {activeTab === 'phone' && (
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="bg-gradient-to-r from-purple-50 to-pink-50 px-6 py-4 border-b border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900">修改手机号</h3>
+            <p className="text-sm text-gray-600 mt-1">更换您的账户绑定手机号</p>
+          </div>
+          
+          <div className="p-6">
+            <div className="mb-6 p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-white shadow-sm flex items-center justify-center">
+                  <Phone className="w-6 h-6 text-gray-700" />
+                </div>
+                <div>
+                  <span className="text-sm text-gray-600">当前手机号</span>
+                  <p className="text-lg font-semibold text-gray-900">{userInfo.username || '未设置'}</p>
+                </div>
+              </div>
+            </div>
+
+            <form onSubmit={handlePhoneSubmit} className="space-y-5">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">新手机号 *</label>
+                <input
+                  type="tel"
+                  value={phoneForm.newPhone}
+                  onChange={(e) => setPhoneForm({ ...phoneForm, newPhone: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                  placeholder="请输入新手机号"
+                  maxLength={11}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">验证码 *</label>
+                <div className="flex gap-3">
+                  <input
+                    type="text"
+                    value={phoneForm.verificationCode}
+                    onChange={(e) => setPhoneForm({ ...phoneForm, verificationCode: e.target.value })}
+                    className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                    placeholder="请输入6位验证码"
+                    maxLength={6}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSendPhoneCode}
+                    disabled={phoneSendingCode || phoneCountdown > 0}
+                    className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:from-purple-700 hover:to-pink-700 disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed transition-all shadow-sm whitespace-nowrap font-medium"
+                  >
+                    <Send className="w-4 h-4" />
+                    {phoneCountdown > 0 ? `${phoneCountdown}秒` : '发送验证码'}
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
+                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                  验证码将发送到新手机号
+                </p>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={phoneSubmitting}
+                  className="flex items-center justify-center gap-2 w-full px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:from-purple-700 hover:to-pink-700 disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed transition-all shadow-md font-medium"
+                >
+                  <Save className="w-5 h-5" />
+                  {phoneSubmitting ? '提交中...' : '确认修改'}
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <div className="px-6 pb-6">
+            <div className="p-4 bg-gradient-to-r from-orange-50 to-red-50 rounded-lg border border-orange-100">
+              <div className="flex items-start gap-3">
+                <div className="w-5 h-5 rounded-full bg-orange-600 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-orange-900">安全提示</p>
+                  <p className="text-sm text-orange-700 mt-1">
+                    手机号作为账户的唯一标识，修改后请妥善保管
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 修改密码 */}
+      {activeTab === 'password' && (
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="bg-gradient-to-r from-green-50 to-emerald-50 px-6 py-4 border-b border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900">修改密码</h3>
+            <p className="text-sm text-gray-600 mt-1">更改您的账户登录密码</p>
+          </div>
+
+          <div className="p-6">
+            <form onSubmit={handlePasswordSubmit} className="space-y-5">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">原密码 *</label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="password"
+                    value={passwordForm.oldPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, oldPassword: e.target.value })}
+                    className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                    placeholder="请输入原密码"
+                    autoComplete="current-password"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">新密码 *</label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="password"
+                    value={passwordForm.newPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                    className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                    placeholder="请输入新密码(至少6位)"
+                    autoComplete="new-password"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">确认新密码 *</label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="password"
+                    value={passwordForm.confirmPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                    className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                    placeholder="请再次输入新密码"
+                    autoComplete="new-password"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={passwordSubmitting}
+                  className="flex items-center justify-center gap-2 w-full px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed transition-all shadow-md font-medium"
+                >
+                  <Save className="w-5 h-5" />
+                  {passwordSubmitting ? '提交中...' : '确认修改'}
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <div className="px-6 pb-6">
+            <div className="p-4 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg border border-blue-100">
+              <div className="flex items-start gap-3">
+                <div className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-blue-900">安全建议</p>
+                  <p className="text-sm text-blue-700 mt-1">
+                    建议使用字母、数字、符号的组合，提高密码安全性
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

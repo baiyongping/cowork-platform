@@ -1,0 +1,10 @@
+{
+  "name": "initPermissionDB",
+  "version": "2.1.0",
+  "description": "权限系统数据库初始化云函数",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3",
+    "@cloudbase/node-sdk": "^2.5.0"
+  }
+}

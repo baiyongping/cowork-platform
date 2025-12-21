@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>检查User角色使用情况</title>
+  <script src="https://cdn.jsdelivr.net/npm/@cloudbase/js-sdk@latest/dist/index.umd.js"></script>
+</head>
+<body>
+  <h1>检查User角色使用情况</h1>
+  <div id="result"></div>
+
+  <script>
+    const app = tcb.init({
+      env: 'jihua-oa-dev-3goht9irae4d949f'
+    });
+
+    const db = app.database();
+
+    (async () => {
+      try {
+        // 获取所有用户
+        const usersResult = await db.collection('users').get();
+        console.log('📦 所有用户数据:', usersResult.data);
+
+        // 筛选role为user的用户
+        const userRoleUsers = usersResult.data.filter(u => u.role === 'user');
+        console.log('📊 使用user角色的用户:', userRoleUsers);
+
+        // 获取所有角色权限配置
+        const rolesResult = await db.collection('role_permissions').get();
+        console.log('📦 所有角色权限配置:', rolesResult.data);
+
+        // 检查是否有user角色的权限配置
+        const userRoleConfig = rolesResult.data.filter(r => r.role === 'user');
+        console.log('📊 user角色权限配置:', userRoleConfig);
+
+        // 显示结果
+        document.getElementById('result').innerHTML = `
+          <h2>检查结果</h2>
+          <p><strong>使用user角色的用户数量:</strong> ${userRoleUsers.length}</p>
+          <ul>
+            ${userRoleUsers.map(u => `<li>${u.username} (${u.name}) - roles: ${JSON.stringify(u.roles)}</li>`).join('')}
+          </ul>
+          <p><strong>user角色权限配置数量:</strong> ${userRoleConfig.length}</p>
+          ${userRoleConfig.length === 0 ? '<p style="color:red;">❌ 没有找到user角色的权限配置!</p>' : ''}
+          
+          <h3>建议操作:</h3>
+          <ol>
+            <li>将所有使用user角色的用户改为使用roles数组</li>
+            <li>删除user角色(因为没有权限配置)</li>
+            <li>修改微信登录创建新用户时的默认角色逻辑</li>
+          </ol>
+        `;
+      } catch (error) {
+        console.error('❌ 检查失败:', error);
+        document.getElementById('result').innerHTML = `
+          <p style="color:red;">❌ 检查失败: ${error.message}</p>
+        `;
+      }
+    })();
+  </script>
+</body>
+</html>

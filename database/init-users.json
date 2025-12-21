@@ -1,0 +1,58 @@
+[
+  {
+    "_id": "admin-001",
+    "username": "admin",
+    "password": "$2b$10$XqKxZj8gKxJ9vYzXqKxZjO5Y8gKxJ9vYzXqKxZjO5Y8gKxJ9vYzXq",
+    "name": "系统管理员",
+    "phone": "13800138000",
+    "email": "admin@jihua.com",
+    "department": "管理部",
+    "role": "admin",
+    "approvalStatus": "approved",
+    "status": "active",
+    "createdAt": "2025-12-08T00:00:00.000Z",
+    "loginHistory": []
+  },
+  {
+    "_id": "user-001",
+    "username": "zhangsan",
+    "password": "$2b$10$XqKxZj8gKxJ9vYzXqKxZjO5Y8gKxJ9vYzXqKxZjO5Y8gKxJ9vYzXq",
+    "name": "张三",
+    "phone": "13800138001",
+    "email": "zhangsan@jihua.com",
+    "department": "销售部",
+    "role": "user",
+    "approvalStatus": "pending",
+    "status": "active",
+    "createdAt": "2025-12-08T01:00:00.000Z",
+    "loginHistory": []
+  },
+  {
+    "_id": "user-002",
+    "username": "lisi",
+    "password": "$2b$10$XqKxZj8gKxJ9vYzXqKxZjO5Y8gKxJ9vYzXqKxZjO5Y8gKxJ9vYzXq",
+    "name": "李四",
+    "phone": "13800138002",
+    "email": "lisi@jihua.com",
+    "department": "市场部",
+    "role": "user",
+    "approvalStatus": "pending",
+    "status": "active",
+    "createdAt": "2025-12-08T02:00:00.000Z",
+    "loginHistory": []
+  },
+  {
+    "_id": "user-003",
+    "username": "wangwu",
+    "password": "$2b$10$XqKxZj8gKxJ9vYzXqKxZjO5Y8gKxJ9vYzXqKxZjO5Y8gKxJ9vYzXq",
+    "name": "王五",
+    "phone": "13800138003",
+    "email": "wangwu@jihua.com",
+    "department": "技术部",
+    "role": "user",
+    "approvalStatus": "approved",
+    "status": "active",
+    "createdAt": "2025-12-08T03:00:00.000Z",
+    "loginHistory": []
+  }
+]

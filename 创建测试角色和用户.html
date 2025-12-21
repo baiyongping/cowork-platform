@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>创建测试角色和用户 - 权限系统测试</title>
+  <script src="https://web-9gikcbug35bad3a8-1259333655.tcloudbaseapp.com/tcb-js-sdk/index.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      overflow: hidden;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 30px;
+      text-align: center;
+    }
+
+    .header h1 {
+      font-size: 28px;
+      margin-bottom: 10px;
+    }
+
+    .header p {
+      font-size: 14px;
+      opacity: 0.9;
+    }
+
+    .content {
+      padding: 30px;
+    }
+
+    .section {
+      margin-bottom: 30px;
+    }
+
+    .section-title {
+      font-size: 20px;
+      font-weight: bold;
+      color: #333;
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #667eea;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      min-width: 150px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-success {
+      background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+      color: white;
+    }
+
+    .btn-success:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(56, 239, 125, 0.4);
+    }
+
+    .btn-danger {
+      background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+      color: white;
+    }
+
+    .btn-danger:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(235, 51, 73, 0.4);
+    }
+
+    .btn-secondary {
+      background: #6c757d;
+      color: white;
+    }
+
+    .btn-secondary:hover {
+      background: #5a6268;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    .log-box {
+      background: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: 8px;
+      padding: 15px;
+      max-height: 400px;
+      overflow-y: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+    }
+
+    .log-item {
+      padding: 5px 0;
+      border-bottom: 1px solid #e9ecef;
+    }
+
+    .log-item:last-child {
+      border-bottom: none;
+    }
+
+    .log-success {
+      color: #28a745;
+    }
+
+    .log-error {
+      color: #dc3545;
+    }
+
+    .log-info {
+      color: #007bff;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-left: 10px;
+    }
+
+    .status-success {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .status-pending {
+      background: #fff3cd;
+      color: #856404;
+    }
+
+    .status-error {
+      background: #f8d7da;
+      color: #721c24;
+    }
+
+    .info-box {
+      background: #e7f3ff;
+      border-left: 4px solid #2196f3;
+      padding: 15px;
+      margin-bottom: 20px;
+      border-radius: 4px;
+    }
+
+    .info-box p {
+      margin: 5px 0;
+      font-size: 14px;
+      color: #333;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 4px;
+      background: #e9ecef;
+      border-radius: 2px;
+      overflow: hidden;
+      margin: 20px 0;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+      transition: width 0.3s ease;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🎭 权限系统测试 - 创建测试角色和用户</h1>
+      <p>一键创建测试角色并生成测试用户，快速开始权限系统测试</p>
+    </div>
+
+    <div class="content">
+      <!-- 当前状态 -->
+      <div class="info-box">
+        <p><strong>🔐 当前登录:</strong> <span id="current-user">未登录</span></p>
+        <p><strong>🌍 环境ID:</strong> <span id="env-id">jihua-oa-dev-3goht9irae4d949f</span></p>
+      </div>
+
+      <!-- 进度条 -->
+      <div class="progress-bar">
+        <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+      </div>
+
+      <!-- 步骤一：创建测试角色 -->
+      <div class="section">
+        <div class="section-title">
+          📝 步骤一：创建测试角色
+          <span class="status-badge status-pending" id="role-status">待执行</span>
+        </div>
+        <div class="button-group">
+          <button class="btn-primary" onclick="createRole('opportunity_specialist')">
+            创建商机专员角色
+          </button>
+          <button class="btn-primary" onclick="createRole('project_manager')">
+            创建项目经理角色
+          </button>
+          <button class="btn-primary" onclick="createRole('readonly_user')">
+            创建只读用户角色
+          </button>
+          <button class="btn-success" onclick="createAllRoles()">
+            ✨ 一键创建所有角色
+          </button>
+        </div>
+      </div>
+
+      <!-- 步骤二：创建测试用户 -->
+      <div class="section">
+        <div class="section-title">
+          👤 步骤二：创建测试用户
+          <span class="status-badge status-pending" id="user-status">待执行</span>
+        </div>
+        <div class="button-group">
+          <button class="btn-primary" onclick="createUser('opp_test01', 'opportunity_specialist')">
+            创建商机专员用户
+          </button>
+          <button class="btn-primary" onclick="createUser('pm_test01', 'project_manager')">
+            创建项目经理用户
+          </button>
+          <button class="btn-primary" onclick="createUser('readonly_test01', 'readonly_user')">
+            创建只读用户
+          </button>
+          <button class="btn-success" onclick="createAllUsers()">
+            ✨ 一键创建所有用户
+          </button>
+        </div>
+      </div>
+
+      <!-- 步骤三：查看测试账号 -->
+      <div class="section">
+        <div class="section-title">
+          🔍 步骤三：测试账号信息
+        </div>
+        <div class="button-group">
+          <button class="btn-secondary" onclick="listTestUsers()">
+            查看测试用户列表
+          </button>
+          <button class="btn-secondary" onclick="listRoles()">
+            查看所有角色
+          </button>
+          <button class="btn-danger" onclick="deleteAllTestData()">
+            🗑️ 删除所有测试数据
+          </button>
+        </div>
+      </div>
+
+      <!-- 操作日志 -->
+      <div class="section">
+        <div class="section-title">📋 操作日志</div>
+        <div class="log-box" id="log-box">
+          <div class="log-item log-info">等待操作...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // CloudBase 初始化
+    const app = tcb.init({
+      env: 'jihua-oa-dev-3goht9irae4d949f'
+    });
+
+    const db = app.database();
+    const auth = app.auth();
+    const _ = db.command;
+
+    // 日志函数
+    function log(message, type = 'info') {
+      const logBox = document.getElementById('log-box');
+      const timestamp = new Date().toLocaleTimeString();
+      const logClass = type === 'success' ? 'log-success' : type === 'error' ? 'log-error' : 'log-info';
+      
+      logBox.innerHTML += `<div class="log-item ${logClass}">[${timestamp}] ${message}</div>`;
+      logBox.scrollTop = logBox.scrollHeight;
+    }
+
+    function updateProgress(percent) {
+      document.getElementById('progress-fill').style.width = percent + '%';
+    }
+
+    function updateStatus(elementId, status) {
+      const element = document.getElementById(elementId);
+      element.className = 'status-badge';
+      if (status === 'success') {
+        element.className += ' status-success';
+        element.textContent = '✅ 已完成';
+      } else if (status === 'error') {
+        element.className += ' status-error';
+        element.textContent = '❌ 失败';
+      } else {
+        element.className += ' status-pending';
+        element.textContent = '⏳ 进行中';
+      }
+    }
+
+    // 测试角色配置
+    const roleConfigs = {
+      opportunity_specialist: {
+        role: 'opportunity_specialist',
+        name: '商机专员',
+        description: '负责商机跟进，可创建和查看商机、任务',
+        permissions: {
+          opportunities: { view: true, create: true, edit: false, delete: false },
+          tasks: { view: true, create: true, edit: false, delete: false },
+          projects: { view: true, create: false, edit: false, delete: false },
+          goal: {
+            salesGoal: { view: true },
+            opportunityGoal: { view: true },
+            strategy: { view: false },
+            execution: { view: false }
+          },
+          settings: {
+            userApproval: { view: false },
+            employees: { view: false },
+            departments: { view: false },
+            roles: { view: false },
+            typeSettings: { view: false },
+            operationLogs: { view: false }
+          }
+        }
+      },
+      project_manager: {
+        role: 'project_manager',
+        name: '项目经理',
+        description: '负责项目管理，可创建和编辑项目、任务',
+        permissions: {
+          opportunities: { view: true, create: false, edit: false, delete: false },
+          tasks: { view: true, create: true, edit: true, delete: false },
+          projects: { view: true, create: true, edit: true, delete: false },
+          goal: {
+            salesGoal: { view: true },
+            opportunityGoal: { view: true },
+            strategy: { view: true },
+            execution: { view: true, edit: true }
+          },
+          settings: {
+            userApproval: { view: false },
+            employees: { view: true },
+            departments: { view: false },
+            roles: { view: false },
+            typeSettings: { view: false },
+            operationLogs: { view: false }
+          }
+        }
+      },
+      readonly_user: {
+        role: 'readonly_user',
+        name: '只读用户',
+        description: '只能查看所有模块，不能进行任何编辑操作',
+        permissions: {
+          opportunities: { view: true, create: false, edit: false, delete: false },
+          tasks: { view: true, create: false, edit: false, delete: false },
+          projects: { view: true, create: false, edit: false, delete: false },
+          goal: {
+            salesGoal: { view: true },
+            opportunityGoal: { view: true },
+            strategy: { view: true },
+            execution: { view: true }
+          },
+          settings: {
+            userApproval: { view: false },
+            employees: { view: true },
+            departments: { view: false },
+            roles: { view: false },
+            typeSettings: { view: false },
+            operationLogs: { view: false }
+          }
+        }
+      }
+    };
+
+    // 测试用户配置
+    const userConfigs = {
+      opp_test01: {
+        username: 'opp_test01',
+        name: '张商机',
+        phone: '13800000001',
+        role: 'opportunity_specialist'
+      },
+      pm_test01: {
+        username: 'pm_test01',
+        name: '李项目',
+        phone: '13800000002',
+        role: 'project_manager'
+      },
+      readonly_test01: {
+        username: 'readonly_test01',
+        name: '王查看',
+        phone: '13800000003',
+        role: 'readonly_user'
+      }
+    };
+
+    // 创建单个角色
+    async function createRole(roleKey) {
+      try {
+        updateStatus('role-status', 'pending');
+        const config = roleConfigs[roleKey];
+        log(`开始创建角色: ${config.name}`, 'info');
+
+        // 检查角色是否已存在
+        const existing = await db.collection('role_permissions')
+          .where({ role: config.role })
+          .get();
+
+        if (existing.data.length > 0) {
+          log(`角色 ${config.name} 已存在，跳过`, 'info');
+          return;
+        }
+
+        // 创建角色
+        await db.collection('role_permissions').add({
+          ...config,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        });
+
+        log(`✅ 角色 ${config.name} 创建成功！`, 'success');
+        updateStatus('role-status', 'success');
+      } catch (error) {
+        log(`❌ 创建角色失败: ${error.message}`, 'error');
+        updateStatus('role-status', 'error');
+      }
+    }
+
+    // 创建所有角色
+    async function createAllRoles() {
+      log('========== 开始创建所有测试角色 ==========', 'info');
+      updateProgress(10);
+      
+      for (const roleKey of Object.keys(roleConfigs)) {
+        await createRole(roleKey);
+      }
+      
+      updateProgress(50);
+      log('========== 所有角色创建完成 ==========', 'success');
+    }
+
+    // 创建单个用户
+    async function createUser(username, roleKey) {
+      try {
+        updateStatus('user-status', 'pending');
+        const config = userConfigs[username];
+        log(`开始创建用户: ${config.name} (${username})`, 'info');
+
+        // 检查用户是否已存在
+        const existing = await db.collection('users')
+          .where({ username: username })
+          .get();
+
+        if (existing.data.length > 0) {
+          log(`用户 ${config.name} 已存在，跳过`, 'info');
+          return;
+        }
+
+        // 创建用户（默认密码: 123456）
+        const hashedPassword = await hashPassword('123456');
+        
+        await db.collection('users').add({
+          username: config.username,
+          name: config.name,
+          phone: config.phone,
+          password: hashedPassword,
+          role: config.role,
+          roles: [config.role],
+          department: '测试部门',
+          departments: ['测试部门'],
+          status: 'active',
+          approvalStatus: 'approved',
+          createdAt: new Date(),
+          updatedAt: new Date()
+        });
+
+        log(`✅ 用户 ${config.name} 创建成功！默认密码: 123456`, 'success');
+        updateStatus('user-status', 'success');
+      } catch (error) {
+        log(`❌ 创建用户失败: ${error.message}`, 'error');
+        updateStatus('user-status', 'error');
+      }
+    }
+
+    // 简单密码hash (生产环境应使用bcrypt)
+    async function hashPassword(password) {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(password);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    // 创建所有用户
+    async function createAllUsers() {
+      log('========== 开始创建所有测试用户 ==========', 'info');
+      updateProgress(60);
+      
+      for (const username of Object.keys(userConfigs)) {
+        await createUser(username, userConfigs[username].role);
+      }
+      
+      updateProgress(100);
+      log('========== 所有用户创建完成 ==========', 'success');
+      log('✅ 测试账号密码统一为: 123456', 'success');
+    }
+
+    // 查看测试用户列表
+    async function listTestUsers() {
+      try {
+        log('========== 查询测试用户 ==========', 'info');
+        
+        const result = await db.collection('users')
+          .where({
+            username: _.in(['opp_test01', 'pm_test01', 'readonly_test01'])
+          })
+          .get();
+
+        if (result.data.length === 0) {
+          log('未找到测试用户', 'info');
+          return;
+        }
+
+        result.data.forEach(user => {
+          log(`👤 ${user.name} (${user.username}) - 角色: ${user.role} - 状态: ${user.status}`, 'info');
+        });
+        
+        log('========== 查询完成 ==========', 'success');
+      } catch (error) {
+        log(`查询失败: ${error.message}`, 'error');
+      }
+    }
+
+    // 查看所有角色
+    async function listRoles() {
+      try {
+        log('========== 查询所有角色 ==========', 'info');
+        
+        const result = await db.collection('role_permissions').get();
+
+        if (result.data.length === 0) {
+          log('未找到任何角色', 'info');
+          return;
+        }
+
+        result.data.forEach(role => {
+          log(`🎭 ${role.name} (${role.role}) - ${role.description}`, 'info');
+        });
+        
+        log('========== 查询完成 ==========', 'success');
+      } catch (error) {
+        log(`查询失败: ${error.message}`, 'error');
+      }
+    }
+
+    // 删除所有测试数据
+    async function deleteAllTestData() {
+      if (!confirm('⚠️ 确定要删除所有测试角色和用户吗？此操作不可撤销！')) {
+        return;
+      }
+
+      try {
+        log('========== 开始删除测试数据 ==========', 'info');
+
+        // 删除测试用户
+        const users = await db.collection('users')
+          .where({
+            username: _.in(['opp_test01', 'pm_test01', 'readonly_test01'])
+          })
+          .get();
+
+        for (const user of users.data) {
+          await db.collection('users').doc(user._id).remove();
+          log(`删除用户: ${user.name}`, 'info');
+        }
+
+        // 删除测试角色
+        const roles = await db.collection('role_permissions')
+          .where({
+            role: _.in(['opportunity_specialist', 'project_manager', 'readonly_user'])
+          })
+          .get();
+
+        for (const role of roles.data) {
+          await db.collection('role_permissions').doc(role._id).remove();
+          log(`删除角色: ${role.name}`, 'info');
+        }
+
+        log('========== 所有测试数据已删除 ==========', 'success');
+        updateProgress(0);
+        updateStatus('role-status', 'pending');
+        updateStatus('user-status', 'pending');
+      } catch (error) {
+        log(`删除失败: ${error.message}`, 'error');
+      }
+    }
+
+    // 页面加载时检查登录状态
+    window.onload = async () => {
+      try {
+        const loginState = await auth.getLoginState();
+        if (loginState) {
+          const currentUserStr = localStorage.getItem('current_user');
+          if (currentUserStr) {
+            const user = JSON.parse(currentUserStr);
+            document.getElementById('current-user').textContent = `${user.name} (${user.role})`;
+            log('✅ 已登录，可以开始测试', 'success');
+          }
+        } else {
+          log('⚠️ 请先登录系统', 'error');
+          document.getElementById('current-user').textContent = '未登录（请先登录主系统）';
+        }
+      } catch (error) {
+        log(`初始化失败: ${error.message}`, 'error');
+      }
+    };
+  </script>
+</body>
+</html>

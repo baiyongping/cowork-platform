@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>数据库验证工具</title>
+  <script src="https://imgcache.qq.com/qcloud/cloudbase-js-sdk/2.0.1/cloudbase.full.js"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #f5f7fa;
+    }
+    
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 30px;
+      border-radius: 12px;
+      margin-bottom: 30px;
+      box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+    }
+    
+    .header h1 {
+      margin: 0 0 10px 0;
+      font-size: 28px;
+    }
+    
+    .header p {
+      margin: 0;
+      opacity: 0.9;
+    }
+    
+    .card {
+      background: white;
+      padding: 25px;
+      margin-bottom: 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+    }
+    
+    .card h2 {
+      margin: 0 0 20px 0;
+      color: #333;
+      font-size: 20px;
+      border-left: 4px solid #667eea;
+      padding-left: 12px;
+    }
+    
+    .btn {
+      background: #667eea;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.3s;
+    }
+    
+    .btn:hover {
+      background: #5568d3;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    
+    .btn:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+    }
+    
+    .status.success {
+      background: #d1fae5;
+      color: #065f46;
+    }
+    
+    .status.error {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+    
+    .status.warning {
+      background: #fef3c7;
+      color: #92400e;
+    }
+    
+    .status.info {
+      background: #dbeafe;
+      color: #1e40af;
+    }
+    
+    .log {
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 20px;
+      border-radius: 8px;
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      max-height: 500px;
+      overflow-y: auto;
+      margin-top: 15px;
+    }
+    
+    .log-entry {
+      margin: 4px 0;
+      padding: 4px 0;
+    }
+    
+    .log-success { color: #4ade80; }
+    .log-error { color: #ef4444; }
+    .log-warning { color: #fbbf24; }
+    .log-info { color: #60a5fa; }
+    
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+    }
+    
+    th, td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    
+    th {
+      background: #f9fafb;
+      font-weight: 600;
+      color: #374151;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    td {
+      color: #6b7280;
+      font-size: 14px;
+    }
+    
+    .progress {
+      width: 100%;
+      height: 8px;
+      background: #e5e7eb;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 15px;
+    }
+    
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+      transition: width 0.3s;
+    }
+    
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-top: 20px;
+    }
+    
+    .stat-card {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 20px;
+      border-radius: 10px;
+      text-align: center;
+    }
+    
+    .stat-value {
+      font-size: 32px;
+      font-weight: bold;
+      margin: 5px 0;
+    }
+    
+    .stat-label {
+      font-size: 13px;
+      opacity: 0.9;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>🔍 数据库验证工具</h1>
+    <p>验证 CloudBase 数据库所有集合的读写权限</p>
+  </div>
+
+  <div class="card">
+    <h2>📋 验证控制</h2>
+    <button class="btn" id="verifyBtn" onclick="startVerification()">
+      🚀 开始验证
+    </button>
+    
+    <div class="stats" id="stats" style="display: none;">
+      <div class="stat-card">
+        <div class="stat-label">总集合数</div>
+        <div class="stat-value" id="totalCollections">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">验证通过</div>
+        <div class="stat-value" id="passedCount">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">验证失败</div>
+        <div class="stat-value" id="failedCount">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">成功率</div>
+        <div class="stat-value" id="successRate">0%</div>
+      </div>
+    </div>
+    
+    <div class="progress" id="progress" style="display: none;">
+      <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>📊 验证结果</h2>
+    <table id="resultsTable" style="display: none;">
+      <thead>
+        <tr>
+          <th>集合名称</th>
+          <th>读权限</th>
+          <th>写权限</th>
+          <th>文档数</th>
+          <th>状态</th>
+        </tr>
+      </thead>
+      <tbody id="resultsBody">
+      </tbody>
+    </table>
+    
+    <div id="noResults" style="text-align: center; padding: 40px; color: #9ca3af;">
+      <p>点击"开始验证"按钮开始测试数据库权限</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>📝 详细日志</h2>
+    <div class="log" id="log"></div>
+  </div>
+
+  <script>
+    let app, db;
+    const collections = [
+      'users',
+      'sms_codes',
+      'tasks',
+      'opportunities',
+      'projects',
+      'goals',
+      'departments',
+      'task_comments',
+      'operation_logs'
+    ];
+    
+    // 初始化 CloudBase
+    function initCloudBase() {
+      try {
+        app = cloudbase.init({
+          env: 'jihua-oa-dev-3goht9irae4d949f'
+        });
+        db = app.database();
+        log('✅ CloudBase 初始化成功', 'success');
+        return true;
+      } catch (error) {
+        log(`❌ CloudBase 初始化失败: ${error.message}`, 'error');
+        return false;
+      }
+    }
+    
+    // 日志记录
+    function log(message, type = 'info') {
+      const logDiv = document.getElementById('log');
+      const entry = document.createElement('div');
+      entry.className = `log-entry log-${type}`;
+      const timestamp = new Date().toLocaleTimeString();
+      entry.textContent = `[${timestamp}] ${message}`;
+      logDiv.appendChild(entry);
+      logDiv.scrollTop = logDiv.scrollHeight;
+      console.log(message);
+    }
+    
+    // 更新进度
+    function updateProgress(current, total) {
+      const percent = Math.round((current / total) * 100);
+      document.getElementById('progressBar').style.width = `${percent}%`;
+    }
+    
+    // 更新统计
+    function updateStats(results) {
+      const passed = results.filter(r => r.status === 'success').length;
+      const failed = results.length - passed;
+      const successRate = Math.round((passed / results.length) * 100);
+      
+      document.getElementById('totalCollections').textContent = results.length;
+      document.getElementById('passedCount').textContent = passed;
+      document.getElementById('failedCount').textContent = failed;
+      document.getElementById('successRate').textContent = `${successRate}%`;
+      
+      document.getElementById('stats').style.display = 'grid';
+    }
+    
+    // 验证单个集合
+    async function verifyCollection(collectionName) {
+      const result = {
+        name: collectionName,
+        readOk: false,
+        writeOk: false,
+        count: 0,
+        status: 'error'
+      };
+      
+      log(`📦 开始验证集合: ${collectionName}`, 'info');
+      
+      try {
+        // 测试读权限
+        const readResult = await db.collection(collectionName).limit(1).get();
+        result.readOk = true;
+        result.count = readResult.data?.length || 0;
+        log(`  ✓ 读权限: 正常`, 'success');
+        
+        // 测试写权限（插入后立即删除）
+        const testDoc = {
+          _test: true,
+          createdAt: new Date(),
+          timestamp: Date.now()
+        };
+        
+        const addResult = await db.collection(collectionName).add(testDoc);
+        const docId = addResult.id;
+        log(`  ✓ 写权限: 正常（测试文档ID: ${docId}）`, 'success');
+        
+        // 删除测试文档
+        await db.collection(collectionName).doc(docId).remove();
+        log(`  ✓ 测试文档已清理`, 'success');
+        
+        result.writeOk = true;
+        result.status = 'success';
+        log(`✅ ${collectionName} 验证通过`, 'success');
+        
+      } catch (error) {
+        log(`  ✗ 验证失败: ${error.message}`, 'error');
+        log(`❌ ${collectionName} 验证失败`, 'error');
+      }
+      
+      return result;
+    }
+    
+    // 开始验证
+    async function startVerification() {
+      // 初始化
+      if (!initCloudBase()) {
+        alert('CloudBase 初始化失败，请检查网络连接和环境配置');
+        return;
+      }
+      
+      // 禁用按钮
+      const btn = document.getElementById('verifyBtn');
+      btn.disabled = true;
+      btn.textContent = '验证中...';
+      
+      // 显示进度条
+      document.getElementById('progress').style.display = 'block';
+      document.getElementById('noResults').style.display = 'none';
+      
+      // 清空之前的结果
+      document.getElementById('resultsBody').innerHTML = '';
+      document.getElementById('log').innerHTML = '';
+      
+      log('🚀 开始验证数据库集合权限...', 'info');
+      log(`📊 共需验证 ${collections.length} 个集合`, 'info');
+      log('', 'info');
+      
+      const results = [];
+      
+      // 逐个验证
+      for (let i = 0; i < collections.length; i++) {
+        const collection = collections[i];
+        updateProgress(i, collections.length);
+        
+        const result = await verifyCollection(collection);
+        results.push(result);
+        
+        // 添加到表格
+        addResultRow(result);
+        
+        log('', 'info');
+        
+        // 等待一小段时间避免请求过快
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+      
+      // 更新进度到100%
+      updateProgress(collections.length, collections.length);
+      
+      // 显示结果表格
+      document.getElementById('resultsTable').style.display = 'table';
+      
+      // 更新统计
+      updateStats(results);
+      
+      // 生成总结
+      log('', 'info');
+      log('='.repeat(60), 'info');
+      log('📋 验证完成！', 'success');
+      
+      const passed = results.filter(r => r.status === 'success').length;
+      const failed = results.length - passed;
+      
+      log(`✅ 通过: ${passed}/${results.length}`, 'success');
+      if (failed > 0) {
+        log(`❌ 失败: ${failed}/${results.length}`, 'error');
+        
+        const failedCollections = results
+          .filter(r => r.status === 'error')
+          .map(r => r.name);
+        log(`失败的集合: ${failedCollections.join(', ')}`, 'error');
+      }
+      
+      // 恢复按钮
+      btn.disabled = false;
+      btn.textContent = '🔄 重新验证';
+    }
+    
+    // 添加结果行
+    function addResultRow(result) {
+      const tbody = document.getElementById('resultsBody');
+      const row = tbody.insertRow();
+      
+      // 集合名称
+      const nameCell = row.insertCell();
+      nameCell.textContent = result.name;
+      nameCell.style.fontWeight = '500';
+      nameCell.style.color = '#374151';
+      
+      // 读权限
+      const readCell = row.insertCell();
+      readCell.innerHTML = result.readOk 
+        ? '<span class="status success">✓ 正常</span>'
+        : '<span class="status error">✗ 失败</span>';
+      
+      // 写权限
+      const writeCell = row.insertCell();
+      writeCell.innerHTML = result.writeOk
+        ? '<span class="status success">✓ 正常</span>'
+        : '<span class="status error">✗ 失败</span>';
+      
+      // 文档数
+      const countCell = row.insertCell();
+      countCell.textContent = result.count;
+      countCell.style.textAlign = 'center';
+      
+      // 状态
+      const statusCell = row.insertCell();
+      statusCell.innerHTML = result.status === 'success'
+        ? '<span class="status success">✅ 通过</span>'
+        : '<span class="status error">❌ 失败</span>';
+    }
+    
+    // 页面加载时初始化
+    window.addEventListener('load', () => {
+      log('📱 数据库验证工具已就绪', 'info');
+      log('🔗 环境ID: jihua-oa-dev-3goht9irae4d949f', 'info');
+      log('', 'info');
+    });
+  </script>
+
+</body>
+</html>

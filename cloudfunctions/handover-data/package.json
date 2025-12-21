@@ -1,0 +1,9 @@
+{
+  "name": "handover-data",
+  "version": "1.0.0",
+  "description": "离职人员数据交接云函数",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

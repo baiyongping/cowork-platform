@@ -1,0 +1,16 @@
+node_modules
+.git
+.gitignore
+*.md
+docs
+scripts
+database
+cloudfunctions
+server
+test-*.html
+debug-*.html
+query-*.html
+*.log
+.DS_Store
+.env
+.env.*

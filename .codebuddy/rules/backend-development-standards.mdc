@@ -1,0 +1,1735 @@
+---
+description: 
+alwaysApply: true
+enabled: true
+updatedAt: 2025-12-08T00:49:05.577Z
+provider: 
+---
+
+# 后端开发规范 - 际华定制协同办公管理平台
+
+## 技术栈选择
+
+### 推荐方案：Node.js + NestJS + TypeScript + CloudBase MongoDB
+
+**核心技术**
+- **框架**: NestJS ^10.0.0
+- **语言**: TypeScript ^5.0.0
+- **数据库**: CloudBase MongoDB (腾讯云开发)
+- **ORM**: Mongoose ^8.0.0
+- **认证**: Passport.js + JWT
+- **验证**: class-validator + class-transformer
+- **文档**: @nestjs/swagger
+
+**CloudBase优势**
+- 无需自建数据库服务器
+- 内置实时数据同步能力
+- 自动备份和扩容
+- 与前端SDK无缝集成
+- 提供云函数、存储等配套服务
+
+## API设计规范
+
+### RESTful API设计原则
+
+**URL命名规范**
+```
+资源使用复数名词，小写，单词间用连字符分隔
+✓ GET  /api/tasks              获取任务列表
+✓ GET  /api/tasks/{id}         获取单个任务
+✓ POST /api/tasks              创建任务
+✓ PUT  /api/tasks/{id}         更新任务(完整)
+✓ PATCH /api/tasks/{id}        更新任务(部分)
+✓ DELETE /api/tasks/{id}       删除任务
+
+✗ GET  /api/getTask            避免动词
+✗ GET  /api/task               避免单数
+✗ GET  /api/TaskList           避免大写
+```
+
+**HTTP方法使用**
+| 方法 | 语义 | 示例 |
+|-----|------|------|
+| GET | 获取资源 | GET /api/tasks |
+| POST | 创建资源 | POST /api/tasks |
+| PUT | 完整更新 | PUT /api/tasks/1 |
+| PATCH | 部分更新 | PATCH /api/tasks/1/status |
+| DELETE | 删除资源 | DELETE /api/tasks/1 |
+
+**查询参数规范**
+```
+分页: ?page=1&limit=20
+筛选: ?level=公司级&status=进行中
+排序: ?sort=createdAt&order=desc
+搜索: ?keyword=中国石油
+时间: ?startDate=2025-12-01&endDate=2025-12-31
+```
+
+### 统一响应格式
+
+**成功响应**
+```typescript
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    // 业务数据
+  }
+}
+```
+
+**分页响应**
+```typescript
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "total": 100,
+    "page": 1,
+    "limit": 20,
+    "items": []
+  }
+}
+```
+
+**错误响应**
+```typescript
+{
+  "code": 400,
+  "message": "请求参数错误",
+  "errors": [
+    {
+      "field": "name",
+      "message": "任务名称不能为空"
+    }
+  ]
+}
+```
+
+**HTTP状态码使用规范**
+| 状态码 | 说明 | 使用场景 |
+|-------|------|---------|
+| 200 | OK | GET/PUT/PATCH成功 |
+| 201 | Created | POST创建成功 |
+| 204 | No Content | DELETE成功 |
+| 400 | Bad Request | 参数错误、业务错误 |
+| 401 | Unauthorized | 未登录、token失效 |
+| 403 | Forbidden | 无权限 |
+| 404 | Not Found | 资源不存在 |
+| 409 | Conflict | 资源冲突(如重复) |
+| 422 | Unprocessable Entity | 验证失败 |
+| 500 | Internal Server Error | 服务器错误 |
+
+## 代码结构规范
+
+### 目录结构
+
+```
+/src
+├── modules/                    # 功能模块
+│   ├── task/                  # 任务模块
+│   │   ├── task.controller.ts    # 控制器
+│   │   ├── task.service.ts       # 业务逻辑
+│   │   ├── task.entity.ts        # 数据模型
+│   │   ├── dto/                  # 数据传输对象
+│   │   │   ├── create-task.dto.ts
+│   │   │   ├── update-task.dto.ts
+│   │   │   └── query-task.dto.ts
+│   │   ├── task.repository.ts    # 数据访问
+│   │   └── task.module.ts        # 模块定义
+│   ├── opportunity/           # 商机模块
+│   ├── project/               # 项目模块
+│   ├── goal/                  # 目标模块
+│   └── user/                  # 用户模块
+├── common/                    # 公共模块
+│   ├── decorators/            # 装饰器
+│   │   ├── current-user.decorator.ts
+│   │   └── roles.decorator.ts
+│   ├── guards/                # 守卫
+│   │   ├── auth.guard.ts
+│   │   └── roles.guard.ts
+│   ├── interceptors/          # 拦截器
+│   │   ├── transform.interceptor.ts
+│   │   └── logging.interceptor.ts
+│   ├── filters/               # 异常过滤器
+│   │   └── http-exception.filter.ts
+│   ├── pipes/                 # 管道
+│   │   └── validation.pipe.ts
+│   └── dto/                   # 通用DTO
+│       └── pagination.dto.ts
+├── config/                    # 配置
+│   ├── database.config.ts
+│   ├── redis.config.ts
+│   └── jwt.config.ts
+├── database/                  # 数据库相关
+│   ├── migrations/            # 迁移文件
+│   └── seeds/                 # 种子数据
+├── utils/                     # 工具函数
+│   ├── bcrypt.util.ts
+│   └── date.util.ts
+├── constants/                 # 常量
+│   └── index.ts
+├── app.module.ts              # 主模块
+└── main.ts                    # 入口文件
+```
+
+### Controller层规范
+
+**示例: task.controller.ts**
+```typescript
+import { 
+  Controller, Get, Post, Put, Delete, Param, Query, Body, 
+  UseGuards, HttpCode, HttpStatus 
+} from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { TaskService } from './task.service';
+import { CreateTaskDto } from './dto/create-task.dto';
+import { UpdateTaskDto } from './dto/update-task.dto';
+import { QueryTaskDto } from './dto/query-task.dto';
+import { JwtAuthGuard } from '@/common/guards/auth.guard';
+import { CurrentUser } from '@/common/decorators/current-user.decorator';
+import { User } from '@/modules/user/user.entity';
+
+@ApiTags('任务管理')
+@ApiBearerAuth()
+@Controller('tasks')
+@UseGuards(JwtAuthGuard)
+export class TaskController {
+  constructor(private readonly taskService: TaskService) {}
+
+  @Get()
+  @ApiOperation({ summary: '获取任务列表' })
+  @ApiResponse({ status: 200, description: '成功' })
+  async findAll(@Query() query: QueryTaskDto, @CurrentUser() user: User) {
+    return this.taskService.findAll(query, user);
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: '获取任务详情' })
+  @ApiResponse({ status: 200, description: '成功' })
+  @ApiResponse({ status: 404, description: '任务不存在' })
+  async findOne(@Param('id') id: string, @CurrentUser() user: User) {
+    return this.taskService.findOne(id, user);
+  }
+
+  @Post()
+  @ApiOperation({ summary: '创建任务' })
+  @ApiResponse({ status: 201, description: '创建成功' })
+  @ApiResponse({ status: 400, description: '参数错误' })
+  @HttpCode(HttpStatus.CREATED)
+  async create(@Body() dto: CreateTaskDto, @CurrentUser() user: User) {
+    return this.taskService.create(dto, user);
+  }
+
+  @Put(':id')
+  @ApiOperation({ summary: '更新任务' })
+  @ApiResponse({ status: 200, description: '更新成功' })
+  async update(
+    @Param('id') id: string,
+    @Body() dto: UpdateTaskDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.taskService.update(id, dto, user);
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: '删除任务' })
+  @ApiResponse({ status: 204, description: '删除成功' })
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async remove(@Param('id') id: string, @CurrentUser() user: User) {
+    return this.taskService.remove(id, user);
+  }
+}
+```
+
+**Controller层规范要点**
+- 使用装饰器清晰表达路由、HTTP方法、状态码
+- 添加Swagger API文档注解
+- 统一使用DTO进行参数验证
+- 通过装饰器注入当前用户
+- 不包含业务逻辑,只负责路由和参数处理
+
+### Service层规范
+
+**示例: task.service.ts**
+```typescript
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Task } from './task.entity';
+import { CreateTaskDto } from './dto/create-task.dto';
+import { UpdateTaskDto } from './dto/update-task.dto';
+import { QueryTaskDto } from './dto/query-task.dto';
+import { User } from '@/modules/user/user.entity';
+
+@Injectable()
+export class TaskService {
+  constructor(
+    @InjectRepository(Task)
+    private readonly taskRepository: Repository<Task>,
+  ) {}
+
+  /**
+   * 获取任务列表(支持分页和筛选)
+   */
+  async findAll(query: QueryTaskDto, user: User) {
+    const { page = 1, limit = 20, level, status, keyword } = query;
+    
+    const queryBuilder = this.taskRepository.createQueryBuilder('task')
+      .leftJoinAndSelect('task.owner', 'owner')
+      .leftJoinAndSelect('task.collaborators', 'collaborators');
+
+    // 权限过滤
+    if (user.role !== 'admin') {
+      queryBuilder.andWhere(
+        '(task.ownerId = :userId OR task.isPublic = true)',
+        { userId: user.id }
+      );
+    }
+
+    // 筛选条件
+    if (level && level !== 'all') {
+      queryBuilder.andWhere('task.level = :level', { level });
+    }
+    if (status) {
+      queryBuilder.andWhere('task.status = :status', { status });
+    }
+    if (keyword) {
+      queryBuilder.andWhere(
+        '(task.name LIKE :keyword OR owner.name LIKE :keyword)',
+        { keyword: `%${keyword}%` }
+      );
+    }
+
+    // 分页
+    const [items, total] = await queryBuilder
+      .skip((page - 1) * limit)
+      .take(limit)
+      .orderBy('task.createdAt', 'DESC')
+      .getManyAndCount();
+
+    return {
+      total,
+      page,
+      limit,
+      items,
+    };
+  }
+
+  /**
+   * 获取任务详情
+   */
+  async findOne(id: string, user: User) {
+    const task = await this.taskRepository.findOne({
+      where: { id },
+      relations: ['owner', 'collaborators', 'comments', 'comments.user'],
+    });
+
+    if (!task) {
+      throw new NotFoundException('任务不存在');
+    }
+
+    // 权限检查
+    this.checkPermission(task, user);
+
+    return task;
+  }
+
+  /**
+   * 创建任务
+   */
+  async create(dto: CreateTaskDto, user: User) {
+    const task = this.taskRepository.create({
+      ...dto,
+      owner: user,
+      createdBy: user,
+    });
+
+    return this.taskRepository.save(task);
+  }
+
+  /**
+   * 更新任务
+   */
+  async update(id: string, dto: UpdateTaskDto, user: User) {
+    const task = await this.findOne(id, user);
+
+    // 权限检查(只有负责人和管理员可编辑)
+    if (task.owner.id !== user.id && user.role !== 'admin') {
+      throw new ForbiddenException('无权编辑此任务');
+    }
+
+    Object.assign(task, dto);
+    return this.taskRepository.save(task);
+  }
+
+  /**
+   * 删除任务
+   */
+  async remove(id: string, user: User) {
+    const task = await this.findOne(id, user);
+
+    // 权限检查(只有管理员可删除)
+    if (user.role !== 'admin') {
+      throw new ForbiddenException('无权删除任务');
+    }
+
+    await this.taskRepository.remove(task);
+  }
+
+  /**
+   * 检查任务访问权限
+   */
+  private checkPermission(task: Task, user: User) {
+    const isOwner = task.owner.id === user.id;
+    const isCollaborator = task.collaborators?.some(c => c.id === user.id);
+    const isPublic = task.isPublic;
+    const isAdmin = user.role === 'admin';
+
+    if (!isOwner && !isCollaborator && !isPublic && !isAdmin) {
+      throw new ForbiddenException('无权访问此任务');
+    }
+  }
+}
+```
+
+**Service层规范要点**
+- 包含核心业务逻辑
+- 负责数据访问和处理
+- 实施权限控制
+- 处理业务异常
+- 使用 session 实现事务 (MongoDB)
+- 添加清晰的注释说明
+
+**MongoDB Service示例**
+```typescript
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { Task } from './task.schema';
+
+@Injectable()
+export class TaskService {
+  constructor(
+    @InjectModel(Task.name)
+    private taskModel: Model<Task>,
+  ) {}
+
+  async findAll(query: QueryTaskDto, user: User) {
+    const { page = 1, limit = 20, level, status, keyword } = query;
+    
+    // 构建查询条件
+    const filter: any = {};
+    
+    // 权限过滤
+    if (user.role !== 'admin') {
+      filter.$or = [
+        { owner: user._id },
+        { isPublic: true }
+      ];
+    }
+    
+    if (level && level !== 'all') {
+      filter.level = level;
+    }
+    if (status) {
+      filter.status = status;
+    }
+    if (keyword) {
+      filter.name = { $regex: keyword, $options: 'i' };
+    }
+    
+    // 查询数据
+    const [items, total] = await Promise.all([
+      this.taskModel
+        .find(filter)
+        .populate('owner', 'name email')
+        .populate('collaborators', 'name email')
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .sort({ createdAt: -1 })
+        .exec(),
+      this.taskModel.countDocuments(filter),
+    ]);
+    
+    return { total, page, limit, items };
+  }
+
+  async findOne(id: string, user: User) {
+    const task = await this.taskModel
+      .findById(id)
+      .populate('owner', 'name email')
+      .populate('collaborators', 'name email')
+      .exec();
+    
+    if (!task) {
+      throw new NotFoundException('任务不存在');
+    }
+    
+    this.checkPermission(task, user);
+    return task;
+  }
+
+  async create(dto: CreateTaskDto, user: User) {
+    const task = new this.taskModel({
+      ...dto,
+      owner: user._id,
+      createdBy: user._id,
+    });
+    
+    return task.save();
+  }
+}
+```
+
+### Schema层规范 (Mongoose)
+
+**示例: task.schema.ts**
+```typescript
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { Document, Types } from 'mongoose';
+
+export type TaskLevel = '公司级' | '团队级' | '个人级';
+export type TaskType = '日常工作' | '商机跟进' | '项目任务';
+export type TaskStatus = '未开始' | '进行中' | '已完成' | '延期' | '取消' | '暂停';
+
+@Schema({ 
+  collection: 'tasks',
+  timestamps: true, // 自动创建 createdAt 和 updatedAt
+  versionKey: false // 不使用 __v 字段
+})
+export class Task extends Document {
+  @Prop({ required: true, maxlength: 255 })
+  name: string;
+
+  @Prop({ 
+    required: true, 
+    enum: ['公司级', '团队级', '个人级'],
+    index: true 
+  })
+  level: TaskLevel;
+
+  @Prop({ 
+    required: true, 
+    enum: ['日常工作', '商机跟进', '项目任务'] 
+  })
+  type: TaskType;
+
+  @Prop({ required: true, index: true })
+  status: TaskStatus;
+
+  @Prop({ type: Number, default: 0, min: 0, max: 100 })
+  progress: number;
+
+  @Prop({ type: Types.ObjectId, ref: 'User', required: true, index: true })
+  owner: Types.ObjectId;
+
+  @Prop({ type: [{ type: Types.ObjectId, ref: 'User' }], default: [] })
+  collaborators: Types.ObjectId[];
+
+  @Prop({ maxlength: 100 })
+  team?: string;
+
+  @Prop({ required: true, type: Date })
+  startDate: Date;
+
+  @Prop({ required: true, type: Date, index: true })
+  endDate: Date;
+
+  @Prop()
+  description?: string;
+
+  @Prop({ default: true })
+  isPublic: boolean;
+
+  @Prop()
+  opportunityActionType?: string;
+
+  @Prop()
+  projectPhase?: string;
+
+  @Prop({ type: Types.ObjectId })
+  relatedTo?: Types.ObjectId;
+
+  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  createdBy: Types.ObjectId;
+
+  // timestamps: true 会自动创建这两个字段
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export const TaskSchema = SchemaFactory.createForClass(Task);
+
+// 创建复合索引
+TaskSchema.index({ owner: 1, level: 1, status: 1 });
+TaskSchema.index({ endDate: 1, status: 1 });
+
+// 添加虚拟字段 (可选)
+TaskSchema.virtual('comments', {
+  ref: 'TaskComment',
+  localField: '_id',
+  foreignField: 'task',
+});
+```
+
+**Schema层规范要点**
+- 使用 @nestjs/mongoose 装饰器定义Schema
+- 启用 timestamps 自动管理时间
+- 使用 Types.ObjectId 定义关联关系
+- 添加合理的索引优化查询
+- 使用枚举类型限制字段值
+- 支持虚拟字段 (populate)
+- MongoDB的_id会自动生成
+
+### DTO层规范
+
+**示例: create-task.dto.ts**
+```typescript
+import { ApiProperty } from '@nestjs/swagger';
+import { 
+  IsNotEmpty, IsEnum, IsString, IsBoolean, IsInt, 
+  IsDateString, IsOptional, Min, Max, MaxLength 
+} from 'class-validator';
+import { TaskLevel, TaskType, TaskStatus } from '../task.entity';
+
+export class CreateTaskDto {
+  @ApiProperty({ description: '任务名称', example: '拜访中国石油采购部门' })
+  @IsNotEmpty({ message: '任务名称不能为空' })
+  @IsString()
+  @MaxLength(255, { message: '任务名称不能超过255个字符' })
+  name: string;
+
+  @ApiProperty({ description: '任务级别', enum: ['公司级', '团队级', '个人级'] })
+  @IsEnum(['公司级', '团队级', '个人级'], { message: '任务级别无效' })
+  level: TaskLevel;
+
+  @ApiProperty({ description: '任务类型', enum: ['日常工作', '商机跟进', '项目任务'] })
+  @IsEnum(['日常工作', '商机跟进', '项目任务'], { message: '任务类型无效' })
+  type: TaskType;
+
+  @ApiProperty({ description: '任务状态', example: '未开始' })
+  @IsString()
+  status: TaskStatus;
+
+  @ApiProperty({ description: '完成进度', example: 0, minimum: 0, maximum: 100 })
+  @IsInt({ message: '进度必须是整数' })
+  @Min(0, { message: '进度不能小于0' })
+  @Max(100, { message: '进度不能大于100' })
+  progress: number;
+
+  @ApiProperty({ description: '协同人ID数组', required: false })
+  @IsOptional()
+  @IsString({ each: true })
+  collaborators?: string[];
+
+  @ApiProperty({ description: '所属团队', required: false })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  team?: string;
+
+  @ApiProperty({ description: '开始日期', example: '2025-12-01' })
+  @IsDateString({}, { message: '开始日期格式无效' })
+  startDate: string;
+
+  @ApiProperty({ description: '截止日期', example: '2025-12-05' })
+  @IsDateString({}, { message: '截止日期格式无效' })
+  endDate: string;
+
+  @ApiProperty({ description: '任务描述', required: false })
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @ApiProperty({ description: '是否公开', default: true })
+  @IsOptional()
+  @IsBoolean()
+  isPublic?: boolean;
+
+  @ApiProperty({ description: '商机跟进动作类型', required: false })
+  @IsOptional()
+  @IsString()
+  opportunityActionType?: string;
+
+  @ApiProperty({ description: '项目任务环节', required: false })
+  @IsOptional()
+  @IsString()
+  projectPhase?: string;
+
+  @ApiProperty({ description: '关联内容ID', required: false })
+  @IsOptional()
+  @IsString()
+  relatedTo?: string;
+}
+```
+
+**DTO层规范要点**
+- 使用class-validator进行参数验证
+- 添加Swagger文档注解
+- 提供清晰的错误提示信息
+- 区分必填和可选字段
+- 使用枚举限制字段值
+
+## MongoDB数据库规范
+
+### 集合命名规范
+
+**集合名**: 小写复数名词,使用驼峰命名
+```
+✓ tasks
+✓ taskComments
+✓ opportunities
+✓ users
+✗ Task (避免大写)
+✗ task_comments (MongoDB推荐驼峰而非下划线)
+```
+
+**字段名**: 使用驼峰命名
+```
+✓ createdAt
+✓ ownerId
+✓ isPublic
+✗ created_at (MongoDB推荐驼峰)
+✗ owner_id
+```
+
+### 索引规范
+
+**创建索引示例**
+```typescript
+// 在 Schema 定义中创建索引
+@Prop({ index: true })
+ownerId: string;
+
+// 复合索引
+TaskSchema.index({ owner: 1, level: 1, status: 1 });
+TaskSchema.index({ endDate: 1, status: 1 });
+
+// 唯一索引
+@Prop({ unique: true })
+email: string;
+
+// 文本索引 (用于全文搜索)
+TaskSchema.index({ name: 'text', description: 'text' });
+```
+
+**索引最佳实践**
+- 为常用查询字段创建索引
+- 复合索引按查询频率排序
+- 避免过多索引影响写入性能
+- 定期分析慢查询优化索引
+
+### Schema设计最佳实践
+
+**1. 嵌入式文档 vs 引用**
+```typescript
+// 嵌入式 - 适合一对一、一对少量
+@Prop({
+  type: {
+    name: String,
+    phone: String,
+    email: String
+  }
+})
+contact: {
+  name: string;
+  phone: string;
+  email: string;
+};
+
+// 引用 - 适合一对多、多对多
+@Prop({ type: Types.ObjectId, ref: 'User' })
+owner: Types.ObjectId;
+
+@Prop({ type: [{ type: Types.ObjectId, ref: 'User' }] })
+collaborators: Types.ObjectId[];
+```
+
+**2. 使用 timestamps**
+```typescript
+@Schema({ timestamps: true })
+export class Task extends Document {
+  // 自动生成 createdAt 和 updatedAt
+}
+```
+
+**3. 字段验证**
+```typescript
+@Prop({ 
+  required: true,
+  minlength: 1,
+  maxlength: 255,
+  trim: true
+})
+name: string;
+
+@Prop({ 
+  type: Number,
+  min: 0,
+  max: 100,
+  default: 0
+})
+progress: number;
+```
+
+### MongoDB查询优化规范
+
+**1. 使用索引**
+```typescript
+// 为常用查询字段添加索引
+TaskSchema.index({ owner: 1, status: 1 });
+TaskSchema.index({ level: 1, endDate: 1 });
+```
+
+**2. 使用 populate 避免N+1查询**
+```typescript
+// ❌ 避免
+const tasks = await this.taskModel.find();
+for (const task of tasks) {
+  task.owner = await this.userModel.findById(task.owner);
+}
+
+// ✓ 使用 populate
+const tasks = await this.taskModel
+  .find()
+  .populate('owner', 'name email')
+  .populate('collaborators', 'name email')
+  .exec();
+```
+
+**3. 分页查询**
+```typescript
+// 使用 skip 和 limit 实现分页
+const [items, total] = await Promise.all([
+  this.taskModel
+    .find(filter)
+    .skip((page - 1) * limit)
+    .limit(limit)
+    .exec(),
+  this.taskModel.countDocuments(filter),
+]);
+```
+
+**4. 聚合管道处理复杂查询**
+```typescript
+const result = await this.taskModel.aggregate([
+  // 筛选
+  { $match: { level: '公司级', status: '进行中' } },
+  // 关联
+  { 
+    $lookup: {
+      from: 'users',
+      localField: 'owner',
+      foreignField: '_id',
+      as: 'ownerInfo'
+    }
+  },
+  // 展开
+  { $unwind: '$ownerInfo' },
+  // 分组统计
+  {
+    $group: {
+      _id: '$status',
+      count: { $sum: 1 },
+      avgProgress: { $avg: '$progress' }
+    }
+  },
+  // 排序
+  { $sort: { count: -1 } }
+]);
+```
+
+**5. 投影优化 (只查询需要的字段)**
+```typescript
+// 只返回需要的字段
+const tasks = await this.taskModel
+  .find(filter)
+  .select('name level status progress owner')
+  .exec();
+```
+
+**6. lean() 提升性能**
+```typescript
+// 返回普通JS对象而非Mongoose Document (更快)
+const tasks = await this.taskModel
+  .find(filter)
+  .lean()
+  .exec();
+```
+
+## 安全规范
+
+### 身份认证
+
+**JWT Token配置**
+```typescript
+// jwt.config.ts
+export const jwtConfig = {
+  secret: process.env.JWT_SECRET,
+  signOptions: {
+    expiresIn: '7d', // Token有效期7天
+  },
+};
+```
+
+**Auth Guard实现**
+```typescript
+// auth.guard.ts
+import { Injectable, CanActivate, ExecutionContext, UnauthorizedException } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+
+@Injectable()
+export class JwtAuthGuard implements CanActivate {
+  constructor(private jwtService: JwtService) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const request = context.switchToHttp().getRequest();
+    const token = this.extractTokenFromHeader(request);
+
+    if (!token) {
+      throw new UnauthorizedException('未提供访问令牌');
+    }
+
+    try {
+      const payload = await this.jwtService.verifyAsync(token);
+      request.user = payload;
+    } catch {
+      throw new UnauthorizedException('访问令牌无效或已过期');
+    }
+
+    return true;
+  }
+
+  private extractTokenFromHeader(request: any): string | undefined {
+    const [type, token] = request.headers.authorization?.split(' ') ?? [];
+    return type === 'Bearer' ? token : undefined;
+  }
+}
+```
+
+### 权限控制
+
+**Roles Guard实现**
+```typescript
+// roles.guard.ts
+import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
+
+@Injectable()
+export class RolesGuard implements CanActivate {
+  constructor(private reflector: Reflector) {}
+
+  canActivate(context: ExecutionContext): boolean {
+    const roles = this.reflector.get<string[]>('roles', context.getHandler());
+    
+    if (!roles) {
+      return true;
+    }
+
+    const request = context.switchToHttp().getRequest();
+    const user = request.user;
+
+    if (!roles.includes(user.role)) {
+      throw new ForbiddenException('权限不足');
+    }
+
+    return true;
+  }
+}
+```
+
+**Roles Decorator**
+```typescript
+// roles.decorator.ts
+import { SetMetadata } from '@nestjs/common';
+
+export const Roles = (...roles: string[]) => SetMetadata('roles', roles);
+```
+
+**使用示例**
+```typescript
+@Delete(':id')
+@Roles('admin')
+@UseGuards(JwtAuthGuard, RolesGuard)
+async remove(@Param('id') id: string) {
+  return this.taskService.remove(id);
+}
+```
+
+### 数据验证
+
+**全局ValidationPipe配置**
+```typescript
+// main.ts
+app.useGlobalPipes(
+  new ValidationPipe({
+    whitelist: true, // 自动移除DTO中未定义的属性
+    forbidNonWhitelisted: true, // 当有未定义属性时抛出错误
+    transform: true, // 自动类型转换
+    transformOptions: {
+      enableImplicitConversion: true,
+    },
+  }),
+);
+```
+
+### 密码加密
+
+```typescript
+// bcrypt.util.ts
+import * as bcrypt from 'bcrypt';
+
+const SALT_ROUNDS = 10;
+
+export async function hashPassword(password: string): Promise<string> {
+  return bcrypt.hash(password, SALT_ROUNDS);
+}
+
+export async function comparePassword(
+  password: string,
+  hash: string,
+): Promise<boolean> {
+  return bcrypt.compare(password, hash);
+}
+```
+
+### NoSQL注入防护
+
+**MongoDB注入防护**
+```typescript
+// ✓ 使用对象查询 (Mongoose会自动转义)
+await this.taskModel.findOne({ name: userInput }).exec();
+
+// ✓ 使用 $regex 时要小心
+await this.taskModel.find({ 
+  name: { $regex: escapeRegex(userInput), $options: 'i' } 
+}).exec();
+
+// ❌ 避免直接传入用户输入作为查询条件
+const query = JSON.parse(userInput); // 危险!
+await this.taskModel.find(query).exec();
+
+// ✓ 验证和清理用户输入
+function escapeRegex(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// ✓ 使用 DTO 验证
+@IsString()
+@IsNotEmpty()
+name: string;
+```
+
+**防止操作符注入**
+```typescript
+// ❌ 危险: 用户可能传入 { $ne: null }
+const filter = { status: req.body.status };
+
+// ✓ 安全: 使用 DTO 验证确保是字符串
+@IsString()
+status: string;
+```
+
+## 日志规范
+
+### 日志级别
+
+```typescript
+logger.error('严重错误', error.stack);  // 系统错误
+logger.warn('警告信息');                // 警告
+logger.log('重要信息');                 // 一般信息
+logger.debug('调试信息');               // 调试
+logger.verbose('详细信息');             // 详细
+```
+
+### 日志记录点
+
+**必须记录的操作**
+- 用户登录/登出
+- 敏感数据的增删改(任务、商机、项目、目标)
+- 权限验证失败
+- 系统异常
+- API调用失败
+
+**日志格式**
+```typescript
+logger.log(
+  `用户操作 | 用户ID: ${user.id} | 操作: ${action} | 资源: ${resource} | 结果: ${result}`
+);
+
+// 示例
+logger.log('用户操作 | 用户ID: user-001 | 操作: 创建任务 | 资源: task-123 | 结果: 成功');
+```
+
+### 操作日志记录
+
+```typescript
+// operation-log.service.ts
+@Injectable()
+export class OperationLogService {
+  constructor(
+    @InjectRepository(OperationLog)
+    private logRepository: Repository<OperationLog>,
+  ) {}
+
+  async create(
+    user: User,
+    module: string,
+    action: string,
+    content: string,
+    ipAddress: string,
+  ) {
+    const log = this.logRepository.create({
+      userId: user.id,
+      module,
+      action,
+      content,
+      ipAddress,
+    });
+
+    return this.logRepository.save(log);
+  }
+}
+```
+
+**使用拦截器自动记录**
+```typescript
+// logging.interceptor.ts
+@Injectable()
+export class LoggingInterceptor implements NestInterceptor {
+  constructor(private logService: OperationLogService) {}
+
+  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+    const request = context.switchToHttp().getRequest();
+    const { method, url, user, ip } = request;
+
+    return next.handle().pipe(
+      tap(() => {
+        if (method !== 'GET') {
+          this.logService.create(
+            user,
+            this.getModule(url),
+            method,
+            `${method} ${url}`,
+            ip,
+          );
+        }
+      }),
+    );
+  }
+
+  private getModule(url: string): string {
+    if (url.includes('/tasks')) return '任务管理';
+    if (url.includes('/opportunities')) return '商机管理';
+    // ...
+    return '其他';
+  }
+}
+```
+
+## 错误处理规范
+
+### 全局异常过滤器
+
+```typescript
+// http-exception.filter.ts
+import { 
+  ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus 
+} from '@nestjs/common';
+import { Request, Response } from 'express';
+
+@Catch()
+export class HttpExceptionFilter implements ExceptionFilter {
+  catch(exception: unknown, host: ArgumentsHost) {
+    const ctx = host.switchToHttp();
+    const response = ctx.getResponse<Response>();
+    const request = ctx.getRequest<Request>();
+
+    let status = HttpStatus.INTERNAL_SERVER_ERROR;
+    let message = '服务器内部错误';
+    let errors = null;
+
+    if (exception instanceof HttpException) {
+      status = exception.getStatus();
+      const exceptionResponse = exception.getResponse();
+      
+      if (typeof exceptionResponse === 'object') {
+        message = exceptionResponse['message'] || message;
+        errors = exceptionResponse['errors'] || null;
+      } else {
+        message = exceptionResponse;
+      }
+    }
+
+    // 记录错误日志
+    console.error('Exception caught:', {
+      timestamp: new Date().toISOString(),
+      path: request.url,
+      method: request.method,
+      status,
+      message,
+      exception: exception instanceof Error ? exception.stack : exception,
+    });
+
+    response.status(status).json({
+      code: status,
+      message,
+      errors,
+      timestamp: new Date().toISOString(),
+      path: request.url,
+    });
+  }
+}
+```
+
+### 业务异常定义
+
+```typescript
+// business.exception.ts
+import { HttpException, HttpStatus } from '@nestjs/common';
+
+export class BusinessException extends HttpException {
+  constructor(message: string) {
+    super(
+      {
+        code: HttpStatus.BAD_REQUEST,
+        message,
+      },
+      HttpStatus.BAD_REQUEST,
+    );
+  }
+}
+
+// 使用示例
+if (!task) {
+  throw new BusinessException('任务不存在');
+}
+
+if (task.status === '已完成') {
+  throw new BusinessException('已完成的任务不能编辑');
+}
+```
+
+## 性能优化规范
+
+### 缓存策略
+
+**使用Redis缓存热点数据**
+```typescript
+// cache.service.ts
+import { Injectable, Inject } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
+
+@Injectable()
+export class CacheService {
+  constructor(@Inject(CACHE_MANAGER) private cacheManager: Cache) {}
+
+  async get<T>(key: string): Promise<T | null> {
+    return this.cacheManager.get<T>(key);
+  }
+
+  async set(key: string, value: any, ttl?: number): Promise<void> {
+    await this.cacheManager.set(key, value, ttl);
+  }
+
+  async del(key: string): Promise<void> {
+    await this.cacheManager.del(key);
+  }
+}
+
+// 使用示例
+async findOne(id: string) {
+  const cacheKey = `task:${id}`;
+  
+  // 先查缓存
+  let task = await this.cacheService.get<Task>(cacheKey);
+  
+  if (!task) {
+    // 缓存未命中,查数据库
+    task = await this.taskRepository.findOne({ where: { id } });
+    
+    if (task) {
+      // 写入缓存,有效期10分钟
+      await this.cacheService.set(cacheKey, task, 600);
+    }
+  }
+  
+  return task;
+}
+```
+
+### MongoDB连接配置
+
+**CloudBase MongoDB连接**
+```typescript
+// database.module.ts
+import { Module } from '@nestjs/common';
+import { MongooseModule } from '@nestjs/mongoose';
+
+@Module({
+  imports: [
+    MongooseModule.forRootAsync({
+      useFactory: () => ({
+        uri: process.env.MONGODB_URI, // CloudBase连接字符串
+        connectionFactory: (connection) => {
+          connection.on('connected', () => {
+            console.log('MongoDB连接成功');
+          });
+          connection.on('error', (error) => {
+            console.error('MongoDB连接错误:', error);
+          });
+          return connection;
+        },
+        // 连接池配置
+        maxPoolSize: 20,
+        minPoolSize: 5,
+        socketTimeoutMS: 45000,
+        serverSelectionTimeoutMS: 5000,
+        // 其他配置
+        autoIndex: process.env.NODE_ENV === 'development',
+      }),
+    }),
+  ],
+})
+export class DatabaseModule {}
+```
+
+**环境变量配置**
+```bash
+# CloudBase MongoDB连接字符串
+MONGODB_URI=mongodb://用户名:密码@host:port/数据库名?authSource=admin
+```
+
+### MongoDB批量操作
+
+```typescript
+// 批量插入
+async createBatch(dtos: CreateTaskDto[]) {
+  return this.taskModel.insertMany(dtos);
+}
+
+// 批量更新
+async updateBatch(ids: string[], updates: Partial<Task>) {
+  return this.taskModel.updateMany(
+    { _id: { $in: ids } },
+    { $set: updates }
+  ).exec();
+}
+
+// 批量删除
+async deleteBatch(ids: string[]) {
+  return this.taskModel.deleteMany({ _id: { $in: ids } }).exec();
+}
+
+// 使用 bulkWrite 实现复杂批量操作
+async bulkOperations(operations: any[]) {
+  return this.taskModel.bulkWrite([
+    {
+      updateOne: {
+        filter: { _id: 'task-001' },
+        update: { $set: { status: '已完成' } }
+      }
+    },
+    {
+      updateMany: {
+        filter: { owner: 'user-001' },
+        update: { $set: { isPublic: true } }
+      }
+    },
+    {
+      deleteOne: {
+        filter: { _id: 'task-002' }
+      }
+    }
+  ]);
+}
+```
+
+## 测试规范
+
+### 单元测试
+
+**Service层测试示例 (Mongoose)**
+```typescript
+// task.service.spec.ts
+import { Test, TestingModule } from '@nestjs/testing';
+import { getModelToken } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { TaskService } from './task.service';
+import { Task } from './task.schema';
+
+describe('TaskService', () => {
+  let service: TaskService;
+  let model: Model<Task>;
+
+  const mockTaskModel = {
+    find: jest.fn(),
+    findById: jest.fn(),
+    findOne: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
+    exec: jest.fn(),
+    countDocuments: jest.fn(),
+    populate: jest.fn(),
+  };
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        TaskService,
+        {
+          provide: getModelToken(Task.name),
+          useValue: mockTaskModel,
+        },
+      ],
+    }).compile();
+
+    service = module.get<TaskService>(TaskService);
+    model = module.get<Model<Task>>(getModelToken(Task.name));
+  });
+
+  it('应该被定义', () => {
+    expect(service).toBeDefined();
+  });
+
+  describe('findOne', () => {
+    it('应该返回任务', async () => {
+      const mockTask = {
+        _id: 'task-001',
+        name: '测试任务',
+        level: '个人级',
+      };
+
+      mockTaskModel.findById.mockReturnValue({
+        populate: jest.fn().mockReturnValue({
+          exec: jest.fn().mockResolvedValue(mockTask),
+        }),
+      });
+
+      const result = await service.findOne('task-001', mockUser);
+      expect(result).toEqual(mockTask);
+    });
+
+    it('任务不存在时应该抛出NotFoundException', async () => {
+      mockTaskModel.findById.mockReturnValue({
+        populate: jest.fn().mockReturnValue({
+          exec: jest.fn().mockResolvedValue(null),
+        }),
+      });
+
+      await expect(
+        service.findOne('non-existent', mockUser)
+      ).rejects.toThrow('任务不存在');
+    });
+  });
+});
+```
+
+### E2E测试
+
+**API测试示例**
+```typescript
+// task.e2e-spec.ts
+import { Test, TestingModule } from '@nestjs/testing';
+import { INestApplication } from '@nestjs/common';
+import * as request from 'supertest';
+import { AppModule } from '../src/app.module';
+
+describe('TaskController (e2e)', () => {
+  let app: INestApplication;
+  let authToken: string;
+
+  beforeAll(async () => {
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
+
+    app = moduleFixture.createNestApplication();
+    await app.init();
+
+    // 登录获取token
+    const response = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({
+        email: 'admin@jihua.com',
+        password: 'password123',
+      });
+
+    authToken = response.body.data.access_token;
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  describe('/api/tasks (GET)', () => {
+    it('应该返回任务列表', () => {
+      return request(app.getHttpServer())
+        .get('/api/tasks')
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(200)
+        .expect((res) => {
+          expect(res.body.code).toBe(200);
+          expect(res.body.data).toHaveProperty('items');
+          expect(res.body.data).toHaveProperty('total');
+        });
+    });
+
+    it('未认证时应该返回401', () => {
+      return request(app.getHttpServer())
+        .get('/api/tasks')
+        .expect(401);
+    });
+  });
+
+  describe('/api/tasks (POST)', () => {
+    it('应该创建新任务', () => {
+      const createDto = {
+        name: '测试任务',
+        level: '个人级',
+        type: '日常工作',
+        status: '未开始',
+        progress: 0,
+        startDate: '2025-12-01',
+        endDate: '2025-12-05',
+      };
+
+      return request(app.getHttpServer())
+        .post('/api/tasks')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send(createDto)
+        .expect(201)
+        .expect((res) => {
+          expect(res.body.code).toBe(201);
+          expect(res.body.data).toHaveProperty('id');
+          expect(res.body.data.name).toBe('测试任务');
+        });
+    });
+
+    it('参数错误时应该返回400', () => {
+      return request(app.getHttpServer())
+        .post('/api/tasks')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ name: '' })
+        .expect(400);
+    });
+  });
+});
+```
+
+## 部署规范
+
+### 环境变量管理
+
+**.env.example示例**
+```bash
+# 环境
+NODE_ENV=production
+
+# 服务器
+PORT=3000
+HOST=0.0.0.0
+
+# 数据库
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=jihua_oa
+DB_USER=jihua_user
+DB_PASSWORD=
+
+# Redis
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=
+
+# JWT
+JWT_SECRET=
+JWT_EXPIRES_IN=7d
+
+# 日志
+LOG_LEVEL=info
+LOG_DIR=./logs
+
+# 其他
+CORS_ORIGIN=https://jihua-oa.com
+```
+
+### Docker部署
+
+**Dockerfile**
+```dockerfile
+FROM node:18-alpine AS builder
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci --only=production
+
+COPY . .
+RUN npm run build
+
+FROM node:18-alpine
+
+WORKDIR /app
+
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/node_modules ./node_modules
+COPY package*.json ./
+
+EXPOSE 3000
+
+CMD ["node", "dist/main"]
+```
+
+**docker-compose.yml**
+```yaml
+version: '3.8'
+
+services:
+  api:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DB_HOST=postgres
+      - REDIS_HOST=redis
+    env_file:
+      - .env.production
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:14-alpine
+    environment:
+      - POSTGRES_DB=jihua_oa
+      - POSTGRES_USER=jihua_user
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  redis:
+    image: redis:6-alpine
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+```
+
+## 代码审查检查清单
+
+### 功能性
+- [ ] 功能按需求实现
+- [ ] 边界条件处理完善
+- [ ] 错误处理覆盖全面
+- [ ] 权限验证正确
+
+### 代码质量
+- [ ] 符合项目代码规范
+- [ ] 无代码重复
+- [ ] 命名清晰易懂
+- [ ] 必要的注释
+
+### 性能
+- [ ] 无N+1查询
+- [ ] 合理使用索引
+- [ ] 大数据量分页处理
+- [ ] 热点数据缓存
+
+### 安全性
+- [ ] 参数验证完整
+- [ ] SQL注入防护
+- [ ] XSS防护
+- [ ] 敏感数据加密
+- [ ] 权限控制严格
+
+### 测试
+- [ ] 单元测试覆盖核心逻辑
+- [ ] E2E测试覆盖主流程
+- [ ] 测试用例完整
+
+## 参考资源
+
+- NestJS官方文档: https://docs.nestjs.com
+- Mongoose文档: https://mongoosejs.com/docs/guide.html
+- MongoDB文档: https://www.mongodb.com/docs
+- CloudBase文档: https://cloud.tencent.com/document/product/876
+- JWT最佳实践: https://jwt.io/introduction
+
+## CloudBase特定配置
+
+### 使用CloudBase SDK
+
+```typescript
+// cloudbase.service.ts
+import { Injectable } from '@nestjs/common';
+import tcb from '@cloudbase/node-sdk';
+
+@Injectable()
+export class CloudBaseService {
+  private app: tcb.App;
+  private db: tcb.Database;
+
+  constructor() {
+    this.app = tcb.init({
+      env: process.env.TCB_ENV_ID,
+      secretId: process.env.TCB_SECRET_ID,
+      secretKey: process.env.TCB_SECRET_KEY,
+    });
+    this.db = this.app.database();
+  }
+
+  // 获取数据库实例
+  getDatabase() {
+    return this.db;
+  }
+
+  // 获取集合
+  collection(name: string) {
+    return this.db.collection(name);
+  }
+
+  // 事务操作
+  async runTransaction(callback: (transaction: any) => Promise<any>) {
+    return this.db.runTransaction(callback);
+  }
+}
+```
+
+### CloudBase数据库操作示例
+
+```typescript
+// 使用CloudBase SDK查询
+async findWithCloudBase(filter: any) {
+  const collection = this.cloudbaseService.collection('tasks');
+  
+  const { data } = await collection
+    .where(filter)
+    .orderBy('createdAt', 'desc')
+    .limit(20)
+    .get();
+  
+  return data;
+}
+
+// 使用CloudBase SDK事务
+async createWithTransaction(taskDto: CreateTaskDto) {
+  return this.cloudbaseService.runTransaction(async (transaction) => {
+    // 事务操作
+    await transaction.collection('tasks').add(taskDto);
+    await transaction.collection('logs').add({
+      action: '创建任务',
+      createdAt: new Date(),
+    });
+  });
+}
+```

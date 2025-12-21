@@ -1,0 +1,46 @@
+{
+  "description": "腾讯云MongoDB数据库连接配置示例",
+  "database": {
+    "type": "mongodb",
+    "provider": "tencentcloud",
+    "host": "your-instance.mongodb.tencentcdb.com",
+    "port": 27017,
+    "database": "jihua_oa_platform",
+    "username": "your-username",
+    "password": "your-password",
+    "authSource": "admin",
+    "options": {
+      "replicaSet": "mgset-xxxxx",
+      "ssl": true,
+      "retryWrites": true,
+      "w": "majority",
+      "readPreference": "secondaryPreferred",
+      "maxPoolSize": 50,
+      "minPoolSize": 10,
+      "connectTimeoutMS": 10000,
+      "socketTimeoutMS": 45000,
+      "serverSelectionTimeoutMS": 30000
+    }
+  },
+  "connection_string": "mongodb://your-username:your-password@your-instance.mongodb.tencentcdb.com:27017/jihua_oa_platform?replicaSet=mgset-xxxxx&authSource=admin&ssl=true",
+  "备注": {
+    "说明1": "请将此文件复制为 tencentcloud-config.json 并填入真实配置",
+    "说明2": "不要将真实配置文件提交到Git仓库",
+    "说明3": "腾讯云MongoDB文档数据库控制台可查看连接信息",
+    "说明4": "建议使用VPC内网连接以提升安全性和速度"
+  },
+  "环境配置": {
+    "开发环境": {
+      "host": "dev-instance.mongodb.tencentcdb.com",
+      "database": "jihua_oa_platform_dev"
+    },
+    "测试环境": {
+      "host": "test-instance.mongodb.tencentcdb.com",
+      "database": "jihua_oa_platform_test"
+    },
+    "生产环境": {
+      "host": "prod-instance.mongodb.tencentcdb.com",
+      "database": "jihua_oa_platform"
+    }
+  }
+}

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>测试 CloudBase CORS 配置</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background: #1890ff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+        button:hover {
+            background: #40a9ff;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            line-height: 1.6;
+        }
+        .success {
+            color: #52c41a;
+        }
+        .error {
+            color: #ff4d4f;
+        }
+    </style>
+    
+    <!-- 引入 CloudBase SDK -->
+    <script src="https://web-sdk-1252463788.cos.ap-shanghai.myqcloud.com/tcb-js-sdk/2.8.6/tcb.js"></script>
+</head>
+<body>
+    <h1>🧪 CloudBase CORS 测试页面</h1>
+    <p><strong>当前测试环境</strong>: <code>http://152.136.183.181:3000</code></p>
+    <p><strong>CloudBase 环境</strong>: <code>jihua-oa-dev-3goht9irae4d949f</code></p>
+    
+    <button onclick="testCORS()">🚀 开始测试 CORS</button>
+    
+    <div id="result"></div>
+
+    <script>
+        function log(msg, type = 'info') {
+            console.log(msg);
+            const resultDiv = document.getElementById('result');
+            const span = document.createElement('span');
+            span.className = type;
+            span.textContent = msg + '\n';
+            resultDiv.appendChild(span);
+        }
+
+        async function testCORS() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '';
+            
+            log('═══════════════════════════════════════', 'info');
+            log('开始测试 CloudBase CORS 配置', 'info');
+            log('═══════════════════════════════════════', 'info');
+            log('');
+            log('📍 当前页面: ' + window.location.href);
+            log('🕐 测试时间: ' + new Date().toLocaleString());
+            log('');
+
+            try {
+                // 检查 CloudBase SDK 是否加载
+                if (typeof tcb === 'undefined') {
+                    throw new Error('CloudBase SDK 未加载');
+                }
+                log('✅ CloudBase SDK 已加载', 'success');
+                log('');
+
+                // 1. 初始化
+                log('【步骤 1/4】初始化 CloudBase...');
+                const app = tcb.init({
+                    env: 'jihua-oa-dev-3goht9irae4d949f'
+                });
+                log('✅ CloudBase 初始化成功', 'success');
+                log('');
+
+                // 2. 匿名登录
+                log('【步骤 2/4】匿名登录...');
+                const loginResult = await app.auth().anonymousAuthProvider().signIn();
+                log('✅ 匿名登录成功', 'success');
+                log('   用户 UID: ' + loginResult.user.uid);
+                log('');
+
+                // 3. 获取登录状态
+                log('【步骤 3/4】检查登录状态...');
+                const loginState = await app.auth().getLoginState();
+                if (loginState) {
+                    log('✅ 登录状态正常', 'success');
+                    log('   登录类型: ' + loginState.loginType);
+                } else {
+                    throw new Error('登录状态异常');
+                }
+                log('');
+
+                // 4. 测试数据库访问（这里会触发 CORS）
+                log('【步骤 4/4】测试数据库访问（CORS 关键测试）...');
+                const db = app.database();
+                
+                try {
+                    const result = await db.collection('users').limit(1).get();
+                    log('✅ 数据库访问成功！', 'success');
+                    log('   查询集合: users');
+                    log('   返回记录数: ' + result.data.length);
+                    log('');
+                    log('═══════════════════════════════════════', 'success');
+                    log('🎉 所有测试通过！CORS 配置正常！', 'success');
+                    log('═══════════════════════════════════════', 'success');
+                } catch (dbError) {
+                    // 如果 users 集合不存在，尝试其他集合
+                    log('⚠️  users 集合访问失败，尝试其他集合...');
+                    
+                    try {
+                        // 尝试访问系统集合
+                        const result2 = await db.collection('employees').limit(1).get();
+                        log('✅ 数据库访问成功！', 'success');
+                        log('   查询集合: employees');
+                        log('   返回记录数: ' + result2.data.length);
+                        log('');
+                        log('═══════════════════════════════════════', 'success');
+                        log('🎉 所有测试通过！CORS 配置正常！', 'success');
+                        log('═══════════════════════════════════════', 'success');
+                    } catch (dbError2) {
+                        throw new Error('数据库访问失败: ' + dbError2.message);
+                    }
+                }
+
+            } catch (error) {
+                log('');
+                log('═══════════════════════════════════════', 'error');
+                log('❌ 测试失败', 'error');
+                log('═══════════════════════════════════════', 'error');
+                log('');
+                log('错误信息: ' + error.message, 'error');
+                log('');
+                
+                // 如果是 CORS 错误
+                if (error.message.includes('network') || error.message.includes('CORS')) {
+                    log('💡 这是 CORS 错误！', 'error');
+                    log('');
+                    log('可能的原因:', 'error');
+                    log('1. 安全域名配置尚未生效（需要等待 10-15 分钟）', 'error');
+                    log('2. 域名配置不正确', 'error');
+                    log('');
+                    log('建议:', 'error');
+                    log('1. 等待 10-15 分钟后重试', 'error');
+                    log('2. 或使用 CloudBase 静态托管（立即可用）', 'error');
+                }
+                
+                log('');
+                log('完整错误:', 'error');
+                log(JSON.stringify(error, null, 2), 'error');
+            }
+        }
+
+        // 页面加载时自动检测
+        window.addEventListener('load', () => {
+            if (typeof tcb !== 'undefined') {
+                console.log('✅ CloudBase SDK 已加载');
+            } else {
+                console.error('❌ CloudBase SDK 未加载');
+            }
+        });
+    </script>
+</body>
+</html>

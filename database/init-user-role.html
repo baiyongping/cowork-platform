@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>初始化user角色 - 际华协同办公平台</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    
+    .container {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 600px;
+      width: 100%;
+      padding: 40px;
+    }
+    
+    h1 {
+      color: #1a202c;
+      font-size: 28px;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+    
+    .subtitle {
+      color: #718096;
+      text-align: center;
+      margin-bottom: 30px;
+      font-size: 14px;
+    }
+    
+    .section {
+      background: #f7fafc;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    
+    .section h2 {
+      color: #2d3748;
+      font-size: 18px;
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .section h2::before {
+      content: '';
+      width: 4px;
+      height: 20px;
+      background: #667eea;
+      border-radius: 2px;
+    }
+    
+    .info-item {
+      background: white;
+      padding: 12px 16px;
+      border-radius: 6px;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .info-label {
+      color: #718096;
+      font-size: 14px;
+    }
+    
+    .info-value {
+      color: #2d3748;
+      font-weight: 500;
+      font-size: 14px;
+    }
+    
+    .btn {
+      width: 100%;
+      padding: 14px 24px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      margin-top: 10px;
+    }
+    
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+    }
+    
+    .btn:disabled {
+      background: #cbd5e0;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    .log {
+      background: #1a202c;
+      color: #a0aec0;
+      border-radius: 8px;
+      padding: 20px;
+      max-height: 300px;
+      overflow-y: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      margin-top: 20px;
+    }
+    
+    .log-success {
+      color: #48bb78;
+    }
+    
+    .log-error {
+      color: #f56565;
+    }
+    
+    .log-info {
+      color: #4299e1;
+    }
+    
+    .warning {
+      background: #fef5e7;
+      border-left: 4px solid #f39c12;
+      padding: 12px 16px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+      color: #856404;
+      font-size: 14px;
+    }
+    
+    .permission-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: 12px;
+    }
+    
+    .permission-table th,
+    .permission-table td {
+      padding: 8px;
+      text-align: left;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    
+    .permission-table th {
+      background: #edf2f7;
+      color: #4a5568;
+      font-weight: 600;
+    }
+    
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    
+    .badge-success {
+      background: #c6f6d5;
+      color: #22543d;
+    }
+    
+    .badge-danger {
+      background: #fed7d7;
+      color: #742a2a;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔧 初始化user角色</h1>
+    <p class="subtitle">版本 v2.2.1 | 际华协同办公平台</p>
+    
+    <div class="warning">
+      ⚠️ <strong>重要说明：</strong>此脚本将在CloudBase MongoDB中创建user角色配置。user是所有新注册用户的默认角色，仅拥有工作台查看和个人信息编辑权限。
+    </div>
+    
+    <div class="section">
+      <h2>📋 角色信息</h2>
+      <div class="info-item">
+        <span class="info-label">角色ID</span>
+        <span class="info-value">user</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">角色名称</span>
+        <span class="info-value">普通用户</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">说明</span>
+        <span class="info-value">新注册用户默认角色</span>
+      </div>
+    </div>
+    
+    <div class="section">
+      <h2>🔐 权限配置</h2>
+      <table class="permission-table">
+        <thead>
+          <tr>
+            <th>功能模块</th>
+            <th>查看</th>
+            <th>创建</th>
+            <th>编辑</th>
+            <th>删除</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>工作台</td>
+            <td><span class="badge badge-success">✓</span></td>
+            <td><span class="badge badge-danger">✗</span></td>
+            <td><span class="badge badge-danger">✗</span></td>
+            <td><span class="badge badge-danger">✗</span></td>
+          </tr>
+          <tr>
+            <td>个人信息</td>
+            <td><span class="badge badge-success">✓</span></td>
+            <td><span class="badge badge-danger">✗</span></td>
+            <td><span class="badge badge-success">✓</span></td>
+            <td><span class="badge badge-danger">✗</span></td>
+          </tr>
+          <tr>
+            <td>任务管理</td>
+            <td><span class="badge badge-danger">✗</span></td>
+            <td><span class="badge badge-danger">✗</span></td>
+            <td><span class="badge badge-danger">✗</span></td>
+            <td><span class="badge badge-danger">✗</span></td>
+          </tr>
+          <tr>
+            <td>商机管理</td>
+            <td><span class="badge badge-danger">✗</span></td>
+            <td><span class="badge badge-danger">✗</span></td>
+            <td><span class="badge badge-danger">✗</span></td>
+            <td><span class="badge badge-danger">✗</span></td>
+          </tr>
+          <tr>
+            <td>项目管理</td>
+            <td><span class="badge badge-danger">✗</span></td>
+            <td><span class="badge badge-danger">✗</span></td>
+            <td><span class="badge badge-danger">✗</span></td>
+            <td><span class="badge badge-danger">✗</span></td>
+          </tr>
+          <tr>
+            <td>目标管理</td>
+            <td><span class="badge badge-danger">✗</span></td>
+            <td><span class="badge badge-danger">✗</span></td>
+            <td><span class="badge badge-danger">✗</span></td>
+            <td><span class="badge badge-danger">✗</span></td>
+          </tr>
+          <tr>
+            <td>系统设置</td>
+            <td><span class="badge badge-danger">✗</span></td>
+            <td><span class="badge badge-danger">✗</span></td>
+            <td><span class="badge badge-danger">✗</span></td>
+            <td><span class="badge badge-danger">✗</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    
+    <button id="initBtn" class="btn">🚀 开始初始化</button>
+    
+    <div id="log" class="log" style="display: none;"></div>
+  </div>
+
+  <script src="https://web-9gikcbug35be7f6f-1259245864.tcloudbaseapp.com/sdk/tcb.js"></script>
+  <script>
+    const ENV_ID = 'jihua-oa-dev-3goht9irae4d949f'; // 测试环境
+    
+    const logEl = document.getElementById('log');
+    const initBtn = document.getElementById('initBtn');
+    
+    function log(message, type = 'info') {
+      const timestamp = new Date().toLocaleTimeString('zh-CN');
+      const className = type === 'success' ? 'log-success' : type === 'error' ? 'log-error' : 'log-info';
+      logEl.innerHTML += `<div class="${className}">[${timestamp}] ${message}</div>`;
+      logEl.scrollTop = logEl.scrollHeight;
+      logEl.style.display = 'block';
+    }
+    
+    // 初始化CloudBase
+    const app = tcb.init({
+      env: ENV_ID
+    });
+    
+    const auth = app.auth();
+    const db = app.database();
+    
+    initBtn.addEventListener('click', async () => {
+      initBtn.disabled = true;
+      initBtn.textContent = '初始化中...';
+      logEl.innerHTML = '';
+      
+      try {
+        log('🔐 开始CloudBase认证...', 'info');
+        
+        // 匿名登录
+        const loginState = await auth.getLoginState();
+        if (!loginState) {
+          await auth.signInAnonymously();
+          log('✅ 匿名登录成功', 'success');
+        } else {
+          log('✅ 已有登录状态', 'success');
+        }
+        
+        log('📋 准备user角色配置...', 'info');
+        
+        // user角色配置
+        const userRole = {
+          role: 'user',
+          name: '普通用户',
+          description: '普通用户：仅可查看工作台和个人信息，可编辑个人信息，无其他功能权限。这是所有新注册用户的默认角色。',
+          permissions: {
+            dashboard: { view: true, create: false, edit: false, delete: false, export: false },
+            tasks: { view: false, create: false, edit: false, delete: false, export: false },
+            opportunities: { view: false, create: false, edit: false, delete: false, export: false },
+            projects: { view: false, create: false, edit: false, delete: false, export: false },
+            goal: {
+              salesGoal: { view: false, create: false, edit: false, delete: false, export: false },
+              opportunityGoal: { view: false, create: false, edit: false, delete: false, export: false },
+              strategy: { view: false, create: false, edit: false, delete: false, export: false },
+              execution: { view: false, create: false, edit: false, delete: false, export: false }
+            },
+            profile: { view: true, create: false, edit: true, delete: false, export: false },
+            settings: {
+              userApproval: { view: false, create: false, edit: false, delete: false, export: false },
+              employees: { view: false, create: false, edit: false, delete: false, export: false },
+              departments: { view: false, create: false, edit: false, delete: false, export: false },
+              roles: { view: false, create: false, edit: false, delete: false, export: false },
+              typeSettings: { view: false, create: false, edit: false, delete: false, export: false },
+              operationLogs: { view: false, create: false, edit: false, delete: false, export: false }
+            }
+          },
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+        
+        log('🔍 检查user角色是否已存在...', 'info');
+        
+        // 检查是否已存在
+        const existingRole = await db.collection('role_permissions')
+          .where({ role: 'user' })
+          .get();
+        
+        if (existingRole.data.length > 0) {
+          log('⚠️ user角色已存在，将更新配置', 'info');
+          
+          // 更新现有角色
+          await db.collection('role_permissions')
+            .doc(existingRole.data[0]._id)
+            .update(userRole);
+          
+          log('✅ user角色配置已更新', 'success');
+        } else {
+          log('➕ 创建新的user角色...', 'info');
+          
+          // 创建新角色
+          await db.collection('role_permissions').add(userRole);
+          
+          log('✅ user角色创建成功', 'success');
+        }
+        
+        log('', 'info');
+        log('🎉 初始化完成！', 'success');
+        log('', 'info');
+        log('📝 说明:', 'info');
+        log('  - 所有新注册用户将默认分配user角色', 'info');
+        log('  - user角色仅可查看工作台和个人信息', 'info');
+        log('  - 管理员可在系统设置中为用户分配其他角色', 'info');
+        
+        initBtn.textContent = '✅ 初始化完成';
+        setTimeout(() => {
+          initBtn.disabled = false;
+          initBtn.textContent = '🚀 重新初始化';
+        }, 3000);
+        
+      } catch (error) {
+        log('❌ 初始化失败: ' + error.message, 'error');
+        console.error('详细错误:', error);
+        
+        initBtn.disabled = false;
+        initBtn.textContent = '🚀 重试';
+      }
+    });
+  </script>
+</body>
+</html>

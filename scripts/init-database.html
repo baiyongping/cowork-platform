@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>初始化数据库</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      max-width: 1000px;
+      margin: 30px auto;
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    .container {
+      background: white;
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    }
+    h1 {
+      color: #333;
+      border-bottom: 4px solid #667eea;
+      padding-bottom: 15px;
+      margin-bottom: 30px;
+    }
+    .section {
+      margin: 25px 0;
+      padding: 25px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border-left: 5px solid #667eea;
+    }
+    .button-group {
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+      margin-top: 20px;
+    }
+    button {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 14px 28px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 600;
+      transition: all 0.3s;
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    }
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+    .result {
+      margin-top: 20px;
+      padding: 20px;
+      background: white;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      white-space: pre-wrap;
+      max-height: 500px;
+      overflow-y: auto;
+      line-height: 1.6;
+    }
+    .success {
+      border-color: #28a745;
+      background: #d4edda;
+      color: #155724;
+    }
+    .error {
+      border-color: #dc3545;
+      background: #f8d7da;
+      color: #721c24;
+    }
+    .info {
+      border-color: #17a2b8;
+      background: #d1ecf1;
+      color: #0c5460;
+    }
+    .warning {
+      border-color: #ffc107;
+      background: #fff3cd;
+      color: #856404;
+    }
+    .user-card {
+      background: white;
+      padding: 15px;
+      margin: 10px 0;
+      border-radius: 6px;
+      border: 1px solid #ddd;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .user-info {
+      flex: 1;
+    }
+    .user-name {
+      font-weight: 600;
+      color: #333;
+      font-size: 16px;
+    }
+    .user-details {
+      color: #666;
+      font-size: 14px;
+      margin-top: 5px;
+    }
+    .status-badge {
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .status-pending {
+      background: #fff3cd;
+      color: #856404;
+    }
+    .status-approved {
+      background: #d4edda;
+      color: #155724;
+    }
+    .progress {
+      margin: 20px 0;
+      padding: 15px;
+      background: #e3f2fd;
+      border-radius: 8px;
+      border-left: 4px solid #2196f3;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🚀 数据库初始化工具</h1>
+    <p style="color: #666; font-size: 16px; margin-bottom: 30px;">
+      该工具将帮助您初始化 users 集合，添加测试用户数据
+    </p>
+
+    <div class="section">
+      <h3>📋 将要添加的用户：</h3>
+      <div id="userPreview"></div>
+    </div>
+
+    <div class="section">
+      <h3>🎯 初始化步骤：</h3>
+      <div class="button-group">
+        <button onclick="checkDatabase()">1️⃣ 检查数据库状态</button>
+        <button onclick="initializeUsers()" id="initBtn">2️⃣ 初始化用户数据</button>
+        <button onclick="verifyData()">3️⃣ 验证数据完整性</button>
+        <button onclick="clearAllData()" style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);">🗑️ 清空所有数据</button>
+      </div>
+    </div>
+
+    <div id="progress" style="display: none;" class="progress">
+      <strong>⏳ 进度：</strong><span id="progressText">准备中...</span>
+    </div>
+
+    <div id="results"></div>
+  </div>
+
+  <script src="https://imgcache.qq.com/qcloud/cloudbase-js-sdk/2.0.1/cloudbase.full.js"></script>
+  <script>
+    // 初始化 CloudBase
+    const app = cloudbase.init({
+      env: 'jihua-oa-dev-3goht9irae4d949f'
+    });
+    const db = app.database();
+    const _ = db.command;
+
+    let resultContainer = document.getElementById('results');
+    let progressDiv = document.getElementById('progress');
+    let progressText = document.getElementById('progressText');
+
+    // 初始用户数据
+    const initialUsers = [
+      {
+        username: "admin",
+        password: "$2b$10$8kYzXqKxZjO5Y8gKxJ9vYzXqKxZjO5Y8gKxJ9vYzXqKxZjO5Y8gKx",
+        name: "系统管理员",
+        phone: "13800138000",
+        email: "admin@jihua.com",
+        department: "管理部",
+        role: "admin",
+        approvalStatus: "approved",
+        status: "active",
+        createdAt: db.serverDate(),
+        loginHistory: []
+      },
+      {
+        username: "zhangsan",
+        password: "$2b$10$8kYzXqKxZjO5Y8gKxJ9vYzXqKxZjO5Y8gKxJ9vYzXqKxZjO5Y8gKx",
+        name: "张三",
+        phone: "13800138001",
+        email: "zhangsan@jihua.com",
+        department: "销售部",
+        role: "user",
+        approvalStatus: "pending",
+        status: "active",
+        createdAt: db.serverDate(),
+        loginHistory: []
+      },
+      {
+        username: "lisi",
+        password: "$2b$10$8kYzXqKxZjO5Y8gKxJ9vYzXqKxZjO5Y8gKxJ9vYzXqKxZjO5Y8gKx",
+        name: "李四",
+        phone: "13800138002",
+        email: "lisi@jihua.com",
+        department: "市场部",
+        role: "user",
+        approvalStatus: "pending",
+        status: "active",
+        createdAt: db.serverDate(),
+        loginHistory: []
+      },
+      {
+        username: "wangwu",
+        password: "$2b$10$8kYzXqKxZjO5Y8gKxJ9vYzXqKxZjO5Y8gKxJ9vYzXqKxZjO5Y8gKx",
+        name: "王五",
+        phone: "13800138003",
+        email: "wangwu@jihua.com",
+        department: "技术部",
+        role: "user",
+        approvalStatus: "approved",
+        status: "active",
+        createdAt: db.serverDate(),
+        loginHistory: []
+      }
+    ];
+
+    function showProgress(text) {
+      progressDiv.style.display = 'block';
+      progressText.textContent = text;
+    }
+
+    function hideProgress() {
+      progressDiv.style.display = 'none';
+    }
+
+    function log(message, type = 'info') {
+      const div = document.createElement('div');
+      div.className = `result ${type}`;
+      div.innerHTML = `<strong>[${new Date().toLocaleTimeString()}]</strong> ${message}`;
+      resultContainer.insertBefore(div, resultContainer.firstChild);
+    }
+
+    function logObject(title, obj, type = 'info') {
+      const div = document.createElement('div');
+      div.className = `result ${type}`;
+      div.innerHTML = `<strong>${title}</strong>\n${JSON.stringify(obj, null, 2)}`;
+      resultContainer.insertBefore(div, resultContainer.firstChild);
+    }
+
+    // 显示用户预览
+    function displayUserPreview() {
+      const preview = document.getElementById('userPreview');
+      preview.innerHTML = initialUsers.map(user => `
+        <div class="user-card">
+          <div class="user-info">
+            <div class="user-name">${user.name} (@${user.username})</div>
+            <div class="user-details">
+              ${user.department} · ${user.phone} · ${user.email}
+            </div>
+          </div>
+          <span class="status-badge status-${user.approvalStatus}">
+            ${user.approvalStatus === 'approved' ? '✅ 已通过' : '⏳ 待审核'}
+          </span>
+        </div>
+      `).join('');
+    }
+
+    // 检查数据库
+    async function checkDatabase() {
+      try {
+        showProgress('正在检查数据库...');
+        log('🔍 开始检查数据库状态...');
+
+        const countResult = await db.collection('users').count();
+        log(`📊 当前 users 集合中有 ${countResult.total} 条记录`, 'info');
+
+        if (countResult.total > 0) {
+          const result = await db.collection('users').limit(10).get();
+          logObject('现有用户数据（前10条）', result.data, 'info');
+        } else {
+          log('✨ 数据库为空，可以开始初始化', 'success');
+        }
+
+        hideProgress();
+      } catch (error) {
+        log(`❌ 检查失败: ${error.message}`, 'error');
+        logObject('错误详情', error, 'error');
+        hideProgress();
+      }
+    }
+
+    // 初始化用户
+    async function initializeUsers() {
+      if (!confirm('确认要初始化用户数据吗？\n\n这将添加4个测试用户到数据库。\n所有用户的密码都是：0000')) {
+        return;
+      }
+
+      try {
+        showProgress('正在初始化用户数据...');
+        log('🚀 开始初始化用户数据...');
+
+        let successCount = 0;
+        let failCount = 0;
+
+        for (let i = 0; i < initialUsers.length; i++) {
+          const user = initialUsers[i];
+          try {
+            showProgress(`正在添加用户 ${i + 1}/${initialUsers.length}: ${user.name}...`);
+            
+            // 检查用户是否已存在
+            const existing = await db.collection('users')
+              .where({ username: user.username })
+              .get();
+
+            if (existing.data.length > 0) {
+              log(`⚠️ 用户 ${user.name} (@${user.username}) 已存在，跳过`, 'warning');
+              continue;
+            }
+
+            // 添加用户
+            const result = await db.collection('users').add(user);
+            log(`✅ 成功添加用户: ${user.name} (@${user.username})`, 'success');
+            successCount++;
+
+          } catch (error) {
+            log(`❌ 添加用户 ${user.name} 失败: ${error.message}`, 'error');
+            failCount++;
+          }
+        }
+
+        log(`\n🎉 初始化完成！`, 'success');
+        log(`✅ 成功: ${successCount} 个用户`, 'success');
+        if (failCount > 0) {
+          log(`❌ 失败: ${failCount} 个用户`, 'error');
+        }
+
+        hideProgress();
+
+        // 自动验证
+        setTimeout(() => verifyData(), 1000);
+
+      } catch (error) {
+        log(`❌ 初始化失败: ${error.message}`, 'error');
+        logObject('错误详情', error, 'error');
+        hideProgress();
+      }
+    }
+
+    // 验证数据
+    async function verifyData() {
+      try {
+        showProgress('正在验证数据...');
+        log('🔍 开始验证数据完整性...');
+
+        const result = await db.collection('users')
+          .orderBy('createdAt', 'desc')
+          .get();
+
+        log(`📊 数据库中共有 ${result.data.length} 个用户`, 'success');
+        logObject('所有用户数据', result.data, 'success');
+
+        // 统计
+        const stats = {
+          total: result.data.length,
+          pending: result.data.filter(u => u.approvalStatus === 'pending').length,
+          approved: result.data.filter(u => u.approvalStatus === 'approved').length,
+          admins: result.data.filter(u => u.role === 'admin').length,
+          users: result.data.filter(u => u.role === 'user').length
+        };
+
+        log(`\n📈 统计信息：\n总用户数: ${stats.total}\n待审核: ${stats.pending}\n已通过: ${stats.approved}\n管理员: ${stats.admins}\n普通用户: ${stats.users}`, 'info');
+
+        hideProgress();
+
+      } catch (error) {
+        log(`❌ 验证失败: ${error.message}`, 'error');
+        logObject('错误详情', error, 'error');
+        hideProgress();
+      }
+    }
+
+    // 清空数据
+    async function clearAllData() {
+      if (!confirm('⚠️ 警告：这将删除 users 集合中的所有数据！\n\n确定要继续吗？')) {
+        return;
+      }
+
+      if (!confirm('⚠️ 最后确认：删除后无法恢复！\n\n真的要删除所有用户数据吗？')) {
+        return;
+      }
+
+      try {
+        showProgress('正在清空数据...');
+        log('🗑️ 开始清空数据...');
+
+        const result = await db.collection('users').get();
+        
+        for (const user of result.data) {
+          await db.collection('users').doc(user._id).remove();
+          log(`🗑️ 已删除: ${user.name} (@${user.username})`);
+        }
+
+        log(`✅ 已清空 ${result.data.length} 条数据`, 'success');
+        hideProgress();
+
+      } catch (error) {
+        log(`❌ 清空失败: ${error.message}`, 'error');
+        logObject('错误详情', error, 'error');
+        hideProgress();
+      }
+    }
+
+    // 页面加载时显示预览
+    window.addEventListener('load', () => {
+      displayUserPreview();
+      log('📝 初始化工具已就绪');
+      log('💡 提示：所有测试用户的密码都是 0000');
+      log('💡 建议按顺序执行：1️⃣ 检查 → 2️⃣ 初始化 → 3️⃣ 验证');
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>用户数据测试</title>
+  <style>
+    body { 
+      font-family: system-ui, sans-serif;
+      padding: 30px;
+      background: #f5f7fa;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    }
+    button { 
+      padding: 12px 24px;
+      margin: 10px 10px 10px 0;
+      font-size: 15px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      background: #1890ff;
+      color: white;
+    }
+    button:hover { 
+      background: #40a9ff;
+    }
+    pre { 
+      background: #f6f8fa;
+      padding: 16px;
+      border-radius: 6px;
+      overflow: auto;
+      border-left: 4px solid #1890ff;
+      margin: 10px 0;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    .success { 
+      color: #52c41a;
+      background: #f6ffed;
+      border-left-color: #52c41a;
+    }
+    .error { 
+      color: #ff4d4f;
+      background: #fff1f0;
+      border-left-color: #ff4d4f;
+    }
+    .user-card {
+      background: white;
+      border: 1px solid #e8e8e8;
+      padding: 16px;
+      margin: 12px 0;
+      border-radius: 6px;
+    }
+    .user-card h4 {
+      margin: 0 0 8px 0;
+      color: #333;
+    }
+    .user-card p {
+      margin: 4px 0;
+      color: #666;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>🔍 用户数据库测试</h2>
+    
+    <button onclick="testQuery()">查询所有用户</button>
+    <button onclick="testPending()">查询待审核用户</button>
+    
+    <div id="result"></div>
+  </div>
+
+  <script type="module">
+    import cloudbase from '/@cloudbase/js-sdk';
+    
+    let app, db;
+    
+    // 暴露给全局
+    window.cloudbaseApp = null;
+    window.cloudbaseDb = null;
+    
+    async function init() {
+      try {
+        app = cloudbase.init({
+          env: 'prod-4gnmm3ni0dc5c4e9'
+        });
+        
+        await app.auth().anonymousAuthProvider().signIn();
+        db = app.database();
+        
+        window.cloudbaseApp = app;
+        window.cloudbaseDb = db;
+        
+        log('✅ CloudBase初始化成功', 'success');
+        return true;
+      } catch (error) {
+        log(`❌ 初始化失败: ${error.message}`, 'error');
+        console.error(error);
+        return false;
+      }
+    }
+    
+    function log(message, type = 'info') {
+      const resultDiv = document.getElementById('result');
+      const className = type === 'error' ? 'error' : type === 'success' ? 'success' : '';
+      resultDiv.innerHTML += `<pre class="${className}">${message}</pre>`;
+    }
+    
+    function clearResult() {
+      document.getElementById('result').innerHTML = '';
+    }
+    
+    window.testQuery = async function() {
+      clearResult();
+      log('🔍 开始查询...');
+      
+      if (!window.cloudbaseDb) {
+        await init();
+      }
+      
+      try {
+        const result = await window.cloudbaseDb.collection('users').get();
+        log(`✅ 查询成功！共 ${result.data.length} 个用户`, 'success');
+        
+        const resultDiv = document.getElementById('result');
+        result.data.forEach((user, index) => {
+          resultDiv.innerHTML += `
+            <div class="user-card">
+              <h4>${index + 1}. ${user.name || user.username}</h4>
+              <p><strong>用户名:</strong> ${user.username}</p>
+              <p><strong>手机号:</strong> ${user.phone}</p>
+              <p><strong>审核状态:</strong> ${user.approvalStatus} (${typeof user.approvalStatus})</p>
+              <p><strong>创建时间:</strong> ${user.createdAt}</p>
+            </div>
+          `;
+        });
+        
+        log('\n完整数据:\n' + JSON.stringify(result.data, null, 2));
+      } catch (error) {
+        log(`❌ 查询失败: ${error.message}`, 'error');
+        console.error(error);
+      }
+    };
+    
+    window.testPending = async function() {
+      clearResult();
+      log('🔍 查询待审核用户...');
+      
+      if (!window.cloudbaseDb) {
+        await init();
+      }
+      
+      try {
+        const result = await window.cloudbaseDb.collection('users').get();
+        const pending = result.data.filter(u => u.approvalStatus === 'pending');
+        
+        log(`✅ 共 ${result.data.length} 个用户，${pending.length} 个待审核`, 'success');
+        
+        if (pending.length === 0) {
+          log('⚠️ 没有待审核用户！', 'error');
+          log('\n所有用户状态:');
+          result.data.forEach(u => {
+            log(`- ${u.username}: ${u.approvalStatus}`);
+          });
+        } else {
+          const resultDiv = document.getElementById('result');
+          pending.forEach((user, index) => {
+            resultDiv.innerHTML += `
+              <div class="user-card">
+                <h4>${index + 1}. ${user.name || user.username} [待审核]</h4>
+                <p><strong>用户名:</strong> ${user.username}</p>
+                <p><strong>手机号:</strong> ${user.phone}</p>
+                <p><strong>创建时间:</strong> ${user.createdAt}</p>
+              </div>
+            `;
+          });
+        }
+      } catch (error) {
+        log(`❌ 查询失败: ${error.message}`, 'error');
+        console.error(error);
+      }
+    };
+    
+    // 自动初始化
+    init();
+  </script>
+</body>
+</html>

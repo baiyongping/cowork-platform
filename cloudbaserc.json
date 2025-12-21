@@ -1,0 +1,39 @@
+{
+  "envId": "jihua-oa-dev-3goht9irae4d949f",
+  "framework": {
+    "name": "react",
+    "plugins": {
+      "client": {
+        "use": "@cloudbase/framework-plugin-website",
+        "inputs": {
+          "buildCommand": "npm run build",
+          "outputPath": "dist"
+        }
+      }
+    }
+  },
+  "databases": [
+    {
+      "name": "users",
+      "description": "用户集合",
+      "indexes": [
+        {
+          "name": "username_unique",
+          "unique": true,
+          "fields": ["username"]
+        },
+        {
+          "name": "email_unique",
+          "unique": true,
+          "fields": ["email"]
+        }
+      ]
+    }
+  ],
+  "functions": [
+    {
+      "name": "auth",
+      "description": "用户认证云函数（可选，当前使用前端SDK）"
+    }
+  ]
+}

@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>快速修复 baiyp02 权限问题</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    h1 { color: #333; text-align: center; }
+    .card {
+      background: white;
+      padding: 30px;
+      margin: 20px 0;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .status {
+      padding: 15px;
+      margin: 15px 0;
+      border-radius: 4px;
+      font-size: 16px;
+    }
+    .success { background: #d4edda; color: #155724; border-left: 4px solid #28a745; }
+    .error { background: #f8d7da; color: #721c24; border-left: 4px solid #dc3545; }
+    .warning { background: #fff3cd; color: #856404; border-left: 4px solid #ffc107; }
+    .info { background: #d1ecf1; color: #0c5460; border-left: 4px solid #17a2b8; }
+    button {
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 15px 30px;
+      font-size: 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 10px 5px;
+      width: calc(100% - 10px);
+    }
+    button:hover { background: #0056b3; }
+    button.danger { background: #dc3545; }
+    button.danger:hover { background: #c82333; }
+    pre {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 4px;
+      overflow-x: auto;
+      font-size: 14px;
+    }
+    .step {
+      margin: 30px 0;
+      padding-bottom: 20px;
+      border-bottom: 1px solid #dee2e6;
+    }
+    .step:last-child { border-bottom: none; }
+    .step-number {
+      display: inline-block;
+      background: #007bff;
+      color: white;
+      width: 30px;
+      height: 30px;
+      line-height: 30px;
+      text-align: center;
+      border-radius: 50%;
+      margin-right: 10px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h1>🔧 快速修复 baiyp02 权限问题</h1>
+  
+  <div class="card">
+    <div class="step">
+      <h2><span class="step-number">1</span>检查当前登录状态</h2>
+      <button onclick="checkCurrentUser()">检查用户数据</button>
+      <div id="user-result"></div>
+    </div>
+
+    <div class="step">
+      <h2><span class="step-number">2</span>清除缓存(重要!)</h2>
+      <p class="warning">⚠️ 这会清除您的登录状态,需要重新登录</p>
+      <button class="danger" onclick="clearCache()">清除缓存并刷新</button>
+    </div>
+
+    <div class="step">
+      <h2><span class="step-number">3</span>重新登录</h2>
+      <p class="info">ℹ️ 清除缓存后,页面会自动刷新,请重新登录</p>
+      <p>登录后,再次打开这个页面,点击"步骤1"检查数据</p>
+    </div>
+  </div>
+
+  <script>
+    function checkCurrentUser() {
+      const resultDiv = document.getElementById('user-result');
+      
+      try {
+        // 读取localStorage中的用户数据
+        const userStr = localStorage.getItem('current_user');
+        const token = localStorage.getItem('auth_token');
+        
+        if (!userStr || !token) {
+          resultDiv.innerHTML = `
+            <div class="status error">
+              ❌ 未找到登录信息,请先登录系统
+            </div>
+          `;
+          return;
+        }
+        
+        const user = JSON.parse(userStr);
+        
+        // 检查关键字段
+        const hasRoles = Array.isArray(user.roles);
+        const hasOldRole = !!user.role;
+        const rolesValue = hasRoles ? JSON.stringify(user.roles) : '无';
+        const oldRoleValue = hasOldRole ? user.role : '无';
+        
+        let statusHtml = '';
+        
+        // 判断是否需要重新登录
+        if (!hasRoles || user.roles.length === 0) {
+          statusHtml = `
+            <div class="status error">
+              ❌ 问题确认: 缺少 roles 字段或为空数组
+              <br><br>
+              <strong>需要清除缓存并重新登录!</strong>
+            </div>
+          `;
+        } else if (user.roles.includes('executive')) {
+          statusHtml = `
+            <div class="status success">
+              ✅ 用户数据正常: roles 包含 "executive"
+              <br><br>
+              如果权限仍然不对,请检查:
+              <ol>
+                <li>是否已刷新页面 (Ctrl+F5)</li>
+                <li>浏览器控制台是否有权限相关日志</li>
+              </ol>
+            </div>
+          `;
+        } else {
+          statusHtml = `
+            <div class="status warning">
+              ⚠️ roles 字段存在,但值不是 "executive"
+              <br><br>
+              当前 roles: ${rolesValue}
+              <br>
+              预期: ["executive"]
+              <br><br>
+              <strong>需要清除缓存并重新登录!</strong>
+            </div>
+          `;
+        }
+        
+        resultDiv.innerHTML = `
+          ${statusHtml}
+          <h3>完整用户数据:</h3>
+          <pre>${JSON.stringify(user, null, 2)}</pre>
+          <h3>关键字段分析:</h3>
+          <ul>
+            <li><strong>用户名:</strong> ${user.username || '无'}</li>
+            <li><strong>姓名:</strong> ${user.name || '无'}</li>
+            <li><strong>roles字段 (新):</strong> ${rolesValue} ${hasRoles && user.roles.length > 0 ? '✅' : '❌'}</li>
+            <li><strong>role字段 (旧):</strong> ${oldRoleValue}</li>
+            <li><strong>token存在:</strong> ${token ? '✅' : '❌'}</li>
+          </ul>
+        `;
+        
+      } catch (error) {
+        resultDiv.innerHTML = `
+          <div class="status error">
+            ❌ 读取用户数据失败: ${error.message}
+            <pre>${error.stack}</pre>
+          </div>
+        `;
+      }
+    }
+    
+    function clearCache() {
+      if (!confirm('确定要清除缓存吗? 这会清除您的登录状态,需要重新登录。')) {
+        return;
+      }
+      
+      try {
+        // 清除认证相关的localStorage
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('current_user');
+        
+        alert('✅ 缓存已清除!\n\n页面即将刷新,请重新登录。');
+        
+        // 延迟1秒后刷新,给用户时间看到提示
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 1000);
+        
+      } catch (error) {
+        alert('❌ 清除缓存失败: ' + error.message);
+      }
+    }
+    
+    // 页面加载时自动检查
+    window.onload = function() {
+      // 显示提示
+      console.log('🔧 baiyp02 权限修复工具已加载');
+      console.log('点击 "检查用户数据" 按钮开始诊断');
+    };
+  </script>
+</body>
+</html>

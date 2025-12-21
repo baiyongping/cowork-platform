@@ -1,0 +1,77 @@
+<!--pages/index/index.wxml-->
+<view class="container">
+  <!-- 顶部统计区域 - 非对称3列布局 -->
+  <view class="stats-section">
+    <view class="stat-card stat-card-large" bindtap="goToTasks">
+      <view class="stat-number">{{statistics.todayTasks}}</view>
+      <view class="stat-label">今日任务</view>
+      <view class="stat-badge">进行中</view>
+    </view>
+    
+    <view class="stat-card-group">
+      <view class="stat-card stat-card-small" bindtap="goToOpportunities">
+        <view class="stat-number-small">{{statistics.pendingOpportunities}}</view>
+        <view class="stat-label-small">待跟进商机</view>
+      </view>
+      
+      <view class="stat-card stat-card-small" bindtap="goToProjects">
+        <view class="stat-number-small">{{statistics.ongoingProjects}}</view>
+        <view class="stat-label-small">进行中项目</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 最近任务 - 交错式卡片 -->
+  <view class="section">
+    <view class="section-header">
+      <view class="section-title">最近任务</view>
+      <view class="section-more" bindtap="goToTasks">查看全部 ></view>
+    </view>
+    
+    <view class="task-list">
+      <view class="task-item" wx:for="{{recentTasks}}" wx:key="_id">
+        <view class="task-main">
+          <view class="task-name">{{item.name}}</view>
+          <view class="task-meta">
+            <text class="task-owner">{{item.ownerName}}</text>
+            <text class="task-date">{{item.endDate}}</text>
+          </view>
+        </view>
+        <view class="task-badge task-badge-{{item.status}}">
+          {{item.statusText}}
+        </view>
+      </view>
+      
+      <view wx:if="{{recentTasks.length === 0}}" class="empty-state">
+        <text class="empty-text">暂无任务</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 最近商机 -->
+  <view class="section">
+    <view class="section-header">
+      <view class="section-title">最近商机</view>
+      <view class="section-more" bindtap="goToOpportunities">查看全部 ></view>
+    </view>
+    
+    <view class="opportunity-list">
+      <view class="opportunity-item" wx:for="{{recentOpportunities}}" wx:key="_id">
+        <view class="opportunity-main">
+          <view class="opportunity-name">{{item.name}}</view>
+          <view class="opportunity-meta">
+            <text class="opportunity-owner">{{item.ownerName}}</text>
+            <text class="opportunity-amount">¥{{item.estimatedAmount}}</text>
+          </view>
+        </view>
+        <view class="opportunity-stage">
+          {{item.stage}}
+        </view>
+      </view>
+      
+      <view wx:if="{{recentOpportunities.length === 0}}" class="empty-state">
+        <text class="empty-text">暂无商机</text>
+      </view>
+    </view>
+  </view>
+</view>

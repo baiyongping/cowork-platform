@@ -1,0 +1,23 @@
+<!--pages/opportunities/opportunities.wxml-->
+<view class="container">
+  <view class="page-title">商机管理</view>
+  
+  <view class="opportunity-list">
+    <view class="opportunity-item" wx:for="{{opportunities}}" wx:key="_id">
+      <view class="opportunity-content">
+        <view class="opportunity-name">{{item.name}}</view>
+        <view class="opportunity-meta">
+          <text class="opportunity-customer">{{item.customerName}}</text>
+          <text class="opportunity-amount">¥{{item.estimatedAmount}}</text>
+        </view>
+      </view>
+      <view class="opportunity-stage">
+        {{item.stage}}
+      </view>
+    </view>
+    
+    <view wx:if="{{opportunities.length === 0}}" class="empty-state">
+      <text class="empty-text">暂无商机</text>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,470 @@
+# 际华定制协同办公管理平台
+
+> 基于 React + TypeScript + Tailwind CSS + CloudBase 的现代化企业协同办公管理平台
+
+[![Version](https://img.shields.io/badge/version-3.0.0-blue.svg)](https://github.com/your-repo)
+[![React](https://img.shields.io/badge/React-18.2-61dafb.svg)](https://reactjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.2-3178c6.svg)](https://www.typescriptlang.org/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4.0-38bdf8.svg)](https://tailwindcss.com/)
+[![CloudBase](https://img.shields.io/badge/CloudBase-Latest-00a98f.svg)](https://cloud.tencent.com/product/tcb)
+
+---
+
+## 📋 目录
+
+- [项目简介](#项目简介)
+- [核心功能](#核心功能)
+- [技术栈](#技术栈)
+- [快速开始](#快速开始)
+- [默认管理员账号](#默认管理员账号)
+- [项目结构](#项目结构)
+- [开发指南](#开发指南)
+- [版本历史](#版本历史)
+
+---
+
+## 📖 项目简介
+
+际华定制协同办公管理平台是一个面向企业的现代化协同办公系统，集成了用户管理、部门管理、任务管理、商机跟踪、项目管理、目标设定等核心功能模块。
+
+### 核心特性
+- 🔐 完整的用户认证与权限管理
+- 📱 响应式设计，支持移动端访问
+- ☁️ 基于腾讯云 CloudBase 的 Serverless 架构
+- 🎨 现代化 UI 设计，优秀的用户体验
+- 🔒 企业级安全保障
+
+---
+
+## 🚀 核心功能
+
+### 1. 用户管理系统
+- ✅ 用户注册与登录
+- ✅ **微信扫码登录** (推荐) 🆕
+  - 首次登录: 扫码注册 → 管理员审核
+  - 审核通过后: 扫码即可自动登录
+  - 无需密码,扫码即用
+- ✅ 用户审核机制
+- ✅ 忘记密码功能
+- ✅ **手机号短信验证** 🆕
+  - 📱 **测试模式**: 验证码直接弹窗显示（无需配置短信服务）
+  - 🚀 **生产模式**: 真实发送短信（需配置腾讯云短信服务）
+  - 📄 详细说明: `docs/短信验证码测试模式说明.md`
+- ✅ 用户资料管理
+
+### 2. 部门管理
+- ✅ 部门创建与编辑
+- ✅ 部门层级结构
+- ✅ 员工部门关联
+
+### 3. 任务管理 ⭐ v1.2.0
+- ✅ 任务创建与分配
+- ✅ 任务进度跟踪
+- ✅ 任务评论与协作
+- ✅ 任务状态管理
+- ✅ **任务回收站**（软删除与恢复）
+- ✅ **任务权限控制**（公开/私密）
+- ✅ 商机跟进任务（10种跟进动作类型）
+- ✅ 项目任务（9种任务环节）
+- ✅ 日常工作任务（计划类型自动匹配）
+
+> 📦 完整版本文档: [TASK_MODULE_VERSION_v1.2.0.md](./TASK_MODULE_VERSION_v1.2.0.md)  
+> 🔄 版本归档指南: [VERSION_ARCHIVE_GUIDE.md](./VERSION_ARCHIVE_GUIDE.md)
+
+### 4. 商机管理
+- ✅ 商机信息录入
+- ✅ 商机跟进记录
+- ✅ 商机状态跟踪
+- ✅ 商机转化分析
+
+### 5. 项目管理
+- ✅ 项目创建与配置
+- ✅ 项目进度管理
+- ✅ 项目成员协作
+- ✅ 项目评论功能
+
+### 6. 目标管理
+- ✅ 年度战略目标
+- ✅ 季度措施分解
+- ✅ 销售目标设定
+- ✅ 商机目标跟踪
+
+---
+
+## 🛠️ 技术栈
+
+### 前端技术
+- **框架**: React 18.2
+- **语言**: TypeScript 5.2
+- **样式**: Tailwind CSS 4.0
+- **路由**: React Router v7
+- **状态管理**: React Context
+- **UI 组件**: Lucide React Icons
+
+### 后端服务
+- **BaaS**: 腾讯云 CloudBase
+- **数据库**: CloudBase NoSQL Database
+- **认证**: CloudBase Auth + **微信开放平台登录** 🆕
+- **存储**: CloudBase Storage
+- **云函数**: CloudBase Functions
+
+### 开发工具
+- **构建工具**: Vite 6
+- **代码规范**: ESLint
+- **包管理**: npm
+
+---
+
+## 🚀 快速开始
+
+### 环境要求
+- Node.js >= 16.0.0
+- npm >= 8.0.0
+
+### 安装步骤
+
+1. **克隆项目**
+```bash
+git clone <repository-url>
+cd cowork
+```
+
+2. **安装依赖**
+```bash
+npm install
+```
+
+3. **配置环境变量**
+
+创建 `.env` 文件（参考 `.env.example`）：
+```env
+# CloudBase 配置
+VITE_CLOUDBASE_ENV_ID=your-env-id
+```
+
+> 💡 **推荐**: 配置微信登录功能,只需5分钟!  
+> 📄 查看: `docs/微信登录快速上手.md`
+
+4. **启动开发服务器**
+```bash
+npm run dev
+```
+
+访问 http://localhost:5173
+
+5. **构建生产版本**
+```bash
+npm run build
+```
+
+6. **预览生产构建**
+```bash
+npm run preview
+```
+
+访问 http://localhost:4173
+
+---
+
+## 🔑 默认管理员账号
+
+首次启动后使用以下凭据登录：
+
+- **用户名**: `admin`
+- **密码**: `admin123`
+
+> ⚠️ **安全提醒**: 
+> - 首次登录后请立即修改默认密码
+> - 建议使用强密码（包含大小写字母、数字和特殊字符）
+> - 定期更换管理员密码
+
+---
+
+## 📁 项目结构
+
+```
+cowork/
+├── src/
+│   ├── components/          # 可复用组件
+│   │   ├── Auth/           # 认证相关组件
+│   │   ├── Layout/         # 布局组件
+│   │   └── ...
+│   ├── pages/              # 页面组件
+│   │   ├── Dashboard.tsx   # 仪表盘
+│   │   ├── Login.tsx       # 登录页
+│   │   ├── UserManagement.tsx
+│   │   ├── DepartmentManagement.tsx
+│   │   └── ...
+│   ├── lib/                # 工具库
+│   │   ├── cloudbase.ts    # CloudBase 初始化
+│   │   ├── auth-service.ts # 认证服务
+│   │   └── sms-service.ts  # 短信服务
+│   ├── App.tsx             # 应用根组件
+│   └── main.tsx            # 应用入口
+├── public/                 # 静态资源
+├── scripts/                # 脚本文件
+│   └── create-admin.js     # 创建管理员脚本
+├── package.json
+├── vite.config.ts
+├── tsconfig.json
+└── README.md
+```
+
+---
+
+## 💻 开发指南
+
+### 开发命令
+
+```bash
+# 启动开发服务器
+npm run dev
+
+# 构建生产版本
+npm run build
+
+# 预览生产构建
+npm run preview
+
+# 代码检查
+npm run lint
+```
+
+### 代码规范
+
+- 使用 TypeScript 编写所有代码
+- 遵循 ESLint 配置规则
+- 组件命名采用 PascalCase
+- 文件命名采用 kebab-case
+- 保持代码简洁和可读性
+
+### Git 提交规范
+
+```bash
+feat: 新功能
+fix: 修复bug
+docs: 文档更新
+style: 代码格式调整
+refactor: 重构
+test: 测试相关
+chore: 构建/工具链更新
+```
+
+---
+
+## 🔒 安全说明
+
+### 密码安全
+- 密码使用 SHA-256 加密存储
+- 加密密钥: `jihua-oa-platform-secret-key-2025`
+- 支持 HTTPS 环境的 crypto.subtle API
+- HTTP 环境自动降级为 JS 实现的 SHA-256
+
+### 认证机制
+- 基于 CloudBase Auth 的用户认证
+- 会话持久化
+- 自动登录状态检查
+- 权限分级管理（admin/user）
+
+### 数据安全
+- CloudBase 数据库权限控制
+- 仅管理员可访问敏感数据
+- 用户审核机制防止恶意注册
+
+---
+
+## 📦 部署指南
+
+### 本地开发环境
+```bash
+npm run dev
+```
+
+### 生产环境构建
+```bash
+# 测试环境构建
+npx vite build --mode test
+
+# 生产环境构建
+npx vite build --mode production
+```
+
+构建产物在 `dist/` 目录
+
+### ⭐ Lighthouse Integration 部署（推荐）
+
+**适用场景**：测试环境快速部署
+
+**优势**：
+- ✅ 完全自动化，一句话完成部署
+- ✅ 智能错误检测和修复建议
+- ✅ 自动设置权限（nginx:nginx, 755）
+- ✅ 无需SSH密钥，安全可靠
+
+**部署步骤**：
+1. 构建项目：`npx vite build --mode test`
+2. 告诉 AI："请帮我在lighthouse上部署这个项目"
+3. AI 自动完成所有部署步骤
+4. 访问测试环境验证：http://152.136.183.181:3000
+
+**详细指南**：查看 [Lighthouse部署指南.md](./Lighthouse部署指南.md)
+
+### CloudBase 部署
+
+**✅ 已部署到CloudBase静态托管**
+
+**访问地址**: https://jihua-oa-dev-3goht9irae4d949f-1301818329.tcloudbaseapp.com/
+
+**部署环境**: jihua-oa-dev-3goht9irae4d949f（测试环境）
+
+**CloudBase资源**:
+- ✅ **静态托管**: 前端应用（React + TypeScript）
+- ✅ **NoSQL数据库**: 13个集合（users, departments, tasks, opportunities, projects, goals等）
+- ✅ **云函数**: 7个（auth, fix-admin, resetAdminPassword, initPermissionDB等）
+- ✅ **认证服务**: CloudBase Auth + 微信登录
+
+**部署命令**:
+```bash
+# 构建
+npm run build
+
+# 使用CloudBase CLI部署
+tcb hosting deploy dist/ -e jihua-oa-dev-3goht9irae4d949f
+```
+
+### 传统部署方式
+
+**测试环境**：
+```bash
+# 使用自动化脚本
+部署到开发环境.bat
+
+# 或手动部署
+scp -r dist/* root@152.136.183.181:/var/www/jihua-dev/
+ssh root@152.136.183.181 "chown -R nginx:nginx /var/www/jihua-dev && chmod -R 755 /var/www/jihua-dev"
+```
+
+**生产环境**：
+```bash
+# 使用自动化脚本（需要确认）
+部署到生产环境.bat
+# 输入 YES 确认
+```
+
+### 部署文档
+
+- 📘 [Lighthouse部署指南.md](./Lighthouse部署指南.md) - Lighthouse Integration 详细指南（推荐）
+- 📗 [双环境部署方案.md](./双环境部署方案.md) - 测试/生产环境部署流程
+- 📙 [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) - 完整部署指南
+
+### Docker 部署
+项目包含 `Dockerfile`，支持容器化部署。
+
+---
+
+## 📝 版本历史
+
+### v3.0.0 (2025-12-17) - 公司Logo上传功能 🎨
+- ✨ **新增功能**
+  - ✅ 公司Logo上传更换功能（系统设置）
+  - ✅ 支持PNG/JPG/JPEG/SVG格式，最大2MB
+  - ✅ Base64编码存储，无需云存储配置
+  - ✅ 登录页和侧边栏自动显示上传的Logo
+  - ✅ 支持删除恢复默认Logo
+- 🚀 **部署信息**
+  - ✅ 已部署到测试服务器（Lighthouse）
+  - ✅ 访问地址: http://152.136.183.181:3000
+  - ✅ 部署时间: 2025-12-17 19:14 (UTC+8)
+  - ✅ CloudBase环境: jihua-oa-dev-3goht9irae4d949f（测试环境）✅
+
+### v2.0.0 (2025-12-14) - 主体功能完成 🎉
+- 🎉 **主体功能全部完成**
+  - ✅ 用户管理系统（注册、登录、审核、微信登录）
+  - ✅ 员工管理（搜索筛选、职务管理、上级管理、团队展示）
+  - ✅ 部门管理（创建、编辑、层级结构）
+  - ✅ 角色权限管理（自定义角色、权限配置）
+  - ✅ 任务管理（回收站、权限控制、多类型任务）
+  - ✅ 商机管理（跟进记录、状态跟踪、转化分析）
+  - ✅ 项目管理（进度管理、成员协作、评论功能）
+  - ✅ 目标管理（战略目标、措施分解、销售目标）
+  - ✅ 系统设置（类型配置、系统参数、操作日志）
+- 🐛 **问题修复**
+  - 修复员工详情编辑时部门和角色不可选择的问题
+  - 移除员工卡片悬停提示，优化界面空间
+- 📊 **数据统计**
+  - 完善的操作日志记录
+  - 多维度数据筛选和搜索
+  - 权限级别数据隔离
+- 🎨 **用户体验优化**
+  - 响应式设计适配各种屏幕
+  - 现代化UI界面
+  - 流畅的交互体验
+
+### v1.2.0 (2025-12-11) - 任务管理模块重大更新 ⭐
+- ✨ **新增任务回收站功能**
+  - 软删除机制（isDeleted标记）
+  - 任务恢复功能
+  - 永久删除功能
+  - 二次确认保护
+- ✨ **新增任务权限控制**
+  - 公开/私密两种可见性
+  - 基于角色的权限过滤
+  - 部门负责人权限支持
+  - 协同人权限支持
+- 🎨 **UI优化**
+  - 可见性选项改为单选按钮卡片式
+  - 团队可见（蓝色主题）
+  - 不公开（橙色主题）
+- 📦 **版本归档**
+  - 完整版本文档：[TASK_MODULE_VERSION_v1.2.0.md](./TASK_MODULE_VERSION_v1.2.0.md)
+  - 版本备份：`backups/task-module-v1.2.0-20251211-120112/`
+  - 恢复指南：[VERSION_ARCHIVE_GUIDE.md](./VERSION_ARCHIVE_GUIDE.md)
+  - 发布总结：[TASK_MODULE_RELEASE_v1.2.0_SUMMARY.md](./TASK_MODULE_RELEASE_v1.2.0_SUMMARY.md)
+
+### v1.1.4 (2024-12-10)
+- 🐛 修复 HTTP 环境下 SHA-256 算法 bug
+- ✅ 恢复正确的管理员密码哈希
+- ✅ 确保本地环境正常运行
+- 🧹 清理临时测试文件和数据
+
+### v1.1.3 (2024-12-09)
+- ✅ 完成 CloudBase 生产环境部署
+- ✅ 配置静态网站托管
+- ✅ 优化 CDN 缓存策略
+
+### v1.1.0 (2024-12-08)
+- ✅ 完成核心功能开发
+- ✅ 用户管理系统
+- ✅ 部门管理功能
+- ✅ 任务管理系统
+- ✅ 商机与项目管理
+- ✅ 目标管理功能
+
+---
+
+## 🤝 贡献指南
+
+欢迎提交 Issue 和 Pull Request！
+
+### 贡献流程
+1. Fork 本仓库
+2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 开启 Pull Request
+
+---
+
+## 📄 许可证
+
+本项目为际华集团定制开发项目，版权所有。
+
+---
+
+## 📧 联系方式
+
+如有问题或建议，请联系项目维护者。
+
+---
+
+**Built with ❤️ for 际华集团**

@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>初始化目标管理数据库</title>
+  <script src="https://imgcache.qq.com/qcloud/cloudbase-js-sdk/2.0.1/cloudbase.full.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 12px;
+      margin: 10px 0;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    .btn:hover {
+      background: #0056b3;
+    }
+    .btn:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    #log {
+      margin-top: 20px;
+      padding: 15px;
+      background: #f8f9fa;
+      border-radius: 4px;
+      max-height: 400px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 14px;
+    }
+    .success {
+      color: #28a745;
+    }
+    .error {
+      color: #dc3545;
+    }
+    .info {
+      color: #17a2b8;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎯 初始化目标管理数据库</h1>
+    
+    <button class="btn" onclick="initDatabase()">初始化数据库集合</button>
+    <button class="btn" onclick="initSampleData()">创建示例数据</button>
+    <button class="btn" onclick="clearAllData()">清空所有数据</button>
+    
+    <div id="log"></div>
+  </div>
+
+  <script>
+    // 初始化 CloudBase
+    const app = cloudbase.init({
+      env: 'jihua-oa-dev-3goht9irae4d949f'
+    });
+
+    const db = app.database();
+    const _ = db.command;
+
+    function log(message, type = 'info') {
+      const logDiv = document.getElementById('log');
+      const timestamp = new Date().toLocaleTimeString();
+      const className = type === 'success' ? 'success' : type === 'error' ? 'error' : 'info';
+      logDiv.innerHTML += `<div class="${className}">[${timestamp}] ${message}</div>`;
+      logDiv.scrollTop = logDiv.scrollHeight;
+    }
+
+    // 初始化数据库集合
+    async function initDatabase() {
+      log('开始初始化数据库集合...', 'info');
+      
+      const collections = [
+        { name: 'sales_goals', desc: '销售目标' },
+        { name: 'opportunity_goals', desc: '商机目标' },
+        { name: 'annual_strategies', desc: '年度策略' },
+        { name: 'quarterly_measures', desc: '季度措施' }
+      ];
+
+      for (const col of collections) {
+        try {
+          // 尝试查询集合，如果不存在会自动创建
+          await db.collection(col.name).limit(1).get();
+          log(`✓ 集合 ${col.name} (${col.desc}) 已就绪`, 'success');
+        } catch (error) {
+          log(`✗ 集合 ${col.name} 初始化失败: ${error.message}`, 'error');
+        }
+      }
+
+      log('数据库集合初始化完成！', 'success');
+    }
+
+    // 创建示例数据
+    async function initSampleData() {
+      log('开始创建示例数据...', 'info');
+
+      try {
+        // 获取当前用户
+        const authRes = await app.auth().getCurrenUser();
+        const userId = authRes?.uid || 'system';
+
+        // 1. 创建2025年度销售目标
+        log('创建年度销售目标...', 'info');
+        await db.collection('sales_goals').add({
+          year: 2025,
+          orderTarget: 10000,
+          orderActual: 1680,
+          revenueTarget: 10000,
+          revenueActual: 1840,
+          type: 'annual',
+          quarter: null,
+          createdBy: userId,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        });
+        log('✓ 年度销售目标创建成功', 'success');
+
+        // 2. 创建季度销售目标
+        log('创建季度销售目标...', 'info');
+        const quarterlyTargets = [
+          { quarter: 'Q1', orderTarget: 2000, orderActual: 1680, revenueTarget: 2000, revenueActual: 1840 },
+          { quarter: 'Q2', orderTarget: 2500, orderActual: 0, revenueTarget: 2500, revenueActual: 0 },
+          { quarter: 'Q3', orderTarget: 2200, orderActual: 0, revenueTarget: 2200, revenueActual: 0 },
+          { quarter: 'Q4', orderTarget: 3300, orderActual: 0, revenueTarget: 3300, revenueActual: 0 }
+        ];
+
+        for (const target of quarterlyTargets) {
+          await db.collection('sales_goals').add({
+            year: 2025,
+            ...target,
+            type: 'quarterly',
+            createdBy: userId,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          });
+        }
+        log('✓ 季度销售目标创建成功', 'success');
+
+        // 3. 创建年度商机目标
+        log('创建年度商机目标...', 'info');
+        await db.collection('opportunity_goals').add({
+          year: 2025,
+          countTarget: 120,
+          countActual: 103,
+          amountTarget: 12000,
+          amountActual: 8500,
+          type: 'annual',
+          quarter: null,
+          createdBy: userId,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        });
+        log('✓ 年度商机目标创建成功', 'success');
+
+        // 4. 创建季度商机目标
+        log('创建季度商机目标...', 'info');
+        const quarterlyOppTargets = [
+          { quarter: 'Q1', countTarget: 30, countActual: 28, amountTarget: 3000, amountActual: 2800 },
+          { quarter: 'Q2', countTarget: 30, countActual: 0, amountTarget: 3000, amountActual: 0 },
+          { quarter: 'Q3', countTarget: 30, countActual: 0, amountTarget: 3000, amountActual: 0 },
+          { quarter: 'Q4', countTarget: 30, countActual: 0, amountTarget: 3000, amountActual: 0 }
+        ];
+
+        for (const target of quarterlyOppTargets) {
+          await db.collection('opportunity_goals').add({
+            year: 2025,
+            ...target,
+            type: 'quarterly',
+            createdBy: userId,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          });
+        }
+        log('✓ 季度商机目标创建成功', 'success');
+
+        // 5. 创建年度策略
+        log('创建年度策略...', 'info');
+        const strategy1 = await db.collection('annual_strategies').add({
+          year: 2025,
+          content: '拓展央企客户市场，提升品牌影响力',
+          owner: '张总',
+          ownerId: userId,
+          status: '进行中',
+          weight: 40,
+          createdBy: userId,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        });
+
+        const strategy2 = await db.collection('annual_strategies').add({
+          year: 2025,
+          content: '提升定制化服务能力，优化生产流程',
+          owner: '李总',
+          ownerId: userId,
+          status: '进行中',
+          weight: 35,
+          createdBy: userId,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        });
+        log('✓ 年度策略创建成功', 'success');
+
+        // 6. 创建季度措施
+        log('创建季度措施...', 'info');
+        const measures = [
+          { quarter: 'Q1', strategyId: strategy1.id, content: '开发10家新客户', owner: '张总' },
+          { quarter: 'Q1', strategyId: strategy2.id, content: '引进智能量体设备', owner: '李总' },
+          { quarter: 'Q2', strategyId: strategy1.id, content: '建立央企客户数据库', owner: '张总' },
+          { quarter: 'Q3', strategyId: strategy1.id, content: '参加3场行业展会', owner: '张总' },
+          { quarter: 'Q4', strategyId: strategy1.id, content: '完成年度客户回访', owner: '张总' }
+        ];
+
+        for (const measure of measures) {
+          await db.collection('quarterly_measures').add({
+            year: 2025,
+            ...measure,
+            ownerId: userId,
+            status: measure.quarter === 'Q1' ? '进行中' : '未开始',
+            createdBy: userId,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          });
+        }
+        log('✓ 季度措施创建成功', 'success');
+
+        log('所有示例数据创建完成！', 'success');
+      } catch (error) {
+        log(`创建示例数据失败: ${error.message}`, 'error');
+        console.error(error);
+      }
+    }
+
+    // 清空所有数据
+    async function clearAllData() {
+      if (!confirm('确定要清空所有目标管理数据吗？此操作不可恢复！')) {
+        return;
+      }
+
+      log('开始清空数据...', 'info');
+
+      const collections = ['sales_goals', 'opportunity_goals', 'annual_strategies', 'quarterly_measures'];
+
+      for (const colName of collections) {
+        try {
+          const res = await db.collection(colName).get();
+          for (const doc of res.data) {
+            await db.collection(colName).doc(doc._id).remove();
+          }
+          log(`✓ 清空集合 ${colName}`, 'success');
+        } catch (error) {
+          log(`✗ 清空集合 ${colName} 失败: ${error.message}`, 'error');
+        }
+      }
+
+      log('数据清空完成！', 'success');
+    }
+
+    // 页面加载时显示提示
+    window.onload = () => {
+      log('目标管理数据库初始化工具已就绪', 'info');
+      log('请先点击"初始化数据库集合"按钮', 'info');
+    };
+  </script>
+</body>
+</html>

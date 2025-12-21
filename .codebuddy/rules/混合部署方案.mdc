@@ -1,0 +1,250 @@
+---
+description: 
+alwaysApply: true
+enabled: true
+updatedAt: 2025-12-16T01:33:39.623Z
+provider: 
+---
+
+# 际华协同办公平台 - 混合部署方案
+
+## 核心原则
+
+**本项目采用混合部署架构：Lighthouse 服务器 + CloudBase 云服务**
+
+## 部署架构
+
+```
+前端 → Lighthouse 服务器（152.136.183.181）
+后端 → CloudBase 云函数
+数据库 → CloudBase NoSQL 数据库
+认证 → CloudBase 内置认证
+```
+
+## 前端部署规范
+
+### 开发环境部署
+
+**服务器信息**：
+- **地址**：152.136.183.181
+- **端口**：3000
+- **路径**：/var/www/jihua-dev/
+- **访问**：http://152.136.183.181:3000
+
+**部署流程**：
+1. 本地构建：`npx vite build`
+2. 使用 Lighthouse MCP 工具部署：
+   ```javascript
+   deploy_project_preparation({
+     FolderPath: "e:/cowork/dist",
+     InstanceId: "lhins-xxx",  // 实际的实例ID
+     Region: "ap-beijing",      // 实际的地域
+     ProjectName: "jihua-dev"
+   })
+   ```
+3. 或使用传统方式（备选）：
+   ```bash
+   scp -r dist/* root@152.136.183.181:/var/www/jihua-dev/
+   ```
+
+### 生产环境部署
+
+**服务器信息**：
+- **域名**：https://jihuadz.xin
+- **端口**：443 (HTTPS)
+- **路径**：/var/www/jihua/
+- **访问**：https://jihuadz.xin
+
+**部署流程**：
+1. 本地构建：`npx vite build`
+2. 使用 Lighthouse MCP 工具部署到生产路径
+3. 确认部署：需要用户明确确认（输入 YES）
+
+## 后端部署规范
+
+### CloudBase 云函数
+
+**部署方式**：
+```javascript
+// 查询现有云函数
+getFunctionList({ action: 'list' })
+
+// 创建新云函数
+createFunction({
+  func: { name: '函数名', ... },
+  functionRootPath: 'e:/cowork/cloudfunctions',
+  force: true
+})
+
+// 更新云函数代码
+updateFunctionCode({
+  name: '函数名',
+  functionRootPath: 'e:/cowork/cloudfunctions'
+})
+```
+
+**注意事项**：
+- ✅ CloudBase 工具会自动处理文件上传
+- ✅ 无需手动压缩代码
+- ✅ 指向 cloudfunctions 父目录即可
+
+## 数据库规范
+
+### CloudBase NoSQL 数据库
+
+**操作方式**：
+```javascript
+// 使用 CloudBase MCP 工具
+readNoSqlDatabaseContent({ collectionName: '集合名' })
+writeNoSqlDatabaseContent({ 
+  action: 'insert|update|delete',
+  collectionName: '集合名',
+  ...
+})
+```
+
+## 部署工具优先级
+
+### 首选方式：Lighthouse MCP 工具
+
+**优势**：
+- ✅ 已集成认证，无需输入密码
+- ✅ 自动处理防火墙配置
+- ✅ 支持批量部署
+- ✅ 更安全的权限控制
+
+**使用场景**：
+- 日常开发部署
+- 测试环境更新
+- 生产环境发布
+
+### 备选方式：SSH/SCP 命令
+
+**使用场景**：
+- Lighthouse MCP 工具不可用时
+- 需要特殊操作（如重启服务）
+- 紧急修复
+
+## 部署检查清单
+
+### 部署前检查
+- [ ] 代码已提交到 Git
+- [ ] 本地构建成功（`npx vite build`）
+- [ ] 环境变量配置正确
+- [ ] CloudBase 环境ID正确
+
+### 部署后验证
+- [ ] 访问测试环境：http://152.136.183.181:3000
+- [ ] 强制刷新浏览器（Ctrl + F5）
+- [ ] 检查功能是否正常
+- [ ] 查看浏览器控制台无错误
+- [ ] 验证 CloudBase 连接正常
+
+### 生产部署额外检查
+- [ ] 用户明确确认部署
+- [ ] 访问生产域名：https://jihuadz.xin
+- [ ] 验证 HTTPS 证书有效
+- [ ] 检查关键功能
+- [ ] 监控错误日志
+
+## 版本管理
+
+### Git 版本标记
+```bash
+# 开发版本发布
+git tag v2.x.x-dev
+git push origin v2.x.x-dev
+
+# 生产版本发布
+git tag v2.x.x
+git push origin v2.x.x
+```
+
+### 备份策略
+- 每次生产部署前创建备份分支
+- 使用语义化版本号（X.Y.Z）
+- 保留最近 3 个稳定版本的备份
+
+## 回滚策略
+
+### 快速回滚步骤
+1. 切换到上一个稳定版本：`git checkout v2.x.x`
+2. 重新构建：`npx vite build`
+3. 使用 Lighthouse MCP 工具重新部署
+4. 预计回滚时间：2-3 分钟
+
+## 环境管理
+
+### 开发环境（jihua-dev）
+- **目的**：日常开发和测试
+- **数据**：测试数据
+- **CloudBase 环境**：jihua-oa-dev-3goht9irae4d949f
+- **部署频率**：随时部署
+
+### 生产环境（jihua）
+- **目的**：正式对外服务
+- **数据**：生产数据
+- **CloudBase 环境**：（生产环境ID）
+- **部署频率**：版本发布时部署
+- **部署要求**：需要明确确认
+
+## 注意事项
+
+1. **不要混淆环境**
+   - 开发环境使用测试 CloudBase 环境
+   - 生产环境使用生产 CloudBase 环境
+
+2. **部署时无需重启 Nginx**
+   - 静态文件更新立即生效
+   - 只有修改 Nginx 配置才需重启
+
+3. **缓存处理**
+   - 部署后提醒用户强制刷新（Ctrl + F5）
+   - CDN 缓存需要几分钟更新
+
+4. **安全性**
+   - 生产部署需要明确确认
+   - 敏感操作记录日志
+   - 定期备份数据
+
+## 常见问题
+
+### Q: 部署后页面不更新？
+**A**: 浏览器缓存导致，按 Ctrl + F5 强制刷新
+
+### Q: CloudBase 认证失败？
+**A**: 检查环境ID配置，确保与当前环境匹配
+
+### Q: 部署失败如何回滚？
+**A**: 按照回滚策略，切换到上一个稳定版本重新部署
+
+## 部署命令快速参考
+
+### 开发环境部署
+```bash
+# 1. 构建
+npx vite build
+
+# 2. 使用 Lighthouse MCP 工具部署
+deploy_project_preparation({
+  FolderPath: "e:/cowork/dist",
+  InstanceId: "实例ID",
+  Region: "地域",
+  ProjectName: "jihua-dev"
+})
+
+# 3. 验证
+访问 http://152.136.183.181:3000
+```
+
+### 云函数部署
+```bash
+# 查询云函数
+getFunctionList({ action: 'list' })
+
+# 部署云函数
+updateFunctionCode({
+  name: '函数名',
+  functionRootPath: 'e:/cowork/cloudfunctions'
+})
+```
