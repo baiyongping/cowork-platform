@@ -1,0 +1,1078 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>例会管理模块 - PRD产品需求文档 v1.0</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 2cm;
+        }
+        
+        body {
+            font-family: "Microsoft YaHei", "SimSun", Arial, sans-serif;
+            font-size: 10pt;
+            line-height: 1.6;
+            color: #333;
+            max-width: 210mm;
+            margin: 0 auto;
+            padding: 20px;
+            background: white;
+        }
+        
+        h1 {
+            font-size: 20pt;
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+            margin-top: 0;
+            page-break-after: avoid;
+        }
+        
+        h2 {
+            font-size: 16pt;
+            color: #2980b9;
+            margin-top: 25px;
+            margin-bottom: 15px;
+            border-left: 5px solid #3498db;
+            padding-left: 10px;
+            page-break-after: avoid;
+        }
+        
+        h3 {
+            font-size: 13pt;
+            color: #34495e;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            page-break-after: avoid;
+        }
+        
+        h4 {
+            font-size: 11pt;
+            color: #555;
+            margin-top: 15px;
+            margin-bottom: 8px;
+            page-break-after: avoid;
+        }
+        
+        p {
+            margin: 8px 0;
+            text-align: justify;
+        }
+        
+        ul, ol {
+            margin: 8px 0;
+            padding-left: 25px;
+        }
+        
+        li {
+            margin: 5px 0;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            page-break-inside: avoid;
+        }
+        
+        table th {
+            background-color: #3498db;
+            color: white;
+            padding: 10px;
+            text-align: left;
+            font-weight: bold;
+            border: 1px solid #2980b9;
+        }
+        
+        table td {
+            padding: 8px;
+            border: 1px solid #ddd;
+        }
+        
+        table tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        
+        pre {
+            background-color: #f5f5f5;
+            border: 1px solid #ddd;
+            border-left: 4px solid #3498db;
+            padding: 12px;
+            overflow-x: auto;
+            font-size: 9pt;
+            line-height: 1.4;
+            page-break-inside: avoid;
+        }
+        
+        code {
+            font-family: "Consolas", "Courier New", monospace;
+            background-color: #f5f5f5;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-size: 9pt;
+        }
+        
+        .metadata {
+            background-color: #ecf0f1;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .metadata p {
+            margin: 5px 0;
+        }
+        
+        .toc {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-left: 4px solid #3498db;
+            margin: 20px 0;
+            page-break-inside: avoid;
+        }
+        
+        .toc ul {
+            list-style-type: none;
+            padding-left: 0;
+        }
+        
+        .toc li {
+            margin: 5px 0;
+        }
+        
+        .highlight {
+            background-color: #fff3cd;
+            padding: 2px 5px;
+            border-radius: 3px;
+        }
+        
+        .note {
+            background-color: #d1ecf1;
+            border-left: 4px solid #0c5460;
+            padding: 10px;
+            margin: 15px 0;
+        }
+        
+        .warning {
+            background-color: #fff3cd;
+            border-left: 4px solid #856404;
+            padding: 10px;
+            margin: 15px 0;
+        }
+        
+        .success {
+            background-color: #d4edda;
+            border-left: 4px solid #155724;
+            padding: 10px;
+            margin: 15px 0;
+        }
+        
+        hr {
+            border: none;
+            border-top: 2px solid #ecf0f1;
+            margin: 25px 0;
+        }
+        
+        .page-break {
+            page-break-after: always;
+        }
+        
+        @media print {
+            body {
+                padding: 0;
+            }
+            
+            .no-print {
+                display: none;
+            }
+            
+            a {
+                text-decoration: none;
+                color: #333;
+            }
+            
+            h2, h3, h4 {
+                page-break-after: avoid;
+            }
+            
+            table, pre, .note, .warning, .success {
+                page-break-inside: avoid;
+            }
+        }
+        
+        .print-button {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            z-index: 1000;
+        }
+        
+        .print-button:hover {
+            background-color: #2980b9;
+        }
+        
+        @media print {
+            .print-button {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <button class="print-button no-print" onclick="window.print()">🖨️ 打印/导出PDF</button>
+
+    <h1>例会管理模块 - PRD产品需求文档</h1>
+    
+    <div class="metadata">
+        <p><strong>版本:</strong> v1.0.0</p>
+        <p><strong>文档类型:</strong> Product Requirements Document (PRD)</p>
+        <p><strong>发布日期:</strong> 2025-12-22</p>
+        <p><strong>所属项目:</strong> 际华定制协同办公管理平台</p>
+        <p><strong>文档状态:</strong> 草稿</p>
+    </div>
+
+    <hr>
+
+    <div class="toc">
+        <h3>📋 目录</h3>
+        <ul>
+            <li>1. 模块概述</li>
+            <li>2. 功能架构</li>
+            <li>3. 子功能详细设计</li>
+            <li>4. 数据模型</li>
+            <li>5. 交互设计</li>
+            <li>6. 权限控制</li>
+            <li>7. 业务流程</li>
+            <li>8. 集成方案</li>
+            <li>9. 实施计划</li>
+            <li>10. 成功指标</li>
+        </ul>
+    </div>
+
+    <hr>
+
+    <h2>1. 模块概述</h2>
+
+    <h3>1.1 功能定位</h3>
+    
+    <div class="success">
+        <p><strong>例会管理模块</strong>是际华协同办公平台的<strong>执行驱动引擎</strong>，通过周例会和月度例会，建立<strong>"目标→措施→任务→商机/项目"</strong>的执行闭环，确保战略目标通过定期复盘和问题解决落地执行。</p>
+    </div>
+
+    <p><strong>核心价值</strong>:</p>
+    <ul>
+        <li>🎯 <strong>驱动目标达成</strong>: 通过定期回顾季度目标和措施，确保战略执行不偏航</li>
+        <li>✅ <strong>推动任务完成</strong>: 周/月任务回顾和计划，形成执行压力和动力</li>
+        <li>🔍 <strong>聚焦重点业务</strong>: 重点商机和项目专项分析，资源聚焦关键业务</li>
+        <li>🛠️ <strong>问题快速解决</strong>: 问题专栏机制，确保阻碍及时消除</li>
+    </ul>
+
+    <h3>1.2 业务背景</h3>
+
+    <p><strong>现状问题</strong>:</p>
+    <ul>
+        <li>❌ 任务执行缺乏定期回顾，延期任务无人跟进</li>
+        <li>❌ 季度目标只有年初制定，缺乏过程监控</li>
+        <li>❌ 商机和项目推进问题无处反馈，进展缓慢</li>
+        <li>❌ 团队协作问题积压，缺乏解决机制</li>
+    </ul>
+
+    <p><strong>解决方案</strong>:</p>
+    <pre>周例会（团队级/公司级）
+    ↓ 驱动
+上周任务回顾 + 下周任务计划
+    ↓ 聚焦
+重点商机分析 + 重点项目分析
+    ↓ 解决
+问题专栏问题集中讨论
+    ↓ 输出
+会议纪要（自动生成）</pre>
+
+    <h3>1.3 与现有模块的关系</h3>
+
+    <p><strong>核心定位</strong>: 例会管理是<strong>"执行监督层"</strong>，连接战略层（目标管理）和执行层（任务/商机/项目管理）</p>
+
+    <pre>目标管理 (战略层)
+    ↓ 提供数据
+例会管理 (执行监督层)
+    ↓ 驱动执行
+任务管理 + 商机管理 + 项目管理 (执行层)</pre>
+
+    <hr>
+
+    <h2>2. 功能架构</h2>
+
+    <h3>2.1 子功能组成</h3>
+
+    <pre>例会管理 (Meeting Management)
+│
+├── 📅 例会召开 (Meeting Schedule)
+│   ├── 新建例会
+│   ├── 例会类型（周例会/月例会）
+│   ├── 例会级别（团队级/公司级）
+│   ├── 参会人管理
+│   ├── 会议内容配置
+│   └── 会议状态管理
+│
+├── 📝 例会纪要 (Meeting Minutes)
+│   ├── 自动生成纪要
+│   ├── 纪要编辑和审核
+│   ├── 纪要查询和筛选
+│   ├── 纪要导出（Word/PDF）
+│   └── 纪要归档
+│
+└── 🔧 问题专栏 (Issue Board)
+    ├── 问题提交
+    ├── 问题分类和优先级
+    ├── 问题解决人指定
+    ├── 问题状态流转
+    ├── 问题升级到例会
+    └── 问题解决跟踪</pre>
+
+    <h3>2.2 Tab页签设计</h3>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Tab顺序</th>
+                <th>Tab名称</th>
+                <th>对应页面</th>
+                <th>核心功能</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>1</td>
+                <td>例会召开</td>
+                <td>MeetingScheduleView</td>
+                <td>新建例会、例会列表、例会详情</td>
+            </tr>
+            <tr>
+                <td>2</td>
+                <td>例会纪要</td>
+                <td>MeetingMinutesView</td>
+                <td>纪要查询、编辑、导出</td>
+            </tr>
+            <tr>
+                <td>3</td>
+                <td>问题专栏</td>
+                <td>IssueBoardView</td>
+                <td>问题提交、跟踪、解决</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <hr>
+
+    <h2>3. 子功能详细设计</h2>
+
+    <h3>3.1 例会召开 (Meeting Schedule)</h3>
+
+    <p><strong>功能定位</strong>: 例会管理的<strong>核心功能</strong>，负责例会的创建、内容配置、召开和状态管理。</p>
+
+    <h4>3.1.1 新建例会表单（分步填写）</h4>
+
+    <p><strong>第一步:基本信息</strong></p>
+    <ul>
+        <li>会议类型: 周例会 / 月例会</li>
+        <li>会议级别: 团队级 / 公司级</li>
+        <li>会议名称: 自动生成，可修改（如"2025年第1周团队周例会"）</li>
+        <li>会议时间、地点、预计时长</li>
+        <li>所属团队（团队级例会必填）</li>
+    </ul>
+
+    <p><strong>第二步:参会人员</strong></p>
+    <ul>
+        <li>主持人（必填）</li>
+        <li>必须参加人员（勾选）</li>
+        <li>可选参加人员（勾选）</li>
+    </ul>
+
+    <p><strong>第三步:会议内容配置</strong>（核心步骤）</p>
+    
+    <div class="note">
+        <p><strong>会议内容模块：</strong></p>
+        <ol>
+            <li>季度目标回顾（月例会推荐）</li>
+            <li>上周/月任务回顾（必选）</li>
+            <li>下周/月工作计划（必选）</li>
+            <li>重点商机分析</li>
+            <li>重点项目分析</li>
+            <li>问题解决</li>
+        </ol>
+        <p>每个模块可跳转到对应的选择界面，从现有数据中选出作为会议交流内容。</p>
+    </div>
+
+    <p><strong>第四步:内容明细确认</strong></p>
+    <ul>
+        <li>预览会议信息和内容</li>
+        <li>确认无误后创建会议</li>
+        <li>自动发送通知给参会人</li>
+    </ul>
+
+    <h4>3.1.2 任务选择界面</h4>
+
+    <p>从任务管理模块中，按时间周期自动提取任务：</p>
+    <ul>
+        <li>上周任务回顾: 提取上周（周一至周日）的任务</li>
+        <li>支持筛选: 全部状态、已完成、延期</li>
+        <li>重点关注延期任务（需讨论延期原因和解决方案）</li>
+        <li>建议选择15-20条重点任务</li>
+    </ul>
+
+    <h4>3.1.3 商机选择界面</h4>
+
+    <p>从商机管理模块中选择重点商机：</p>
+    <ul>
+        <li>按金额排序（优先选择大金额商机）</li>
+        <li>按阶段筛选（关注关键阶段的商机）</li>
+        <li>标注商机状态: 进展顺利 / 存在风险 / 长期未跟进</li>
+        <li>建议选择3-5个重点商机</li>
+    </ul>
+
+    <h4>3.1.4 问题选择界面</h4>
+
+    <p>从问题专栏选择待解决问题：</p>
+    <ul>
+        <li>按优先级排序（紧急问题优先）</li>
+        <li>筛选状态: 待解决 / 升级至例会</li>
+        <li>显示问题提交人、指定解决人、提交时间</li>
+        <li>建议选择5-8个问题</li>
+    </ul>
+
+    <h4>3.1.5 例会状态流转</h4>
+
+    <table>
+        <thead>
+            <tr>
+                <th>状态</th>
+                <th>触发操作</th>
+                <th>说明</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>待召开</td>
+                <td>创建例会</td>
+                <td>会议已创建，等待开始</td>
+            </tr>
+            <tr>
+                <td>进行中</td>
+                <td>点击"开始会议"</td>
+                <td>会议正在召开</td>
+            </tr>
+            <tr>
+                <td>已结束</td>
+                <td>点击"结束会议"</td>
+                <td>会议结束，自动生成纪要</td>
+            </tr>
+            <tr>
+                <td>已取消</td>
+                <td>点击"取消会议"</td>
+                <td>会议取消</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <hr>
+
+    <h3>3.2 例会纪要 (Meeting Minutes)</h3>
+
+    <p><strong>功能定位</strong>: 会议产出的<strong>正式文档</strong>，记录会议讨论内容、决议事项、待办任务，支持查询、编辑、审核、导出。</p>
+
+    <h4>3.2.1 自动生成纪要</h4>
+
+    <p><strong>触发时机</strong>: 点击"结束会议"按钮</p>
+
+    <div class="success">
+        <p><strong>自动生成逻辑：</strong></p>
+        <ol>
+            <li>从会议议程中提取会议信息（时间、地点、参会人）</li>
+            <li>从任务管理提取上周任务（已完成、延期）</li>
+            <li>从任务管理提取下周计划任务</li>
+            <li>从商机管理提取选定的重点商机</li>
+            <li>从项目管理提取选定的重点项目</li>
+            <li>从问题专栏提取选定的待解决问题</li>
+            <li>生成纪要草稿（待主持人编辑补充）</li>
+        </ol>
+    </div>
+
+    <h4>3.2.2 纪要内容结构</h4>
+
+    <p><strong>纪要包含以下章节：</strong></p>
+    <ol>
+        <li><strong>会议概况</strong>: 时间、地点、主持人、参会人员</li>
+        <li><strong>季度目标回顾</strong>（月例会）: 目标完成进度、偏差分析</li>
+        <li><strong>任务回顾</strong>: 已完成任务、延期任务（原因和解决方案）</li>
+        <li><strong>工作计划</strong>: 下周/月计划任务、新增任务</li>
+        <li><strong>商机分析</strong>: 重点商机讨论要点、行动事项</li>
+        <li><strong>项目分析</strong>: 重点项目进度、风险、行动事项</li>
+        <li><strong>问题解决</strong>: 已解决问题、升级问题</li>
+        <li><strong>决议事项</strong>: 会议决定的行动事项、负责人、期限</li>
+    </ol>
+
+    <h4>3.2.3 纪要审核流程</h4>
+
+    <pre>主持人编辑纪要（草稿）
+    ↓
+提交审核
+    ↓
+部门经理审核（团队级例会）/ 总经理审核（公司级例会）
+    ├─ 通过 → 发布纪要
+    └─ 驳回 → 退回修改
+    ↓
+发布纪要
+    ↓
+通知参会人和抄送人员</pre>
+
+    <h4>3.2.4 纪要导出</h4>
+
+    <p><strong>支持导出格式：</strong></p>
+    <ul>
+        <li><strong>Word格式</strong>: 正式会议纪要格式，带签字栏</li>
+        <li><strong>PDF格式</strong>: 归档和分发</li>
+    </ul>
+
+    <hr>
+
+    <h3>3.3 问题专栏 (Issue Board)</h3>
+
+    <p><strong>功能定位</strong>: <strong>全员问题反馈和解决平台</strong>，任何人都可以提交工作中遇到的问题，通过指定解决人或升级到例会的方式快速解决。</p>
+
+    <h4>3.3.1 问题提交</h4>
+
+    <p><strong>提交表单字段：</strong></p>
+    <ul>
+        <li><strong>问题标题</strong>（必填）: 简明扼要</li>
+        <li><strong>问题分类</strong>: 技术问题、流程问题、资源问题、协作问题、其他</li>
+        <li><strong>优先级</strong>: 紧急、重要、一般、低</li>
+        <li><strong>关联业务</strong>（可选）: 商机、项目、任务</li>
+        <li><strong>问题描述</strong>（必填）: 详细描述背景、现状、影响</li>
+        <li><strong>指定解决人</strong>（可选）: 如果知道谁能解决</li>
+        <li><strong>期望解决日期</strong>（可选）</li>
+        <li><strong>附件</strong>（可选）</li>
+    </ul>
+
+    <h4>3.3.2 问题看板视图</h4>
+
+    <p><strong>看板列：</strong></p>
+    <table>
+        <thead>
+            <tr>
+                <th>状态列</th>
+                <th>说明</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>待解决</td>
+                <td>问题已提交，等待处理</td>
+            </tr>
+            <tr>
+                <td>处理中</td>
+                <td>解决人正在处理</td>
+            </tr>
+            <tr>
+                <td>已解决</td>
+                <td>问题已解决</td>
+            </tr>
+            <tr>
+                <td>升级至例会</td>
+                <td>无法直接解决，升级到例会讨论</td>
+            </tr>
+            <tr>
+                <td>已关闭</td>
+                <td>问题关闭（不再需要解决）</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h4>3.3.3 问题升级到例会</h4>
+
+    <p><strong>升级条件：</strong></p>
+    <ul>
+        <li>问题复杂，需要多人讨论</li>
+        <li>涉及跨部门协作</li>
+        <li>超出个人权限范围</li>
+        <li>长时间无法解决</li>
+    </ul>
+
+    <p><strong>升级流程：</strong></p>
+    <pre>解决人判断无法直接解决
+    ↓
+点击"升级到例会"
+    ↓
+选择例会（待召开的例会）
+    ↓
+填写升级原因
+    ↓
+确认升级
+    ↓
+问题自动添加到例会议程
+    ↓
+例会讨论 → 确定解决方案
+    ↓
+会后更新问题状态</pre>
+
+    <hr>
+
+    <h2>4. 数据模型</h2>
+
+    <h3>4.1 集合列表</h3>
+
+    <table>
+        <thead>
+            <tr>
+                <th>集合名称</th>
+                <th>用途</th>
+                <th>关键字段</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>meetings</td>
+                <td>例会信息</td>
+                <td>meetingType, meetingLevel, status, agenda</td>
+            </tr>
+            <tr>
+                <td>meeting_minutes</td>
+                <td>会议纪要</td>
+                <td>meetingId, content, status</td>
+            </tr>
+            <tr>
+                <td>issues</td>
+                <td>问题专栏</td>
+                <td>title, priority, status, assignee, escalatedToMeeting</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h3>4.2 集合关联关系</h3>
+
+    <pre>meetings (例会)
+    ├── 1:1 → meeting_minutes (纪要)
+    ├── N:N → tasks (任务)
+    ├── N:N → opportunities (商机)
+    ├── N:N → projects (项目)
+    ├── N:N → quarterly_goals (季度目标)
+    ├── N:N → quarterly_measures (季度措施)
+    └── N:N → issues (问题)
+
+meeting_minutes (纪要)
+    ├── N:1 → meetings (例会)
+    └── N:N → tasks (决议事项关联的任务)
+
+issues (问题)
+    ├── N:1 → users (提交人)
+    ├── N:1 → users (解决人)
+    ├── N:1 → meetings (升级到的例会)
+    └── N:1 → opportunities/projects/tasks (关联业务)</pre>
+
+    <hr>
+
+    <h2>5. 交互设计</h2>
+
+    <h3>5.1 操作流程</h3>
+
+    <h4>新建例会完整流程</h4>
+    <pre>新建例会 (点击按钮)
+    ↓
+第一步: 基本信息 (类型、级别、时间、地点)
+    ↓
+第二步: 参会人员 (主持人、必须参加、可选参加)
+    ↓
+第三步: 会议内容配置 (勾选议程模块)
+    ↓
+    ├─ 选择季度目标/措施
+    ├─ 选择上周/月任务
+    ├─ 选择下周/月计划任务
+    ├─ 选择重点商机
+    ├─ 选择重点项目
+    └─ 选择待解决问题
+    ↓
+第四步: 内容确认 (预览会议信息和内容)
+    ↓
+创建成功 → 发送通知给参会人</pre>
+
+    <h4>例会召开流程</h4>
+    <pre>例会列表 → 点击"开始会议"
+    ↓
+状态变为"进行中"
+    ↓
+按议程逐项讨论
+    ├─ 记录讨论要点
+    ├─ 记录决议事项
+    └─ 记录问题解决方案
+    ↓
+点击"结束会议"
+    ↓
+自动生成会议纪要 (草稿状态)
+    ↓
+编辑纪要 → 提交审核 → 发布</pre>
+
+    <h3>5.2 消息通知</h3>
+
+    <p><strong>例会相关通知：</strong></p>
+    <ul>
+        <li>新建例会 → 通知参会人</li>
+        <li>例会开始前1小时 → 提醒参会人</li>
+        <li>例会结束 → 通知参会人查看纪要</li>
+        <li>纪要发布 → 通知抄送人员</li>
+    </ul>
+
+    <p><strong>问题相关通知：</strong></p>
+    <ul>
+        <li>问题被指定 → 通知解决人</li>
+        <li>问题升级到例会 → 通知例会主持人</li>
+        <li>问题解决 → 通知提交人</li>
+    </ul>
+
+    <hr>
+
+    <h2>6. 权限控制</h2>
+
+    <h3>6.1 角色权限矩阵</h3>
+
+    <table>
+        <thead>
+            <tr>
+                <th>角色</th>
+                <th>例会召开</th>
+                <th>例会纪要</th>
+                <th>问题专栏</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>系统管理员</strong></td>
+                <td>全部</td>
+                <td>全部</td>
+                <td>全部</td>
+            </tr>
+            <tr>
+                <td><strong>总经理</strong></td>
+                <td>创建公司级+查看全部</td>
+                <td>审核+编辑+查看全部</td>
+                <td>查看全部+处理</td>
+            </tr>
+            <tr>
+                <td><strong>部门经理</strong></td>
+                <td>创建团队级+查看本团队</td>
+                <td>编辑本团队+查看全部</td>
+                <td>查看全部+处理</td>
+            </tr>
+            <tr>
+                <td><strong>员工</strong></td>
+                <td>查看参与的例会</td>
+                <td>查看参与的纪要</td>
+                <td>提交+查看+处理指定给自己的</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <hr>
+
+    <h2>7. 业务流程</h2>
+
+    <h3>7.1 周例会流程</h3>
+
+    <pre>每周固定时间（如周一下午）
+    ↓
+会前准备（提前1天）
+    ├─ 创建例会
+    ├─ 选择上周任务（自动提取上周任务）
+    ├─ 选择下周计划任务
+    ├─ 选择重点商机/项目
+    └─ 选择待解决问题
+    ↓
+发送会议通知
+    ↓
+会议召开
+    ├─ 上周任务回顾（重点关注延期任务）
+    ├─ 下周工作计划（明确任务和负责人）
+    ├─ 重点商机分析（跟进策略）
+    ├─ 重点项目分析（进度和风险）
+    └─ 问题解决（集中解决问题）
+    ↓
+会议结束 → 自动生成纪要
+    ↓
+主持人编辑纪要
+    ↓
+提交审核 → 部门经理审核
+    ↓
+发布纪要 → 通知相关人员
+    ↓
+执行决议事项（纳入任务管理）</pre>
+
+    <h3>7.2 月度例会流程</h3>
+
+    <pre>每月最后一周（如月底周五）
+    ↓
+会前准备（提前3天）
+    ├─ 创建例会
+    ├─ 回顾季度目标和措施
+    ├─ 选择本月任务（团队级+个人级）
+    ├─ 选择下月计划任务
+    ├─ 选择重点商机/项目（金额大、周期长）
+    └─ 选择重要问题（升级问题）
+    ↓
+发送会议通知（提前2天）
+    ↓
+会议召开（时间较长，2-3小时）
+    ├─ 季度目标回顾（进度和偏差分析）
+    ├─ 本月任务回顾（整体完成情况）
+    ├─ 下月工作计划（月度重点工作）
+    ├─ 重点商机分析（大客户、大订单）
+    ├─ 重点项目分析（关键项目）
+    └─ 重大问题解决（跨部门问题）
+    ↓
+会议结束 → 自动生成纪要
+    ↓
+主持人编辑纪要
+    ↓
+提交审核 → 总经理审核
+    ↓
+发布纪要 → 全员通知
+    ↓
+执行决议事项 → 跨部门协作</pre>
+
+    <h3>7.3 问题升级流程</h3>
+
+    <pre>员工提交问题
+    ↓
+指定解决人
+    ↓
+解决人尝试解决
+    ├─ 成功 → 更新状态为"已解决"
+    └─ 失败/超出权限
+        ↓
+        升级到例会
+        ↓
+        例会讨论
+            ├─ 分析原因
+            ├─ 制定方案
+            └─ 明确负责人和期限
+        ↓
+        纪要记录决议
+        ↓
+        会后执行
+        ↓
+        更新问题状态</pre>
+
+    <hr>
+
+    <h2>8. 集成方案</h2>
+
+    <h3>8.1 与目标管理集成</h3>
+
+    <pre>目标管理 (季度目标和措施)
+    ↓ 提供数据
+例会管理 (季度目标回顾)
+    ↓ 驱动
+任务管理 (季度措施关联的团队任务)</pre>
+
+    <p><strong>集成点</strong>:</p>
+    <ul>
+        <li>月例会自动提取当前季度目标和措施</li>
+        <li>显示目标完成进度和偏差</li>
+        <li>支持在例会上调整措施和任务</li>
+    </ul>
+
+    <h3>8.2 与任务管理集成</h3>
+
+    <pre>任务管理 (上周/月任务)
+    ↓ 提供数据
+例会管理 (任务回顾)
+    ↓ 驱动
+任务管理 (下周/月计划任务)</pre>
+
+    <p><strong>集成点</strong>:</p>
+    <ul>
+        <li>自动提取指定周期的任务（按时间筛选）</li>
+        <li>支持在例会上标记延期任务的原因</li>
+        <li>会后自动创建下周/月计划任务</li>
+    </ul>
+
+    <h3>8.3 与商机管理集成</h3>
+
+    <pre>商机管理 (重点商机)
+    ↓ 提供数据
+例会管理 (商机分析)
+    ↓ 驱动
+商机管理 (跟进任务)</pre>
+
+    <p><strong>集成点</strong>:</p>
+    <ul>
+        <li>自动筛选重点商机（按金额、阶段、风险）</li>
+        <li>在例会上讨论商机跟进策略</li>
+        <li>会后创建商机跟进任务</li>
+    </ul>
+
+    <hr>
+
+    <h2>9. 实施计划</h2>
+
+    <h3>9.1 开发优先级</h3>
+
+    <table>
+        <thead>
+            <tr>
+                <th>优先级</th>
+                <th>子功能</th>
+                <th>核心功能点</th>
+                <th>预计工作量</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>P0</strong></td>
+                <td>问题专栏</td>
+                <td>问题提交、指定解决人、状态流转</td>
+                <td>2天</td>
+            </tr>
+            <tr>
+                <td><strong>P0</strong></td>
+                <td>例会召开(基础)</td>
+                <td>新建例会、选择任务、会议状态</td>
+                <td>3天</td>
+            </tr>
+            <tr>
+                <td><strong>P1</strong></td>
+                <td>例会召开(完整)</td>
+                <td>选择商机/项目/目标、会议详情</td>
+                <td>2天</td>
+            </tr>
+            <tr>
+                <td><strong>P1</strong></td>
+                <td>例会纪要(自动生成)</td>
+                <td>自动生成纪要、编辑纪要</td>
+                <td>2.5天</td>
+            </tr>
+            <tr>
+                <td><strong>P2</strong></td>
+                <td>例会纪要(高级)</td>
+                <td>纪要审核、导出Word/PDF</td>
+                <td>1.5天</td>
+            </tr>
+            <tr>
+                <td><strong>P2</strong></td>
+                <td>问题升级</td>
+                <td>升级到例会、例会讨论问题</td>
+                <td>1天</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <p><strong>总计</strong>: 约12个工作日（不含测试和优化）</p>
+
+    <h3>9.2 迭代计划</h3>
+
+    <div class="success">
+        <p><strong>v1.0 MVP版本</strong>（核心功能）:</p>
+        <ul>
+            <li>✅ 问题专栏（提交、解决、状态）</li>
+            <li>✅ 例会召开（新建、任务选择、状态管理）</li>
+            <li>✅ 例会纪要（自动生成、编辑）</li>
+        </ul>
+    </div>
+
+    <div class="note">
+        <p><strong>v1.1 完整版</strong>（全功能）:</p>
+        <ul>
+            <li>✅ 商机/项目分析</li>
+            <li>✅ 季度目标回顾</li>
+            <li>✅ 纪要审核和导出</li>
+            <li>✅ 问题升级到例会</li>
+        </ul>
+    </div>
+
+    <div class="warning">
+        <p><strong>v1.2 增强版</strong>（智能化）:</p>
+        <ul>
+            <li>🔄 智能推荐重点商机/项目</li>
+            <li>🔄 自动识别延期任务原因</li>
+            <li>🔄 会议纪要AI总结</li>
+            <li>🔄 问题自动分类和优先级建议</li>
+        </ul>
+    </div>
+
+    <hr>
+
+    <h2>10. 成功指标</h2>
+
+    <h3>10.1 功能指标</h3>
+
+    <ul>
+        <li>✅ 3个子功能全部上线（例会召开、例会纪要、问题专栏）</li>
+        <li>✅ 支持周例会和月例会</li>
+        <li>✅ 纪要自动生成准确率>85%</li>
+        <li>✅ 问题解决及时率>80%</li>
+    </ul>
+
+    <h3>10.2 用户体验指标</h3>
+
+    <ul>
+        <li>📊 新建例会操作时间: <5分钟</li>
+        <li>📊 纪要生成速度: <10秒</li>
+        <li>📊 问题提交便捷性: <2分钟</li>
+        <li>📊 用户满意度: >4.0/5.0</li>
+    </ul>
+
+    <h3>10.3 业务价值指标</h3>
+
+    <table>
+        <thead>
+            <tr>
+                <th>指标</th>
+                <th>目标</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>任务完成率提升</td>
+                <td><strong>20%+</strong></td>
+            </tr>
+            <tr>
+                <td>延期任务减少</td>
+                <td><strong>30%+</strong></td>
+            </tr>
+            <tr>
+                <td>问题解决速度提升</td>
+                <td><strong>50%+</strong></td>
+            </tr>
+            <tr>
+                <td>跨部门协作效率</td>
+                <td><strong>40%+</strong></td>
+            </tr>
+            <tr>
+                <td>目标达成率提升</td>
+                <td><strong>25%+</strong></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <hr>
+
+    <div class="metadata">
+        <h3>文档版本历史</h3>
+        <p>v1.0.0 (2025-12-22): 初始版本，完整PRD设计</p>
+    </div>
+
+    <script>
+        // 打印功能
+        function printDocument() {
+            window.print();
+        }
+    </script>
+</body>
+</html>

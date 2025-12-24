@@ -1,23 +1,7 @@
-<!--pages/tasks/tasks.wxml-->
 <view class="container">
-  <view class="page-title">我的任务</view>
-  
-  <view class="task-list">
-    <view class="task-item" wx:for="{{tasks}}" wx:key="_id">
-      <view class="task-content">
-        <view class="task-name">{{item.name}}</view>
-        <view class="task-meta">
-          <text class="task-date">截止：{{item.endDate}}</text>
-          <text class="task-progress">进度：{{item.progress}}%</text>
-        </view>
-      </view>
-      <view class="task-status task-status-{{item.status}}">
-        {{item.statusText}}
-      </view>
-    </view>
-    
-    <view wx:if="{{tasks.length === 0}}" class="empty-state">
-      <text class="empty-text">暂无任务</text>
-    </view>
+  <view class="pending-wrapper">
+    <view class="icon">✅</view>
+    <text class="title">任务管理</text>
+    <text class="subtitle">功能开发中，敬请期待...</text>
   </view>
 </view>

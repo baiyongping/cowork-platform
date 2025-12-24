@@ -1,0 +1,86 @@
+/* miniprogram/pages/scan/scan.wxss */
+.container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 40px 30px;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 80px;
+}
+
+.title {
+  display: block;
+  font-size: 36px;
+  font-weight: bold;
+  color: white;
+  margin-bottom: 16px;
+}
+
+.desc {
+  display: block;
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.scan-btn-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 60px;
+}
+
+.scan-btn {
+  width: 280px;
+  height: 280px;
+  background: white;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+.scan-icon {
+  width: 120px;
+  height: 120px;
+  margin-bottom: 20px;
+}
+
+.scan-text {
+  font-size: 18px;
+  color: #667eea;
+  font-weight: 600;
+}
+
+.tips {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 16px;
+  padding: 24px;
+  backdrop-filter: blur(10px);
+}
+
+.tip-item {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.tip-item:last-child {
+  margin-bottom: 0;
+}
+
+.tip-dot {
+  color: #fbbf24;
+  font-size: 12px;
+  margin-right: 8px;
+  margin-top: 4px;
+}
+
+.tip-text {
+  flex: 1;
+  font-size: 14px;
+  color: white;
+  line-height: 24px;
+}

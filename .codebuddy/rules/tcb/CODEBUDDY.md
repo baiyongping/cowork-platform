@@ -7,6 +7,52 @@ inclusion: always
 
 # CloudBase AI Development Rules Guide
 
+## 🗂️ Rule File Path Resolution Strategy
+
+**CRITICAL: All rule file paths in this document follow a smart resolution strategy to support multiple AI editors.**
+
+### Path Resolution Rules
+
+When this document references a rule file, try locations in this order:
+
+1. **CodeBuddy Path**: `.codebuddy/rules/tcb/rules/{rule-name}/rule.md`
+2. **Universal Path**: `rules/{rule-name}/rule.md`
+3. **Fallback Search**: Use `search_file` with pattern `*{rule-name}*rule.md`
+
+### Rule Name Mapping
+
+| Rule Shorthand | Full Rule Name |
+|----------------|----------------|
+| `auth-tool` | Authentication Tool Configuration |
+| `auth-web` | Web Authentication |
+| `auth-wechat` | WeChat Mini Program Authentication |
+| `auth-nodejs` | Node.js Authentication |
+| `auth-http-api` | HTTP API Authentication |
+| `web-development` | Web Platform Development |
+| `miniprogram-development` | Mini Program Platform Development |
+| `cloudrun-development` | CloudRun Backend Development |
+| `http-api` | HTTP API Usage |
+| `relational-database-tool` | MySQL Database Tool Operations |
+| `relational-database-web` | MySQL Web SDK |
+| `no-sql-web-sdk` | NoSQL Web SDK |
+| `no-sql-wx-mp-sdk` | NoSQL WeChat Mini Program SDK |
+| `cloudbase-platform` | CloudBase Platform Knowledge |
+| `cloud-storage-web` | Cloud Storage Web SDK |
+| `ui-design` | UI Design Guidelines |
+| `spec-workflow` | Software Engineering Workflow |
+| `data-model-creation` | Data Model Creation |
+
+### Usage Example
+
+When you see "Read `{auth-web}` rule file" in this document:
+- Try: `.codebuddy/rules/tcb/rules/auth-web/rule.md` first
+- Then: `rules/auth-web/rule.md`
+- Finally: Search with pattern `*auth-web*rule.md`
+
+**Note**: Files already using `rules/` prefix (like `rules/ui-design/rule.md`) work universally across all editors and don't need path resolution.
+
+---
+
 ## Quick Reference for AI
 
 **⚠️ CRITICAL: Read this section first based on your project type**
@@ -16,9 +62,10 @@ inclusion: always
 2. **⚠️ Template Download (MANDATORY for New Projects)**: **MUST call `downloadTemplate` tool FIRST when starting a new project** - Do NOT create files manually. Use `downloadTemplate` with `template="react"` or `template="vue"` to get the complete project structure. Only proceed with manual file creation if template download fails or user explicitly requests it.
 3. **⚠️ UI Design (CRITICAL)**: **MUST read `rules/ui-design/rule.md` FIRST before generating any page, interface, component, or style** - This is NOT optional. You MUST explicitly read this file and output the design specification before writing any UI code.
 4. **Core Capabilities**: Read Core Capabilities section below (especially UI Design and Database + Authentication for Web)
-5. **Platform Rules**: Read `rules/web-development/rule.md` for platform-specific rules (SDK integration, static hosting, build configuration)
-6. **Authentication**: Read `rules/auth-web/rule.md` - **MUST use Web SDK built-in authentication**
-7. **Database**: 
+5. **⚠️ Authentication Configuration Check (MANDATORY)**: **When user mentions ANY login/authentication requirement, MUST FIRST read `{auth-tool}` rule file (using path resolution strategy) and check/configure authentication providers BEFORE implementing frontend code**
+6. **Platform Rules**: Read `{web-development}` rule file (using path resolution strategy) for platform-specific rules (SDK integration, static hosting, build configuration)
+7. **Authentication**: Read `{auth-web}` rule file (using path resolution strategy) and `{auth-tool}` - **MUST use Web SDK built-in authentication**
+8. **Database**: 
    - NoSQL: `rules/no-sql-web-sdk/rule.md`
    - MySQL: `rules/relational-database-web/rule.md` + `rules/relational-database-tool/rule.md`
 
@@ -38,8 +85,9 @@ inclusion: always
 2. **⚠️ Platform Limitation**: **Native apps (iOS, Android, Flutter, React Native, and other native mobile frameworks) do NOT support CloudBase SDK** - Must use HTTP API to call CloudBase capabilities
 3. **⚠️ UI Design (CRITICAL)**: **MUST read `rules/ui-design/rule.md` FIRST before generating any page, interface, component, or style** - This is NOT optional. You MUST explicitly read this file and output the design specification before writing any UI code.
 4. **Required Rules**: 
-   - **MUST read** `rules/http-api/rule.md` - HTTP API usage for all CloudBase operations
-   - **MUST read** `rules/relational-database-tool/rule.md` - MySQL database operations (via tools)
+   - **MUST read** `{http-api}` rule file (using path resolution strategy) - HTTP API usage for all CloudBase operations
+   - **MUST read** `{relational-database-tool}` rule file (using path resolution strategy) - MySQL database operations (via tools)
+   - **MUST read** `{auth-tool}` rule file (using path resolution strategy) - Authentication configuration
 5. **Optional Rules**:
    - `rules/cloudbase-platform/rule.md` - Universal CloudBase platform knowledge
    - `rules/ui-design/rule.md` - UI design guidelines (if UI is involved)
@@ -50,6 +98,41 @@ inclusion: always
 ---
 
 ## Core Capabilities (Must Be Done Well)
+
+### 0. ⚠️ Configuration-First Principle (NEW - HIGHEST PRIORITY)
+
+**🚨 MANDATORY: Always check and configure CloudBase services BEFORE implementing code**
+
+**Authentication Trigger Words Detection:**
+
+When user mentions ANY of these words, immediately read the auth-tool rule file:
+
+- Phone login / SMS login / Mobile login
+- Email login
+- WeChat login / Wechat auth
+- Username password login / User/pass login
+- Anonymous login / Guest login
+- Login / Register / Auth / Authentication / Sign in / Sign up
+
+**Rule File Location Strategy:**
+
+When you see `{rule-name}` notation in this document, apply the path resolution strategy from the top of this file:
+1. Try `.codebuddy/rules/tcb/rules/{rule-name}/rule.md` first (CodeBuddy)
+2. Then try `rules/{rule-name}/rule.md` (Other editors)
+3. Use `search_file` with pattern `*{rule-name}*rule.md` if both fail
+
+**Specific example for auth-tool:**
+1. `.codebuddy/rules/tcb/rules/auth-tool/rule.md` (CodeBuddy)
+2. `rules/auth-tool/rule.md` (Other editors: Cursor, WindSurf, etc.)
+3. Use `search_file` with pattern `*auth-tool*rule.md` if both fail
+
+**Execution Sequence:**
+
+1. **FIRST**: Read `{auth-tool}` rule file using the path resolution strategy
+2. **SECOND**: Use `callCloudApi` to check current authentication configuration
+3. **THIRD**: Enable required authentication methods (if not configured)
+4. **FOURTH**: Verify configuration is effective
+5. **FIFTH**: Implement frontend authentication code
 
 As the most important part of application development, the following four core capabilities must be done well, without needing to read different rules for different platforms:
 
@@ -140,6 +223,7 @@ Identify current development scenario type, mainly for understanding project typ
 - `rules/no-sql-web-sdk/rule.md` - NoSQL database operations
 - `rules/relational-database-web/rule.md` - MySQL database operations (Web)
 - `rules/relational-database-tool/rule.md` - MySQL database management (tools)
+- `rules/cloud-storage-web/rule.md` - Cloud storage operations (upload, download, file management)
 - `rules/cloudbase-platform/rule.md` - Universal CloudBase platform knowledge
 
 **Mini Program Projects - Required Rule Files:**
@@ -183,7 +267,13 @@ Before starting work, suggest confirming with user:
    - **Web Projects**: **MUST use CloudBase Web SDK built-in authentication** (e.g., `auth.toDefaultLoginPage()`), refer to `rules/auth-web/rule.md`
    - **Mini Program Projects**: **Naturally login-free**, get `wxContext.OPENID` in cloud functions, refer to `rules/auth-wechat/rule.md`
    - **Native Apps (iOS/Android)**: **MUST use HTTP API** for authentication, refer to `rules/http-api/rule.md` and Authentication API swagger
-12. **⚠️ Native App Development Rules**: When developing native mobile applications (iOS, Android, Flutter, React Native, and other native mobile frameworks):
+12. **⚠️ Authentication Configuration Mandatory Check**: When user mentions any authentication-related requirements:
+   - **MUST FIRST read** `{auth-tool}` rule file using the path resolution strategy at the top of this document
+   - **MUST FIRST check** current authentication configuration status
+   - **MUST FIRST enable** required authentication methods
+   - **MUST verify** configuration is effective
+   - **ONLY THEN implement** frontend authentication code
+13. **⚠️ Native App Development Rules**: When developing native mobile applications (iOS, Android, Flutter, React Native, and other native mobile frameworks):
    - **SDK Not Supported**: CloudBase SDK is NOT available for native apps, MUST use HTTP API
    - **Database Limitation**: Only MySQL database is supported via HTTP API
    - **MySQL Database Setup**: If users need MySQL database, MUST prompt them to enable it in console first at: [CloudBase Console - MySQL Database](https://tcb.cloud.tencent.com/dev?envId=${envId}#/db/mysql/table/default/) (replace `${envId}` with actual environment ID)
@@ -270,6 +360,9 @@ For example, many interfaces require a confirm parameter, which is a boolean typ
 - **NoSQL (Mini Program)**: `rules/no-sql-wx-mp-sdk/rule.md`
 - **MySQL (Web)**: `rules/relational-database-web/rule.md`
 - **MySQL (Tool)**: `rules/relational-database-tool/rule.md`
+
+### Storage Skills
+- **Cloud Storage (Web)**: `rules/cloud-storage-web/rule.md` - Upload, download, temporary URLs, file management using Web SDK
 
 ### 🎨 ⚠️ UI Design Skill (CRITICAL - Read FIRST)
 - **`rules/ui-design/rule.md`** - **MANDATORY - HIGHEST PRIORITY**

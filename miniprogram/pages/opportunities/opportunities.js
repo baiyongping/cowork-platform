@@ -1,39 +1,24 @@
-// pages/opportunities/opportunities.js
 Page({
-  data: {
-    opportunities: [],
-    loading: true
-  },
-
+  data: {},
+  
   onLoad() {
-    this.loadOpportunities();
+    this.checkAuth();
   },
-
-  async loadOpportunities() {
-    wx.showLoading({ title: '加载中...' });
-    
-    try {
-      const res = await wx.cloud.callFunction({
-        name: 'getOpportunities'
+  
+  onShow() {
+    if (typeof this.getTabBar === 'function' && this.getTabBar()) {
+      this.getTabBar().setData({
+        selected: 0
       });
-
-      if (res.result.success) {
-        this.setData({
-          opportunities: res.result.opportunities,
-          loading: false
-        });
-      }
-    } catch (err) {
-      console.error('加载商机失败:', err);
-      wx.showToast({ title: '加载失败', icon: 'none' });
-    } finally {
-      wx.hideLoading();
     }
   },
-
-  onPullDownRefresh() {
-    this.loadOpportunities().then(() => {
-      wx.stopPullDownRefresh();
-    });
+  
+  checkAuth() {
+    const app = getApp();
+    if (!app.isLoggedIn()) {
+      wx.reLaunch({
+        url: '/pages/register/register'
+      });
+    }
   }
 });

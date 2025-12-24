@@ -1,0 +1,7 @@
+<view class="container">
+  <view class="pending-wrapper">
+    <view class="icon">🚧</view>
+    <text class="title">会议管理</text>
+    <text class="subtitle">功能开发中，敬请期待...</text>
+  </view>
+</view>

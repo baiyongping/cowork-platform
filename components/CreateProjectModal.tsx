@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { X, Save, UserPlus } from 'lucide-react';
-import { db } from '../lib/cloudbase';
+import { app, db } from '../lib/cloudbase';
 import CollaboratorSelector from './CollaboratorSelector';
 import type { ProjectStatus, ProjectType, ProjectPriority, ProjectPhase } from '../types/project';
+import { UserAvatar } from './UserAvatar';
 
 interface CreateProjectModalProps {
   onClose: () => void;
@@ -168,6 +169,24 @@ export default function CreateProjectModal({ onClose, onSuccess }: CreateProject
         负责人ID: userId,
         负责人姓名: currentUser.name
       });
+
+      // 发送消息通知给负责人
+      if (projectData.owner && projectData.owner !== currentUser._id) {
+        try {
+          await app.callFunction({
+            name: 'project-message',
+            data: {
+              action: 'create',
+              projectId: result.id,
+              projectName: formData.name,
+              receiver: projectData.owner
+            }
+          });
+          console.log('✅ [项目创建] 消息通知已发送');
+        } catch (error) {
+          console.error('❌ [项目创建] 消息通知失败:', error);
+        }
+      }
 
       alert('项目创建成功！');
       onSuccess();
@@ -341,9 +360,7 @@ export default function CreateProjectModal({ onClose, onSuccess }: CreateProject
                           key={user._id}
                           className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 rounded-full text-sm"
                         >
-                          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-xs font-medium">
-                            {user.name.charAt(0)}
-                          </div>
+                          <UserAvatar user={user} size="xs" />
                           <span className="text-gray-900">{user.name}</span>
                           <button
                             type="button"

@@ -1,0 +1,9 @@
+{
+  "name": "message-count",
+  "version": "1.0.0",
+  "description": "统计未读消息数量",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.1"
+  }
+}

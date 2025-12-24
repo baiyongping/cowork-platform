@@ -1,10 +1,22 @@
 {
   "pages": [
-    "pages/index/index",
-    "pages/tasks/tasks",
     "pages/opportunities/opportunities",
+    "pages/tasks/tasks",
     "pages/projects/projects",
-    "pages/profile/profile"
+    "pages/meetings/meetings",
+    "pages/profile/profile",
+    "pages/register/register",
+    "pages/performance/performance",
+    "pages/achievement/achievement",
+    "pages/team/team",
+    "pages/pending/pending",
+    "pages/index/index",
+    "pages/bind/bind",
+    "pages/scan/scan",
+    "pages/auth/welcome/welcome",
+    "pages/auth/profile/profile",
+    "pages/auth/success/success",
+    "pages/login-test/login-test"
   ],
   "window": {
     "backgroundTextStyle": "light",
@@ -13,34 +25,31 @@
     "navigationBarTextStyle": "white"
   },
   "tabBar": {
+    "custom": true,
     "color": "#7A7E83",
     "selectedColor": "#FF6B35",
     "backgroundColor": "#FFFFFF",
     "borderStyle": "black",
     "list": [
       {
-        "pagePath": "pages/index/index",
-        "text": "工作台",
-        "iconPath": "images/tab-home.png",
-        "selectedIconPath": "images/tab-home-active.png"
+        "pagePath": "pages/opportunities/opportunities",
+        "text": "商机"
+      },
+      {
+        "pagePath": "pages/projects/projects",
+        "text": "项目"
       },
       {
         "pagePath": "pages/tasks/tasks",
-        "text": "任务",
-        "iconPath": "images/tab-task.png",
-        "selectedIconPath": "images/tab-task-active.png"
+        "text": "任务"
       },
       {
-        "pagePath": "pages/opportunities/opportunities",
-        "text": "商机",
-        "iconPath": "images/tab-opportunity.png",
-        "selectedIconPath": "images/tab-opportunity-active.png"
+        "pagePath": "pages/meetings/meetings",
+        "text": "会议"
       },
       {
         "pagePath": "pages/profile/profile",
-        "text": "我的",
-        "iconPath": "images/tab-profile.png",
-        "selectedIconPath": "images/tab-profile-active.png"
+        "text": "我的"
       }
     ]
   },

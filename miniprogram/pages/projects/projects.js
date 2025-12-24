@@ -1,33 +1,24 @@
-// pages/projects/projects.js
 Page({
-  data: {
-    projects: [],
-    loading: true
-  },
-
+  data: {},
+  
   onLoad() {
-    this.loadProjects();
+    this.checkAuth();
   },
-
-  async loadProjects() {
-    wx.showLoading({ title: '加载中...' });
-    
-    try {
-      const res = await wx.cloud.callFunction({
-        name: 'getProjects'
+  
+  onShow() {
+    if (typeof this.getTabBar === 'function' && this.getTabBar()) {
+      this.getTabBar().setData({
+        selected: 1
       });
-
-      if (res.result.success) {
-        this.setData({
-          projects: res.result.projects,
-          loading: false
-        });
-      }
-    } catch (err) {
-      console.error('加载项目失败:', err);
-      wx.showToast({ title: '加载失败', icon: 'none' });
-    } finally {
-      wx.hideLoading();
+    }
+  },
+  
+  checkAuth() {
+    const app = getApp();
+    if (!app.isLoggedIn()) {
+      wx.reLaunch({
+        url: '/pages/register/register'
+      });
     }
   }
 });

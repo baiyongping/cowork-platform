@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Search, Check, Users } from 'lucide-react';
+import { UserAvatar } from './UserAvatar';
 
 interface User {
   _id: string;
@@ -182,9 +183,7 @@ export default function CollaboratorSelector({
                     </div>
 
                     {/* 用户头像 */}
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-medium">
-                      {user.name.charAt(0)}
-                    </div>
+                    <UserAvatar user={user} size="md" />
 
                     {/* 用户信息 */}
                     <div className="flex-1 text-left">

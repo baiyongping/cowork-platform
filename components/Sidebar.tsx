@@ -1,20 +1,22 @@
 import { LayoutDashboard, CheckSquare, TrendingUp, FolderKanban, Target, Settings, LogOut, UserCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { db } from '../lib/cloudbase';
+import { app, db } from '../lib/cloudbase';
 import { usePermissionContext } from '../contexts/PermissionContext';
 import { APP_VERSION } from '../lib/version';
+import { useNotificationStore } from '../lib/notification-store';
 
 type PageType = 'dashboard' | 'tasks' | 'opportunities' | 'projects' | 'goals' | 'settings' | 'account';
 
 interface SidebarProps {
   currentPage: PageType;
-  onPageChange: (page: PageType) => void;
+  onPageChange: (page: PageType, itemId?: string) => void;  // 🔧 添加可选的 itemId 参数
   userRole: 'admin' | 'employee';
   currentUser: any;
   onLogout: () => void;
+  pendingUserCount?: number;
 }
 
-export function Sidebar({ currentPage, onPageChange, userRole, currentUser, onLogout }: SidebarProps) {
+export function Sidebar({ currentPage, onPageChange, userRole, currentUser, onLogout, pendingUserCount = 0 }: SidebarProps) {
   // 从数据库读取的功能模块名称
   const [moduleLabels, setModuleLabels] = useState<string[]>([
     '工作台', '任务管理', '商机管理', '项目管理', '目标管理', '个人信息'
@@ -23,6 +25,9 @@ export function Sidebar({ currentPage, onPageChange, userRole, currentUser, onLo
   // 从数据库读取的系统名称和Logo
   const [systemName, setSystemName] = useState('际华定制协同办公管理平台');
   const [companyLogo, setCompanyLogo] = useState<string>('/logo.png'); // 默认Logo
+
+  // 🔔 使用消息通知 store
+  const { unreadCount } = useNotificationStore();
 
   // ✅ v2.2.0: 使用权限上下文
   const { checkPermission } = usePermissionContext();
@@ -73,6 +78,8 @@ export function Sidebar({ currentPage, onPageChange, userRole, currentUser, onLo
     loadSystemSettings();
   }, [currentUser]);
 
+  // ❌ 移除本地的未读消息加载逻辑(已移至 App.tsx 统一管理)
+
   // 加载功能模块名称配置
   useEffect(() => {
     // ✅ 只在用户已登录时加载功能模块名称
@@ -119,13 +126,13 @@ export function Sidebar({ currentPage, onPageChange, userRole, currentUser, onLo
     { id: 'opportunities', label: moduleLabels[2], icon: TrendingUp, requiresPermission: true, module: 'opportunities' },
     { id: 'projects', label: moduleLabels[3], icon: FolderKanban, requiresPermission: true, module: 'projects' },
     { id: 'goals', label: moduleLabels[4], icon: Target, requiresPermission: true, module: 'goal' },
-    { id: 'account', label: moduleLabels[5], icon: UserCircle, requiresPermission: false },
+    // 已删除: 个人信息菜单项(功能转移到底部个人信息显示区域)
   ] as const;
 
   // ✅ v2.2.0: 基于权限过滤菜单
   const menuItems = [
     ...allMenuItems.filter(item => {
-      // 工作台和个人信息始终显示
+      // 工作台始终显示
       if (!item.requiresPermission) {
         return true;
       }
@@ -146,8 +153,9 @@ export function Sidebar({ currentPage, onPageChange, userRole, currentUser, onLo
   ];
 
   return (
-    <div className="w-64 bg-white border-r border-gray-200 flex flex-col">
-      <div className="p-6 border-b border-gray-200 relative pb-6">
+    <div className="w-64 bg-white border-r-2 border-gray-300 flex flex-col shadow-sm">
+      {/* Logo和系统名称区 */}
+      <div className="p-6 relative pb-8">
         <div className="mb-3 flex justify-center">
           <img 
             src={companyLogo} 
@@ -168,7 +176,8 @@ export function Sidebar({ currentPage, onPageChange, userRole, currentUser, onLo
         </div>
       </div>
 
-      <nav className="flex-1 p-4">
+      {/* 功能菜单区 - 移除分割线 */}
+      <nav className="flex-1 px-4 pb-4">
         <div className="space-y-1">
           {menuItems.map((item) => {
             const Icon = item.icon;
@@ -178,38 +187,72 @@ export function Sidebar({ currentPage, onPageChange, userRole, currentUser, onLo
               <button
                 key={item.id}
                 onClick={() => onPageChange(item.id as PageType)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors relative ${
                   isActive
                     ? 'bg-blue-50 text-blue-600'
                     : 'text-gray-700 hover:bg-gray-50'
                 }`}
               >
                 <Icon className="w-5 h-5" />
-                <span>{item.label}</span>
+                <span className="flex-1 text-left">{item.label}</span>
+                {item.id === 'settings' && pendingUserCount > 0 && (
+                  <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold text-white bg-red-500 rounded-full min-w-[20px]">
+                    {pendingUserCount > 9 ? '9+' : pendingUserCount}
+                  </span>
+                )}
               </button>
             );
           })}
         </div>
       </nav>
 
-      <div className="p-4 border-t border-gray-200">
-        <div className="flex items-center gap-3 px-4 py-3 mb-2">
-          <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white">
-            {currentUser?.name?.charAt(0) || '管'}
+      {/* 用户信息和退出区 - 移除分割线，使用背景色区分 */}
+      <div className="p-4 bg-gray-50 rounded-t-xl mx-2" style={{ marginBottom: '-24px' }}>
+        {/* 个人信息显示区域 - 可点击跳转到个人信息页面 */}
+        <button
+          onClick={() => onPageChange('account')}
+          className="w-full flex flex-col items-center justify-center px-4 py-4 mb-2 bg-white rounded-lg hover:bg-blue-100 transition-all group"
+        >
+          {/* 头像 - 居中显示 (带消息徽章) */}
+          <div className="relative mb-2">
+            {currentUser?.avatar ? (
+              <img 
+                src={currentUser.avatar} 
+                alt="用户头像"
+                className="w-12 h-12 rounded-full object-cover border-2 border-gray-200 group-hover:border-blue-400 transition-colors"
+              />
+            ) : (
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold text-lg border-2 border-gray-200 group-hover:border-blue-400 transition-colors">
+                {currentUser?.name?.charAt(0) || '管'}
+              </div>
+            )}
+            
+            {/* 🔔 消息徽章 - 头像右上角 */}
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-red-500 rounded-full shadow-md border-2 border-white">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
           </div>
-          <div>
-            <div className="text-sm text-gray-900">{currentUser?.name || '管理员'}</div>
-            <div className="text-xs text-gray-500">
-              {currentUser?.position || (userRole === 'admin' ? '系统管理员' : '员工')}
-            </div>
+          
+          {/* 姓名 - 头像下方居中 */}
+          <div className="text-sm font-semibold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
+            {currentUser?.name || '管理员'}
           </div>
-        </div>
+          
+          {/* 签名 - 姓名下方居中,最多2行,超出显示省略号 */}
+          <div className="text-xs text-gray-500 text-center line-clamp-2 w-full px-2">
+            {currentUser?.signature || currentUser?.position || (userRole === 'admin' ? '系统管理员' : '员工')}
+          </div>
+        </button>
+        
+        {/* 退出登录按钮 */}
         <button
           onClick={onLogout}
-          className="w-full flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
+          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-gray-700 bg-white hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
         >
           <LogOut className="w-4 h-4" />
-          <span className="text-sm">退出登录</span>
+          <span className="text-sm font-medium">退出登录</span>
         </button>
       </div>
     </div>

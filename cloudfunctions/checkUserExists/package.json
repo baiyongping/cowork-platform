@@ -1,0 +1,9 @@
+{
+  "name": "checkUserExists",
+  "version": "1.0.0",
+  "description": "检查用户是否已注册",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

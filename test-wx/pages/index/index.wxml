@@ -1,0 +1,20 @@
+<view class="container">
+  <view class="title">云环境测试</view>
+  
+  <view class="section">
+    <text class="label">当前环境ID：</text>
+    <text class="value">jihua-oa-dev-3goht9irae4d949f</text>
+  </view>
+  
+  <view class="section">
+    <text class="label">环境名称：</text>
+    <text class="value">jihua-oa-dev</text>
+  </view>
+  
+  <button type="primary" bindtap="testCloudFunction">测试云函数</button>
+  <button type="default" bindtap="testDatabase">测试数据库</button>
+  
+  <view class="result">
+    <text>{{result}}</text>
+  </view>
+</view>

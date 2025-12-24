@@ -1,24 +1,7 @@
-<!--pages/projects/projects.wxml-->
 <view class="container">
-  <view class="page-title">项目管理</view>
-  
-  <view class="project-list">
-    <view class="project-item" wx:for="{{projects}}" wx:key="_id">
-      <view class="project-name">{{item.name}}</view>
-      <view class="project-progress">
-        <view class="progress-bar">
-          <view class="progress-fill" style="width: {{item.progress}}%"></view>
-        </view>
-        <text class="progress-text">{{item.progress}}%</text>
-      </view>
-      <view class="project-meta">
-        <text class="project-owner">负责人:{{item.ownerName}}</text>
-        <text class="project-status">{{item.status}}</text>
-      </view>
-    </view>
-    
-    <view wx:if="{{projects.length === 0}}" class="empty-state">
-      <text class="empty-text">暂无项目</text>
-    </view>
+  <view class="pending-wrapper">
+    <view class="icon">📊</view>
+    <text class="title">项目管理</text>
+    <text class="subtitle">功能开发中，敬请期待...</text>
   </view>
 </view>

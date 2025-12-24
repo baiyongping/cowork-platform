@@ -1,0 +1,9 @@
+{
+  "name": "uploadAvatar",
+  "version": "1.0.0",
+  "description": "上传头像到云存储",
+  "main": "index.js",
+  "dependencies": {
+    "@cloudbase/node-sdk": "^2.4.0"
+  }
+}

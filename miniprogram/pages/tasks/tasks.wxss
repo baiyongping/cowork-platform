@@ -1,4 +1,38 @@
-/* pages/tasks/tasks.wxss */
+.container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 120rpx;
+}
+
+.pending-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 60rpx 40rpx;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 24rpx;
+  backdrop-filter: blur(10px);
+}
+
+.icon {
+  font-size: 120rpx;
+  margin-bottom: 32rpx;
+}
+
+.title {
+  font-size: 40rpx;
+  color: #ffffff;
+  font-weight: bold;
+  margin-bottom: 16rpx;
+}
+
+.subtitle {
+  font-size: 28rpx;
+  color: rgba(255, 255, 255, 0.8);
+}
 .container {
   min-height: 100vh;
   background: #F8F9FA;

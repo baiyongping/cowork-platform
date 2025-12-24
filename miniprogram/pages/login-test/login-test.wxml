@@ -1,0 +1,85 @@
+<view class="container">
+  <view class="header">
+    <text class="title">微信登录测试页面</text>
+    <text class="subtitle">测试用户登录和获取头像功能</text>
+  </view>
+
+  <!-- 当前状态显示 -->
+  <view class="status-card">
+    <view class="status-title">当前状态</view>
+    <view class="status-content">
+      <text>登录步骤: </text>
+      <text class="status-step">{{loginStep === 0 ? '未开始' : loginStep === 1 ? '获取code中' : loginStep === 2 ? '登录成功' : '获取用户信息'}}</text>
+    </view>
+    <view class="status-content" wx:if="{{openid}}">
+      <text>OpenID: </text>
+      <text class="openid">{{openid}}</text>
+    </view>
+    <view class="status-content" wx:if="{{code}}">
+      <text>Code: </text>
+      <text class="code">{{code}}</text>
+    </view>
+  </view>
+
+  <!-- 用户信息显示 -->
+  <view class="user-card" wx:if="{{hasUserInfo && userInfo}}">
+    <view class="user-title">用户信息</view>
+    <view class="user-info">
+      <image class="avatar" src="{{userInfo.avatarUrl}}" mode="aspectFill"></image>
+      <view class="user-details">
+        <text class="nickname">{{userInfo.nickName}}</text>
+        <text class="user-meta">性别: {{userInfo.gender === 1 ? '男' : userInfo.gender === 2 ? '女' : '未知'}}</text>
+        <text class="user-meta" wx:if="{{userInfo.city}}">城市: {{userInfo.province}} {{userInfo.city}}</text>
+        <text class="user-meta" wx:if="{{userInfo.country}}">国家: {{userInfo.country}}</text>
+      </view>
+    </view>
+    
+    <!-- 选择新头像 -->
+    <button class="btn-secondary" bindtap="chooseAvatar">更换头像</button>
+  </view>
+
+  <!-- 操作按钮 -->
+  <view class="actions">
+    <!-- 一键登录 -->
+    <button class="btn-primary" bindtap="quickLogin" loading="{{loading}}">
+      {{loading ? '登录中...' : '一键完整登录'}}
+    </button>
+    
+    <!-- 分步操作 -->
+    <view class="step-actions">
+      <button class="btn-secondary" bindtap="getLoginCode" loading="{{loading}}">
+        1. 获取登录Code
+      </button>
+      <button class="btn-secondary" bindtap="getUserProfile" loading="{{loading}}" disabled="{{!openid}}">
+        2. 获取用户头像
+      </button>
+    </view>
+    
+    <!-- 状态检查 -->
+    <button class="btn-info" bindtap="checkStatus">检查当前状态</button>
+    <button class="btn-warning" bindtap="reset">重置数据</button>
+  </view>
+
+  <!-- 操作日志 -->
+  <view class="logs-card">
+    <view class="logs-header">
+      <text class="logs-title">操作日志</text>
+      <button class="btn-small" bindtap="clearLogs">清除</button>
+    </view>
+    <scroll-view class="logs-content" scroll-y="true">
+      <text class="log-item" wx:for="{{logs}}" wx:key="*this">{{item}}</text>
+      <text class="log-empty" wx:if="{{logs.length === 0}}">暂无日志</text>
+    </scroll-view>
+  </view>
+
+  <!-- 说明信息 -->
+  <view class="info-card">
+    <view class="info-title">使用说明</view>
+    <view class="info-content">
+      <text class="info-item">• 一键登录: 自动完成code获取和用户信息获取</text>
+      <text class="info-item">• 分步操作: 手动控制每一步操作</text>
+      <text class="info-item">• 更换头像: 测试选择新头像功能</text>
+      <text class="info-item">• 操作日志: 查看详细的操作过程和结果</text>
+    </view>
+  </view>
+</view>

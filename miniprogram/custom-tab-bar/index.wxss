@@ -1,0 +1,78 @@
+.tab-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 100rpx;
+  background: #ffffff;
+  display: flex;
+  border-top: 1rpx solid #e7e7e7;
+  z-index: 999;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.tab-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+/* 中间凸起项 */
+.tab-item-center {
+  margin-top: -30rpx;
+}
+
+/* 中间图标包装器 */
+.center-icon-wrapper {
+  position: relative;
+  margin-bottom: 8rpx;
+}
+
+/* 中间圆形背景 */
+.center-icon-bg {
+  width: 100rpx;
+  height: 100rpx;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #FF6B35 0%, #FF8C61 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4rpx 12rpx rgba(255, 107, 53, 0.3);
+  border: 4rpx solid #ffffff;
+}
+
+/* 图标文字 */
+.tab-icon-text {
+  font-size: 48rpx;
+  line-height: 1;
+}
+
+.tab-item.active .tab-icon-text {
+  transform: scale(1.1);
+  transition: transform 0.2s;
+}
+
+.center-icon {
+  font-size: 56rpx;
+  color: #ffffff;
+}
+
+/* 文字 */
+.tab-text {
+  font-size: 20rpx;
+  color: #7A7E83;
+  margin-top: 4rpx;
+}
+
+.tab-item.active .tab-text {
+  color: #FF6B35;
+  font-weight: 500;
+}
+
+.center-text {
+  color: #FF6B35;
+  font-weight: 600;
+}

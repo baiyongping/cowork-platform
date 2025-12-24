@@ -22,9 +22,10 @@ interface PendingUser {
 
 interface UserApprovalPageProps {
   currentUser: any;
+  onPendingCountChange?: (count: number) => void;
 }
 
-export function UserApprovalPage({ currentUser }: UserApprovalPageProps) {
+export function UserApprovalPage({ currentUser, onPendingCountChange }: UserApprovalPageProps) {
   const [users, setUsers] = useState<PendingUser[]>([]);
   const [allUsersStats, setAllUsersStats] = useState({ all: 0, pending: 0, approved: 0, rejected: 0 });
   const [loading, setLoading] = useState(true);
@@ -94,6 +95,9 @@ export function UserApprovalPage({ currentUser }: UserApprovalPageProps) {
       };
       setAllUsersStats(stats);
       console.log('📈 用户统计:', stats);
+      
+      // 通知父组件待审核数量
+      onPendingCountChange?.(stats.pending);
       
       // 根据筛选条件过滤
       if (filter !== 'all') {

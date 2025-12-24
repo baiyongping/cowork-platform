@@ -1,0 +1,9 @@
+{
+  "name": "cleanWrongAvatar",
+  "version": "1.0.0",
+  "description": "清理错误的avatarUrl字段",
+  "main": "index.js",
+  "dependencies": {
+    "@cloudbase/node-sdk": "^2.5.0"
+  }
+}

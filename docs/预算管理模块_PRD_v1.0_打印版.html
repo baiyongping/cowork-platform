@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>预算管理模块 - PRD产品需求文档 v1.1.0</title>
+    <style>
+        @media print {
+            @page {
+                margin: 2cm;
+                size: A4;
+            }
+            
+            body {
+                font-size: 10pt;
+            }
+            
+            h1 {
+                page-break-before: always;
+                page-break-after: avoid;
+            }
+            
+            h2, h3, h4 {
+                page-break-after: avoid;
+            }
+            
+            table, pre, code {
+                page-break-inside: avoid;
+            }
+            
+            .no-print {
+                display: none;
+            }
+        }
+        
+        body {
+            font-family: "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            color: #333;
+            background-color: #fff;
+        }
+        
+        h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3b82f6;
+            padding-bottom: 10px;
+            margin-top: 30px;
+        }
+        
+        h2 {
+            color: #34495e;
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 8px;
+            margin-top: 25px;
+        }
+        
+        h3 {
+            color: #4a5568;
+            margin-top: 20px;
+        }
+        
+        h4 {
+            color: #6b7280;
+            margin-top: 15px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            font-size: 0.9em;
+        }
+        
+        table, th, td {
+            border: 1px solid #d1d5db;
+        }
+        
+        th {
+            background-color: #f3f4f6;
+            padding: 10px;
+            text-align: left;
+            font-weight: 600;
+        }
+        
+        td {
+            padding: 8px;
+        }
+        
+        tr:nth-child(even) {
+            background-color: #f9fafb;
+        }
+        
+        pre {
+            background-color: #f3f4f6;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            padding: 12px;
+            overflow-x: auto;
+            font-size: 0.85em;
+        }
+        
+        code {
+            background-color: #f3f4f6;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.9em;
+        }
+        
+        .meta-info {
+            background-color: #eff6ff;
+            border-left: 4px solid #3b82f6;
+            padding: 12px;
+            margin: 15px 0;
+        }
+        
+        .highlight {
+            background-color: #fef3c7;
+            padding: 2px 4px;
+        }
+        
+        .warning {
+            background-color: #fee2e2;
+            border-left: 4px solid #ef4444;
+            padding: 10px;
+            margin: 10px 0;
+        }
+        
+        .success {
+            background-color: #d1fae5;
+            border-left: 4px solid #10b981;
+            padding: 10px;
+            margin: 10px 0;
+        }
+        
+        .print-button {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        
+        .print-button:hover {
+            background-color: #2563eb;
+        }
+        
+        ul, ol {
+            margin: 10px 0;
+            padding-left: 25px;
+        }
+        
+        li {
+            margin: 5px 0;
+        }
+        
+        blockquote {
+            border-left: 4px solid #d1d5db;
+            margin: 15px 0;
+            padding-left: 15px;
+            color: #6b7280;
+        }
+        
+        .toc {
+            background-color: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        
+        .toc a {
+            color: #3b82f6;
+            text-decoration: none;
+        }
+        
+        .toc a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <button class="print-button no-print" onclick="window.print()">🖨️ 打印/导出PDF</button>
+    
+    <h1>预算管理模块 - PRD产品需求文档</h1>
+    
+    <div class="meta-info">
+        <p><strong>版本:</strong> v1.1.0</p>
+        <p><strong>文档类型:</strong> Product Requirements Document (PRD)</p>
+        <p><strong>发布日期:</strong> 2025年12月22日</p>
+        <p><strong>所属平台:</strong> 际华定制协同办公管理平台</p>
+        <p><strong>文档状态:</strong> 需求评审</p>
+    </div>
+    
+    <div class="toc">
+        <h2>📋 目录</h2>
+        <ol>
+            <li><a href="#module-overview">模块概述</a></li>
+            <li><a href="#architecture">功能架构</a></li>
+            <li><a href="#features">七大子功能详细设计</a></li>
+            <li><a href="#data-model">数据模型</a></li>
+            <li><a href="#interaction">交互设计</a></li>
+            <li><a href="#permissions">权限控制</a></li>
+            <li><a href="#workflows">业务流程</a></li>
+            <li><a href="#implementation">实施计划</a></li>
+        </ol>
+    </div>
+    
+    <h2 id="module-overview">1. 模块概述</h2>
+    
+    <h3>1.1 模块定位</h3>
+    <p>预算管理模块是际华协同办公平台的<strong>财务资源管控核心</strong>,与现有的目标管理模块形成"战略-财务"双轮驱动体系。通过年度预算编制、执行监控、动态预测,实现企业财务资源的精细化管理。</p>
+    
+    <h3>1.2 核心价值</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>价值维度</th>
+                <th>具体价值</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>战略支撑</strong></td>
+                <td>为战略目标提供财务资源保障,确保资金投向与战略方向一致</td>
+            </tr>
+            <tr>
+                <td><strong>风险预警</strong></td>
+                <td>实时监控预算执行偏差,提前预警资金风险</td>
+            </tr>
+            <tr>
+                <td><strong>决策支持</strong></td>
+                <td>基于现金流预测,支持管理层做出更合理的投资和资源配置决策</td>
+            </tr>
+            <tr>
+                <td><strong>成本优化</strong></td>
+                <td>通过预算对比分析,识别成本控制改进空间</td>
+            </tr>
+        </tbody>
+    </table>
+    
+    <h3>1.3 与目标管理的协同关系</h3>
+    <pre>
+战略目标管理层 (Goal Management)
+    ↓ 资源保障
+预算管理层 (Budget Management)
+    ↓ 财务支撑
+任务/商机/项目执行层</pre>
+    
+    <div class="success">
+        <p><strong>协同机制:</strong></p>
+        <ul>
+            <li>年度战略目标 → 驱动 → 年度预算编制</li>
+            <li>季度措施 → 关联 → 季度资产预算</li>
+            <li>项目立项 → 触发 → 资产预算申请</li>
+            <li>人员变动 → 影响 → 人力费用预算调整</li>
+        </ul>
+    </div>
+    
+    <h2 id="architecture">2. 功能架构</h2>
+    
+    <h3>2.1 七大子功能</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Tab顺序</th>
+                <th>Tab名称</th>
+                <th>对应页面</th>
+                <th>核心功能</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>1</td>
+                <td>📊 预算执行</td>
+                <td>ExecutionView</td>
+                <td>总览仪表盘,实时监控</td>
+            </tr>
+            <tr>
+                <td>2</td>
+                <td>📅 年度预算</td>
+                <td>AnnualBudgetView</td>
+                <td>年度预算编制和管理</td>
+            </tr>
+            <tr>
+                <td>3</td>
+                <td>💰 资产预算</td>
+                <td>AssetBudgetView</td>
+                <td>资产投资计划</td>
+            </tr>
+            <tr>
+                <td>4</td>
+                <td>💵 现金流预测</td>
+                <td>CashFlowView</td>
+                <td>资金流预测和分析</td>
+            </tr>
+            <tr>
+                <td>5</td>
+                <td>👥 人力费用预算</td>
+                <td>LaborCostView</td>
+                <td>人力成本管理</td>
+            </tr>
+            <tr>
+                <td>6</td>
+                <td>⚙️ 预算参数</td>
+                <td>BudgetParametersView</td>
+                <td>损益项配置和管理</td>
+            </tr>
+            <tr>
+                <td>7</td>
+                <td>📈 产品销售预测</td>
+                <td>ProductSalesForecastView</td>
+                <td>产品销售趋势预测</td>
+            </tr>
+        </tbody>
+    </table>
+    
+    <h2 id="features">3. 七大子功能详细设计</h2>
+    
+    <h3>3.1 预算执行 (Execution)</h3>
+    <p><strong>功能定位:</strong> 预算管理的"总控制台",类似于Dashboard,实时监控各预算科目的执行情况。</p>
+    
+    <h4>3.1.1 核心指标卡片</h4>
+    <p>4个关键指标(顶部并列显示):</p>
+    <ul>
+        <li><strong>年度预算总额:</strong> ¥10,000万 (vs去年 ↑15%)</li>
+        <li><strong>已执行金额:</strong> ¥6,500万 (vs上月 ↑8%)</li>
+        <li><strong>执行进度:</strong> 65% (vs计划 ↓3%)</li>
+        <li><strong>预算余额:</strong> ¥3,500万 (vs目标 -5%)</li>
+    </ul>
+    
+    <h4>3.1.2 预算科目执行对比表</h4>
+    <table>
+        <thead>
+            <tr>
+                <th>科目</th>
+                <th>年度预算</th>
+                <th>已执行</th>
+                <th>执行率</th>
+                <th>时间进度</th>
+                <th>执行偏差</th>
+                <th>预警</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>人力成本</td>
+                <td>3000万</td>
+                <td>1850万</td>
+                <td>61.7%</td>
+                <td>58.3%</td>
+                <td>+3.4%</td>
+                <td>🟢</td>
+            </tr>
+            <tr>
+                <td>营销费用</td>
+                <td>1500万</td>
+                <td>1100万</td>
+                <td>73.3%</td>
+                <td>58.3%</td>
+                <td>+15.0%</td>
+                <td>🔴</td>
+            </tr>
+            <tr>
+                <td>研发投入</td>
+                <td>2000万</td>
+                <td>980万</td>
+                <td>49.0%</td>
+                <td>58.3%</td>
+                <td>-9.3%</td>
+                <td>🟡</td>
+            </tr>
+        </tbody>
+    </table>
+    
+    <div class="warning">
+        <p><strong>预警规则:</strong></p>
+        <ul>
+            <li>🟢 绿色: 偏差 < 5% (正常)</li>
+            <li>🟡 黄色: 偏差 5-10% (关注)</li>
+            <li>🔴 红色: 偏差 > 10% (预警)</li>
+        </ul>
+    </div>
+    
+    <h3>3.2 年度预算 (Annual Budget)</h3>
+    <p><strong>功能定位:</strong> 每年度预算编制的核心工具,支持多年度数据对比。</p>
+    
+    <h4>3.2.1 预算科目分类</h4>
+    <pre>
+收入类
+  ├── 产品销售收入
+  ├── 服务收入
+  └── 其他收入
+
+成本费用类
+  ├── 人力成本
+  ├── 营销费用
+  ├── 研发费用
+  ├── 管理费用
+  └── 财务费用
+
+资产投资类
+  ├── 固定资产购置
+  ├── 无形资产投资
+  └── 长期投资</pre>
+    
+    <h3>3.3 资产预算 (Asset Budget)</h3>
+    <p><strong>功能定位:</strong> 管理固定资产、IT系统等大额投资项目的预算计划。</p>
+    
+    <h4>3.3.1 季度资产投资计划表示例</h4>
+    <table>
+        <thead>
+            <tr>
+                <th>资产名称</th>
+                <th>类型</th>
+                <th>数量</th>
+                <th>预算金额</th>
+                <th>实际支出</th>
+                <th>优先级</th>
+                <th>状态</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>服务器扩容</td>
+                <td>IT系统</td>
+                <td>5台</td>
+                <td>50万</td>
+                <td>48万</td>
+                <td>高</td>
+                <td>已完成</td>
+            </tr>
+            <tr>
+                <td>生产设备A</td>
+                <td>固定资产</td>
+                <td>2台</td>
+                <td>120万</td>
+                <td>-</td>
+                <td>高</td>
+                <td>已批准</td>
+            </tr>
+        </tbody>
+    </table>
+    
+    <h3>3.4 现金流预测 (Cash Flow Forecast)</h3>
+    <p><strong>功能定位:</strong> 基于销售目标、应收账款、应付账款等数据,预测未来现金流状况。</p>
+    
+    <h4>3.4.1 资金缺口预警</h4>
+    <div class="success">
+        <p><strong>预警规则:</strong></p>
+        <ul>
+            <li>🔴 红色预警: 期末现金余额 < 0 (资金链断裂风险)</li>
+            <li>🟡 黄色预警: 期末现金余额 < 500万 (资金紧张)</li>
+            <li>🟢 绿色: 期末现金余额 >= 500万 (资金充足)</li>
+        </ul>
+    </div>
+    
+    <h3>3.5 人力费用预算 (Labor Cost Budget)</h3>
+    <p><strong>功能定位:</strong> 人力资源成本的细化管理,支持按部门、按月度编制和跟踪。</p>
+    
+    <h3>3.6 预算参数 (Budget Parameters) <span class="highlight">新增</span></h3>
+    <p><strong>功能定位:</strong> 预算管理的"基础设施"层,管理损益项配置,确保损益表结构完整且灵活适应不同年度的预算侧重点。</p>
+    
+    <h4>3.6.1 核心问题与解决方案</h4>
+    <div class="meta-info">
+        <p><strong>问题背景:</strong></p>
+        <ul>
+            <li>不同年度企业战略重点不同(如某年重点投资研发,某年重点市场拓展)</li>
+            <li>损益表项目需要根据年度侧重点动态调整</li>
+            <li>需要确保财务报表的完整性和一致性</li>
+        </ul>
+        <p><strong>解决方案:</strong></p>
+        <ul>
+            <li>维护一套完整的损益项字典库</li>
+            <li>支持按年度激活/停用损益项</li>
+            <li>自动校验预算编制的完整性</li>
+        </ul>
+    </div>
+    
+    <h4>3.6.2 标准损益项模板(系统预置)</h4>
+    <pre>
+收入类
+  ├── 主营业务收入
+  │   ├── 产品销售收入
+  │   ├── 服务收入
+  │   └── 其他业务收入
+  └── 营业外收入
+
+成本费用类
+  ├── 主营业务成本
+  ├── 销售费用
+  ├── 管理费用
+  ├── 研发费用
+  └── 财务费用
+
+资产投资类
+  ├── 固定资产投资
+  ├── 无形资产投资
+  └── 长期股权投资</pre>
+    
+    <h4>3.6.3 损益表完整性校验</h4>
+    <div class="success">
+        <p><strong>校验规则:</strong></p>
+        <ol>
+            <li>收入类至少有1个激活的损益项</li>
+            <li>成本费用类至少有3个激活的损益项</li>
+            <li>所有标准科目必须激活</li>
+            <li>二级科目激活时,其父级科目必须激活</li>
+        </ol>
+    </div>
+    
+    <h3>3.7 产品销售预测 (Product Sales Forecast) <span class="highlight">新增</span></h3>
+    <p><strong>功能定位:</strong> 为现金流预测和收入预算提供数据支撑,通过多维度预测(产品线、客户、区域)提升销售收入预测准确性。</p>
+    
+    <h4>3.7.1 核心价值</h4>
+    <pre>
+产品销售预测
+    ↓ 提供收入预测数据
+现金流预测 (salesRevenue字段)
+    ↓ 提供现金流预测
+资金计划和风险管理
+
+产品销售预测
+    ↓ 提供目标数据
+年度预算 (产品销售收入科目)
+    ↓ 提供收入预算依据
+预算编制和执行监控</pre>
+    
+    <h4>3.7.2 产品线销售预测表示例</h4>
+    <table>
+        <thead>
+            <tr>
+                <th>产品线</th>
+                <th>产品类别</th>
+                <th>预测销量</th>
+                <th>单价</th>
+                <th>预测收入</th>
+                <th>去年同期</th>
+                <th>增长率</th>
+                <th>状态</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>防弹装备</td>
+                <td>防弹衣</td>
+                <td>5000件</td>
+                <td>8000元</td>
+                <td>4000万</td>
+                <td>3500万</td>
+                <td>+14.3%</td>
+                <td>已审核</td>
+            </tr>
+            <tr>
+                <td>特种服装</td>
+                <td>特警服</td>
+                <td>3000件</td>
+                <td>5000元</td>
+                <td>1500万</td>
+                <td>1200万</td>
+                <td>+25.0%</td>
+                <td>已审核</td>
+            </tr>
+            <tr>
+                <td><strong>合计</strong></td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td><strong>5500万</strong></td>
+                <td><strong>4700万</strong></td>
+                <td><strong>+17.0%</strong></td>
+                <td>-</td>
+            </tr>
+        </tbody>
+    </table>
+    
+    <h4>3.7.3 预测准确性跟踪</h4>
+    <p><strong>预测准确率计算公式:</strong></p>
+    <pre>accuracy = (1 - |actualRevenue - forecastRevenue| / actualRevenue) × 100%</pre>
+    
+    <h2 id="data-model">4. 数据模型</h2>
+    
+    <h3>4.1 核心数据库集合</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>集合名称</th>
+                <th>用途</th>
+                <th>关键字段</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>annual_budgets</td>
+                <td>年度预算</td>
+                <td>year, category, budgetAmount</td>
+            </tr>
+            <tr>
+                <td>budget_execution</td>
+                <td>预算执行记录</td>
+                <td>year, category, executedAmount, executionRate</td>
+            </tr>
+            <tr>
+                <td>asset_budgets</td>
+                <td>资产预算</td>
+                <td>year, quarter, assetType, totalAmount, status</td>
+            </tr>
+            <tr>
+                <td>cash_flow_forecasts</td>
+                <td>现金流预测</td>
+                <td>year, quarter, netCashFlow, cashBalance</td>
+            </tr>
+            <tr>
+                <td>labor_cost_budgets</td>
+                <td>人力费用预算</td>
+                <td>year, month, department, totalCost</td>
+            </tr>
+            <tr>
+                <td>budget_parameters</td>
+                <td>预算参数(损益项)</td>
+                <td>itemName, itemCode, category, activeYears</td>
+            </tr>
+            <tr>
+                <td>product_sales_forecasts</td>
+                <td>产品销售预测</td>
+                <td>year, productLine, forecastRevenue, actualRevenue</td>
+            </tr>
+        </tbody>
+    </table>
+    
+    <h2 id="implementation">8. 实施计划</h2>
+    
+    <h3>8.1 开发优先级</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>优先级</th>
+                <th>子功能</th>
+                <th>核心功能点</th>
+                <th>预计工作量</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>P0</strong></td>
+                <td>预算执行</td>
+                <td>执行监控、偏差分析</td>
+                <td>3天</td>
+            </tr>
+            <tr>
+                <td><strong>P0</strong></td>
+                <td>年度预算</td>
+                <td>预算编制、审批流程</td>
+                <td>3天</td>
+            </tr>
+            <tr>
+                <td><strong>P0</strong></td>
+                <td>预算参数</td>
+                <td>损益项配置、年度侧重点设置</td>
+                <td>2天</td>
+            </tr>
+            <tr>
+                <td><strong>P1</strong></td>
+                <td>资产预算</td>
+                <td>资产申请、审批</td>
+                <td>2天</td>
+            </tr>
+            <tr>
+                <td><strong>P1</strong></td>
+                <td>人力费用预算</td>
+                <td>人力成本管理</td>
+                <td>2天</td>
+            </tr>
+            <tr>
+                <td><strong>P1</strong></td>
+                <td>产品销售预测</td>
+                <td>产品线预测、准确性跟踪</td>
+                <td>2.5天</td>
+            </tr>
+            <tr>
+                <td><strong>P2</strong></td>
+                <td>现金流预测</td>
+                <td>现金流模型、预警</td>
+                <td>3天</td>
+            </tr>
+        </tbody>
+    </table>
+    
+    <p><strong>总计:</strong> 约17.5个工作日(不含测试和优化)</p>
+    
+    <h3>8.2 迭代计划</h3>
+    
+    <h4>v1.0 MVP版本(核心功能)</h4>
+    <ul>
+        <li>✅ 预算执行监控</li>
+        <li>✅ 年度预算编制</li>
+        <li>✅ 预算参数配置(损益项管理)</li>
+        <li>✅ 基础审批流程</li>
+        <li>✅ 执行偏差预警</li>
+    </ul>
+    
+    <h4>v1.1 完整版(全功能)</h4>
+    <ul>
+        <li>✅ 资产预算管理</li>
+        <li>✅ 人力费用预算</li>
+        <li>✅ 产品销售预测</li>
+        <li>✅ 现金流预测</li>
+        <li>✅ 多年度对比分析</li>
+        <li>✅ 损益表完整性校验</li>
+    </ul>
+    
+    <h4>v1.2 增强版(智能化)</h4>
+    <ul>
+        <li>🔄 AI预算建议(基于历史数据)</li>
+        <li>🔄 智能销售预测(机器学习模型)</li>
+        <li>🔄 自动预测优化</li>
+        <li>🔄 与财务系统对接</li>
+        <li>🔄 预测准确性自动改进</li>
+    </ul>
+    
+    <h2 id="success-metrics">10. 成功指标</h2>
+    
+    <h3>10.1 功能指标</h3>
+    <ul>
+        <li>✅ 7个子功能全部上线(包含预算参数和产品销售预测)</li>
+        <li>✅ 支持多年度预算管理(至少3年)</li>
+        <li>✅ 预算执行偏差自动预警准确率>95%</li>
+        <li>✅ 审批流程平均响应时间<24小时</li>
+        <li>✅ 损益表完整性自动校验通过率>90%</li>
+        <li>✅ 产品销售预测准确率>85%(季度)</li>
+    </ul>
+    
+    <h3>10.2 业务价值指标</h3>
+    <ul>
+        <li>📊 预算执行透明度提升: <strong>80%+</strong></li>
+        <li>📊 预算编制效率提升: <strong>50%+</strong></li>
+        <li>📊 资金风险预警及时性: <strong>90%+</strong></li>
+        <li>📊 成本控制改善: <strong>15%+</strong></li>
+        <li>📊 销售预测准确性: <strong>85%+</strong></li>
+        <li>📊 损益表结构完整性: <strong>95%+</strong></li>
+    </ul>
+    
+    <hr>
+    
+    <div class="meta-info">
+        <p><strong>文档版本历史:</strong></p>
+        <ul>
+            <li>v1.0.0 (2025-12-22): 初始版本,5个子功能完整PRD设计</li>
+            <li>v1.1.0 (2025-12-22): 新增预算参数和产品销售预测两个子功能,共7个子功能</li>
+        </ul>
+        
+        <p><strong>审阅人:</strong> 待定</p>
+        <p><strong>批准人:</strong> 待定</p>
+        <p><strong>生效日期:</strong> 待定</p>
+    </div>
+    
+    <footer style="margin-top: 40px; padding-top: 20px; border-top: 2px solid #e5e7eb; text-align: center; color: #6b7280;">
+        <p>© 2025 际华协同办公平台 - 预算管理模块PRD v1.1.0</p>
+        <p>本文档包含敏感业务信息,仅供内部评审使用,严禁外传</p>
+    </footer>
+</body>
+</html>

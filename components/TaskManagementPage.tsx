@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Plus, Filter, Search, Clock, CheckCircle, AlertCircle, TrendingUp, Circle, Pause, XCircle, Trash2 } from 'lucide-react';
-import { db, auth } from '../lib/cloudbase';
+import { app, db, auth } from '../lib/cloudbase';
 import { Task, TaskLevel, TaskType, TaskStatus, getStatusColor, getStatusText } from '../types/task';
 import CreateTaskModal from './CreateTaskModal';
 import TaskDetailModal from './TaskDetailModal';
@@ -10,7 +10,12 @@ import { buildQueryConditions, checkDataPermission, canView, canEdit, canDelete 
 import { usePermissionContext } from '../contexts/PermissionContext';
 import { formatUserName } from '../utils/userHelpers'; // 🆕 导入工具函数
 
-export default function TaskManagementPage() {
+interface TaskManagementPageProps {
+  openTaskId?: string;  // 🔧 要打开的任务ID
+  onTaskOpened?: () => void;  // 🔧 打开后的回调
+}
+
+export default function TaskManagementPage({ openTaskId, onTaskOpened }: TaskManagementPageProps) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | TaskLevel>('all');
@@ -172,6 +177,10 @@ export default function TaskManagementPage() {
     try {
       setLoading(true);
       
+      // 🔧 确保 CloudBase 认证已完成
+      const { ensureAuth } = await import('../lib/cloudbase');
+      await ensureAuth();
+      
       // 获取当前用户信息
       const currentUserStr = localStorage.getItem('current_user');
       let currentUserId = '';
@@ -252,6 +261,23 @@ export default function TaskManagementPage() {
       setLoading(false);
     }
   };
+
+  // 🔧 自动打开指定的任务详情
+  useEffect(() => {
+    console.log('🔧 [TaskManagement] 检查自动打开:', { openTaskId, tasksCount: tasks.length });
+    if (openTaskId && tasks.length > 0) {
+      const taskToOpen = tasks.find(t => t._id === openTaskId);
+      console.log('🔧 [TaskManagement] 找到任务:', taskToOpen);
+      if (taskToOpen) {
+        setSelectedTask(taskToOpen);
+        setShowDetailModal(true);
+        onTaskOpened?.();  // 通知父组件已打开
+        console.log('✅ [TaskManagement] 已打开任务详情');
+      } else {
+        console.warn('⚠️ [TaskManagement] 未找到任务:', openTaskId);
+      }
+    }
+  }, [openTaskId, tasks]);
 
   const calculateStatistics = () => {
     const now = new Date();
@@ -426,6 +452,11 @@ export default function TaskManagementPage() {
     
     try {
       setLoading(true);
+      
+      // 🔧 确保 CloudBase 认证已完成
+      const { ensureAuth } = await import('../lib/cloudbase');
+      await ensureAuth();
+      
       // 软删除：标记为已删除，而不是真正删除
       await db.collection('tasks').doc(selectedTask._id).update({
         isDeleted: true,
@@ -452,6 +483,10 @@ export default function TaskManagementPage() {
     try {
       setLoading(true);
       
+      // 🔧 确保 CloudBase 认证已完成
+      const { ensureAuth } = await import('../lib/cloudbase');
+      await ensureAuth();
+      
       // 如果状态改为"已完成"，自动将进度设为100%并记录完成时间
       const updateData: any = {
         status: newStatus,
@@ -464,6 +499,26 @@ export default function TaskManagementPage() {
       }
       
       await db.collection('tasks').doc(taskId).update(updateData);
+
+      // 发送状态变更通知
+      const task = tasks.find(t => t._id === taskId);
+      if (task && task.owner !== currentUser._id) {
+        try {
+          await app.callFunction({
+            name: 'task-message',
+            data: {
+              action: 'statusChange',
+              taskId: task._id,
+              taskName: task.name,
+              taskLevel: task.level,
+              newStatus,
+              receiver: task.owner
+            }
+          });
+        } catch (error) {
+          console.error('消息通知失败:', error);
+        }
+      }
       
       // 重新加载任务列表
       await loadTasks();

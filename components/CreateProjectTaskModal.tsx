@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { X, AlertCircle, UserPlus, Link2 } from 'lucide-react';
-import { db, auth } from '../lib/cloudbase';
+import { app, db, auth } from '../lib/cloudbase';
 import type { Project } from '../types/project';
 import type { 
   CreateTaskDto, TaskLevel, TaskType, TaskStatus, 
   OpportunityActionType, ProjectPhase 
 } from '../types/task';
 import CollaboratorSelector from './CollaboratorSelector';
+import { UserAvatar } from './UserAvatar';
 
 interface CreateProjectTaskModalProps {
   project: Project;
@@ -198,12 +199,53 @@ export default function CreateProjectTaskModal({ project, onClose, onSuccess }: 
     try {
       setSubmitting(true);
 
-      await db.collection('tasks').add({
+      const result = await db.collection('tasks').add({
         ...formData,
         createdBy: currentUser._id,
         createdAt: new Date(),
         updatedAt: new Date()
       });
+
+      // 发送消息通知给负责人
+      if (formData.owner && formData.owner !== currentUser._id) {
+        try {
+          await app.callFunction({
+            name: 'task-message',
+            data: {
+              action: 'create',
+              taskId: result.id,
+              taskName: formData.name,
+              taskLevel: formData.level,
+              receiver: formData.owner
+            }
+          });
+        } catch (error) {
+          console.error('消息通知失败:', error);
+        }
+      }
+
+      // 发送消息通知给协同人
+      if (formData.collaborators && formData.collaborators.length > 0) {
+        const collaboratorsToNotify = formData.collaborators.filter(
+          c => c !== currentUser._id && c !== formData.owner
+        );
+        if (collaboratorsToNotify.length > 0) {
+          try {
+            await app.callFunction({
+              name: 'task-message',
+              data: {
+                action: 'collaborator',
+                taskId: result.id,
+                taskName: formData.name,
+                taskLevel: formData.level,
+                receivers: collaboratorsToNotify
+              }
+            });
+          } catch (error) {
+            console.error('协同人通知失败:', error);
+          }
+        }
+      }
 
       onSuccess();
       onClose();
@@ -275,7 +317,6 @@ export default function CreateProjectTaskModal({ project, onClose, onSuccess }: 
             >
               <option value="个人级">个人级</option>
               <option value="团队级">团队级</option>
-              <option value="公司级">公司级</option>
             </select>
           </div>
 
@@ -420,9 +461,7 @@ export default function CreateProjectTaskModal({ project, onClose, onSuccess }: 
                           key={user._id}
                           className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 rounded-full text-sm"
                         >
-                          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-xs font-medium">
-                            {user.name.charAt(0)}
-                          </div>
+                          <UserAvatar user={user} size="xs" />
                           <span className="text-gray-900">{user.name}</span>
                           <button
                             type="button"

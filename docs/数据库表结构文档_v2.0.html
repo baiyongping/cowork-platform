@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>际华协同办公平台 - 数据库表结构文档 v2.0</title>
+    <style>
+        /* 屏幕样式 */
+        @media screen {
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            
+            body {
+                font-family: "Microsoft YaHei", "SimSun", serif;
+                line-height: 1.8;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                padding: 20px;
+                color: #333;
+            }
+            
+            .container {
+                max-width: 1200px;
+                margin: 0 auto;
+                background: white;
+                padding: 60px;
+                box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+                border-radius: 10px;
+            }
+            
+            .header {
+                text-align: center;
+                margin-bottom: 50px;
+                padding-bottom: 30px;
+                border-bottom: 3px solid #667eea;
+            }
+            
+            h1 {
+                font-size: 36px;
+                color: #667eea;
+                margin-bottom: 15px;
+                font-weight: bold;
+            }
+            
+            .subtitle {
+                font-size: 16px;
+                color: #666;
+                margin-bottom: 20px;
+            }
+            
+            .version-badge {
+                display: inline-block;
+                background: #52c41a;
+                color: white;
+                padding: 5px 15px;
+                border-radius: 15px;
+                font-size: 14px;
+                font-weight: bold;
+                margin-bottom: 15px;
+            }
+            
+            .download-btn {
+                display: inline-block;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                padding: 12px 30px;
+                border-radius: 25px;
+                text-decoration: none;
+                font-size: 16px;
+                font-weight: bold;
+                box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+                transition: all 0.3s;
+                cursor: pointer;
+                border: none;
+            }
+            
+            .download-btn:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+            }
+            
+            h2 {
+                font-size: 28px;
+                color: #333;
+                margin: 40px 0 20px;
+                padding-bottom: 10px;
+                border-bottom: 2px solid #e0e0e0;
+            }
+            
+            h3 {
+                font-size: 22px;
+                color: #667eea;
+                margin: 30px 0 15px;
+            }
+            
+            h4 {
+                font-size: 18px;
+                color: #555;
+                margin: 20px 0 10px;
+            }
+            
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                margin: 20px 0;
+                background: white;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            }
+            
+            th {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                padding: 15px;
+                text-align: left;
+                font-weight: bold;
+                font-size: 14px;
+            }
+            
+            td {
+                padding: 12px 15px;
+                border-bottom: 1px solid #e0e0e0;
+                font-size: 14px;
+            }
+            
+            tr:hover {
+                background-color: #f5f7ff;
+            }
+            
+            .status-active {
+                color: #52c41a;
+                font-weight: bold;
+            }
+            
+            .status-new {
+                color: #1890ff;
+                font-weight: bold;
+            }
+            
+            .field-new {
+                background-color: #e6f7ff;
+                border-left: 3px solid #1890ff;
+            }
+            
+            .field-modified {
+                background-color: #fff7e6;
+                border-left: 3px solid #faad14;
+            }
+            
+            pre {
+                background: #f6f8fa;
+                padding: 20px;
+                border-radius: 8px;
+                overflow-x: auto;
+                border-left: 4px solid #667eea;
+                font-size: 13px;
+                line-height: 1.6;
+            }
+            
+            code {
+                font-family: "Consolas", "Monaco", monospace;
+                background: #f6f8fa;
+                padding: 2px 6px;
+                border-radius: 3px;
+                font-size: 13px;
+            }
+            
+            .info-box {
+                background: #f0f5ff;
+                border-left: 4px solid #667eea;
+                padding: 15px 20px;
+                margin: 20px 0;
+                border-radius: 4px;
+            }
+            
+            .warning-box {
+                background: #fff7e6;
+                border-left: 4px solid #faad14;
+                padding: 15px 20px;
+                margin: 20px 0;
+                border-radius: 4px;
+            }
+            
+            .success-box {
+                background: #f6ffed;
+                border-left: 4px solid #52c41a;
+                padding: 15px 20px;
+                margin: 20px 0;
+                border-radius: 4px;
+            }
+            
+            ul, ol {
+                margin: 15px 0;
+                padding-left: 30px;
+            }
+            
+            li {
+                margin: 8px 0;
+            }
+            
+            .changelog {
+                background: #fff7e6;
+                padding: 20px;
+                border-radius: 8px;
+                margin: 30px 0;
+                border-left: 4px solid #faad14;
+            }
+            
+            .changelog h3 {
+                color: #fa8c16;
+                margin-top: 0;
+            }
+            
+            .footer {
+                text-align: center;
+                margin-top: 60px;
+                padding-top: 30px;
+                border-top: 2px solid #e0e0e0;
+                color: #999;
+                font-size: 14px;
+            }
+        }
+        
+        /* 打印样式 */
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+            
+            .container {
+                max-width: 100%;
+                padding: 20px;
+                box-shadow: none;
+                border-radius: 0;
+            }
+            
+            .download-btn {
+                display: none;
+            }
+            
+            h1 {
+                color: #000;
+                page-break-after: avoid;
+            }
+            
+            h2, h3, h4 {
+                page-break-after: avoid;
+                color: #000;
+            }
+            
+            table {
+                page-break-inside: avoid;
+            }
+            
+            thead {
+                display: table-header-group;
+            }
+            
+            tr {
+                page-break-inside: avoid;
+            }
+            
+            th {
+                background: #f0f0f0 !important;
+                color: #000 !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            
+            pre {
+                page-break-inside: avoid;
+                border: 1px solid #ddd;
+            }
+            
+            .info-box, .warning-box, .success-box, .changelog {
+                page-break-inside: avoid;
+                border: 1px solid #ddd;
+            }
+        }
+        
+        @page {
+            size: A4;
+            margin: 2cm;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 际华协同办公平台</h1>
+            <div class="version-badge">v2.0 - 优化版</div>
+            <div class="subtitle">数据库表结构文档</div>
+            <div class="subtitle">生成日期: 2024年12月24日</div>
+            <button class="download-btn" onclick="downloadPDF()">📥 下载PDF版本</button>
+        </div>
+
+        <div class="changelog">
+            <h3>🔄 v2.0 更新记录</h3>
+            <ul>
+                <li><strong>用户表优化</strong>: 新增 <code>nickname</code>(昵称)、<code>signature</code>(个性签名)、<code>wechatOpenId</code>、<code>wechatUnionId</code> 字段</li>
+                <li><strong>任务表优化</strong>: 明确关联字段，新增 <code>relatedOpportunityId</code>、<code>relatedProjectId</code>、<code>relatedTaskId</code>(父任务ID)、<code>relatedQuarterlyMeasureId</code></li>
+                <li><strong>新增产品明细表</strong>: <code>product_items</code> - 统一管理商机需求和项目交付产品</li>
+                <li><strong>商机表优化</strong>: 移除 <code>productType</code>，改用 <code>productItemIds</code> 关联产品明细表</li>
+                <li><strong>项目表优化</strong>: 新增 <code>productItemIds</code> 关联产品明细表</li>
+            </ul>
+        </div>
+
+        <h2>🗂️ 数据库概览</h2>
+        <div class="info-box">
+            <ul>
+                <li><strong>数据库类型</strong>: CloudBase NoSQL (MongoDB)</li>
+                <li><strong>环境ID</strong>: <code>jihua-oa-dev-3goht9irae4d949f</code></li>
+                <li><strong>集合总数</strong>: 9个（新增1个）</li>
+                <li><strong>文档版本</strong>: v2.0</li>
+                <li><strong>主要优化</strong>: 微信对接支持、任务关联增强、产品明细独立管理</li>
+            </ul>
+        </div>
+
+        <h2>📋 数据表清单</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>序号</th>
+                    <th>集合名称</th>
+                    <th>表描述</th>
+                    <th>数据量</th>
+                    <th>状态</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>1</td>
+                    <td><code>users</code></td>
+                    <td>用户信息表 <span style="color:#fa8c16;">(已优化)</span></td>
+                    <td>3</td>
+                    <td class="status-active">✅ 已创建</td>
+                </tr>
+                <tr>
+                    <td>2</td>
+                    <td><code>tasks</code></td>
+                    <td>任务管理表 <span style="color:#fa8c16;">(已优化)</span></td>
+                    <td>0</td>
+                    <td class="status-active">✅ 已创建</td>
+                </tr>
+                <tr>
+                    <td>3</td>
+                    <td><code>opportunities</code></td>
+                    <td>商机管理表 <span style="color:#fa8c16;">(已优化)</span></td>
+                    <td>0</td>
+                    <td class="status-active">✅ 已创建</td>
+                </tr>
+                <tr>
+                    <td>4</td>
+                    <td><code>projects</code></td>
+                    <td>项目管理表 <span style="color:#fa8c16;">(已优化)</span></td>
+                    <td>0</td>
+                    <td class="status-active">✅ 已创建</td>
+                </tr>
+                <tr>
+                    <td>5</td>
+                    <td><code>goals</code></td>
+                    <td>目标管理表</td>
+                    <td>0</td>
+                    <td class="status-active">✅ 已创建</td>
+                </tr>
+                <tr>
+                    <td>6</td>
+                    <td><code>departments</code></td>
+                    <td>部门管理表</td>
+                    <td>5</td>
+                    <td class="status-active">✅ 已创建</td>
+                </tr>
+                <tr>
+                    <td>7</td>
+                    <td><code>task_comments</code></td>
+                    <td>任务评论表</td>
+                    <td>0</td>
+                    <td class="status-active">✅ 已创建</td>
+                </tr>
+                <tr>
+                    <td>8</td>
+                    <td><code>operation_logs</code></td>
+                    <td>操作日志表</td>
+                    <td>0</td>
+                    <td class="status-active">✅ 已创建</td>
+                </tr>
+                <tr style="background-color:#e6f7ff;">
+                    <td>9</td>
+                    <td><code>product_items</code></td>
+                    <td>产品明细表 <span style="color:#1890ff;font-weight:bold;">(新增)</span></td>
+                    <td>0</td>
+                    <td class="status-new">🆕 待创建</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2>📝 详细表结构</h2>
+
+        <h3>1️⃣ users - 用户信息表 <span style="color:#fa8c16;font-size:16px;">(已优化)</span></h3>
+        <h4>字段结构</h4>
+        <table>
+            <thead>
+                <tr>
+                    <th>字段名</th>
+                    <th>类型</th>
+                    <th>必填</th>
+                    <th>说明</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td><code>_id</code></td><td>string</td><td>是</td><td>MongoDB主键</td></tr>
+                <tr><td><code>_openid</code></td><td>string</td><td>否</td><td>CloudBase用户标识</td></tr>
+                <tr><td><code>username</code></td><td>string</td><td>是</td><td>用户名（唯一）</td></tr>
+                <tr><td><code>password</code></td><td>string</td><td>是</td><td>密码（SHA-256）</td></tr>
+                <tr><td><code>email</code></td><td>string</td><td>是</td><td>邮箱（唯一）</td></tr>
+                <tr><td><code>phone</code></td><td>string</td><td>是</td><td>手机号</td></tr>
+                <tr><td><code>name</code></td><td>string</td><td>是</td><td>真实姓名</td></tr>
+                <tr class="field-new"><td><code>nickname</code></td><td>string</td><td>否</td><td>昵称 <span style="color:#1890ff;font-weight:bold;">🆕</span></td></tr>
+                <tr class="field-new"><td><code>signature</code></td><td>string</td><td>否</td><td>个性签名 <span style="color:#1890ff;font-weight:bold;">🆕</span></td></tr>
+                <tr><td><code>role</code></td><td>enum</td><td>是</td><td>角色: admin | user</td></tr>
+                <tr><td><code>department</code></td><td>string</td><td>是</td><td>部门</td></tr>
+                <tr><td><code>avatar</code></td><td>string</td><td>否</td><td>头像URL</td></tr>
+                <tr class="field-new"><td><code>wechatOpenId</code></td><td>string</td><td>否</td><td>微信OpenID（微信公众号/小程序用户唯一标识）<span style="color:#1890ff;font-weight:bold;">🆕</span></td></tr>
+                <tr class="field-new"><td><code>wechatUnionId</code></td><td>string</td><td>否</td><td>微信UnionID（同一主体下多应用用户唯一标识）<span style="color:#1890ff;font-weight:bold;">🆕</span></td></tr>
+                <tr><td><code>isActive</code></td><td>boolean</td><td>是</td><td>是否激活</td></tr>
+                <tr><td><code>approvalStatus</code></td><td>enum</td><td>是</td><td>审核状态: pending | approved | rejected</td></tr>
+                <tr><td><code>status</code></td><td>enum</td><td>是</td><td>在职状态: 在职 | 离职 | 休假</td></tr>
+                <tr><td><code>createdAt</code></td><td>Date</td><td>是</td><td>创建时间</td></tr>
+                <tr><td><code>updatedAt</code></td><td>Date</td><td>是</td><td>更新时间</td></tr>
+            </tbody>
+        </table>
+        <h4>索引</h4>
+        <ul>
+            <li><code>username</code> (唯一索引)</li>
+            <li><code>email</code> (唯一索引)</li>
+            <li><code>_openid</code> (普通索引)</li>
+            <li><code>wechatOpenId</code> (普通索引) <span style="color:#1890ff;font-weight:bold;">🆕</span></li>
+            <li><code>wechatUnionId</code> (普通索引) <span style="color:#1890ff;font-weight:bold;">🆕</span></li>
+        </ul>
+        <div class="success-box">
+            <strong>✅ 微信对接说明:</strong>
+            <ul>
+                <li><code>wechatOpenId</code>: 用于微信公众号/小程序内的用户身份识别</li>
+                <li><code>wechatUnionId</code>: 用于同一主体下多个应用间的用户身份统一（需微信开放平台）</li>
+                <li>登录流程: 微信授权 → 获取OpenID/UnionID → 绑定或创建用户</li>
+            </ul>
+        </div>
+
+        <h3>2️⃣ tasks - 任务管理表 <span style="color:#fa8c16;font-size:16px;">(已优化)</span></h3>
+        <h4>字段结构</h4>
+        <table>
+            <thead>
+                <tr>
+                    <th>字段名</th>
+                    <th>类型</th>
+                    <th>必填</th>
+                    <th>说明</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td><code>_id</code></td><td>string</td><td>是</td><td>MongoDB主键</td></tr>
+                <tr><td><code>name</code></td><td>string</td><td>是</td><td>任务名称</td></tr>
+                <tr><td><code>description</code></td><td>string</td><td>否</td><td>任务描述</td></tr>
+                <tr><td><code>level</code></td><td>enum</td><td>是</td><td>任务级别: 公司级 | 团队级 | 个人级</td></tr>
+                <tr><td><code>type</code></td><td>enum</td><td>是</td><td>任务类型: 日常工作 | 商机跟进 | 项目任务</td></tr>
+                <tr><td><code>status</code></td><td>enum</td><td>是</td><td>状态: 未开始 | 进行中 | 已完成 | 延期 | 取消 | 暂停</td></tr>
+                <tr><td><code>progress</code></td><td>number</td><td>是</td><td>完成进度 (0-100)</td></tr>
+                <tr><td><code>owner</code></td><td>string</td><td>是</td><td>负责人ID</td></tr>
+                <tr><td><code>collaborators</code></td><td>string[]</td><td>否</td><td>协同人ID数组</td></tr>
+                <tr><td><code>team</code></td><td>string</td><td>否</td><td>团队名称</td></tr>
+                <tr><td><code>startDate</code></td><td>Date</td><td>是</td><td>开始日期</td></tr>
+                <tr><td><code>endDate</code></td><td>Date</td><td>是</td><td>截止日期</td></tr>
+                <tr><td><code>actualStartDate</code></td><td>Date</td><td>否</td><td>实际开始日期</td></tr>
+                <tr><td><code>actualEndDate</code></td><td>Date</td><td>否</td><td>实际结束日期</td></tr>
+                <tr class="field-modified"><td><code>relatedOpportunityId</code></td><td>string</td><td>否</td><td>关联商机ID（原opportunityActionType字段优化）<span style="color:#fa8c16;font-weight:bold;">⚠️</span></td></tr>
+                <tr class="field-modified"><td><code>relatedProjectId</code></td><td>string</td><td>否</td><td>关联项目ID（原projectPhase字段优化）<span style="color:#fa8c16;font-weight:bold;">⚠️</span></td></tr>
+                <tr class="field-new"><td><code>relatedTaskId</code></td><td>string</td><td>否</td><td>关联父任务ID（用于子任务/依赖任务）<span style="color:#1890ff;font-weight:bold;">🆕</span></td></tr>
+                <tr class="field-new"><td><code>relatedQuarterlyMeasureId</code></td><td>string</td><td>否</td><td>关联季度措施ID <span style="color:#1890ff;font-weight:bold;">🆕</span></td></tr>
+                <tr><td><code>opportunityActionType</code></td><td>string</td><td>否</td><td>商机跟进动作类型（保留用于兼容）</td></tr>
+                <tr><td><code>projectPhase</code></td><td>string</td><td>否</td><td>项目任务环节（保留用于兼容）</td></tr>
+                <tr style="text-decoration: line-through;opacity:0.5;"><td><code>relatedTo</code></td><td>string</td><td>否</td><td>~~关联内容ID（已废弃，改用明确字段）~~</td></tr>
+                <tr><td><code>isPublic</code></td><td>boolean</td><td>是</td><td>是否公开</td></tr>
+                <tr><td><code>createdBy</code></td><td>string</td><td>是</td><td>创建人ID</td></tr>
+                <tr><td><code>createdAt</code></td><td>Date</td><td>是</td><td>创建时间</td></tr>
+                <tr><td><code>updatedAt</code></td><td>Date</td><td>是</td><td>更新时间</td></tr>
+            </tbody>
+        </table>
+        <h4>索引</h4>
+        <ul>
+            <li><code>level, status</code> (复合索引)</li>
+            <li><code>owner</code> (普通索引)</li>
+            <li><code>endDate</code> (普通索引)</li>
+            <li><code>relatedOpportunityId</code> (普通索引) <span style="color:#1890ff;font-weight:bold;">🆕</span></li>
+            <li><code>relatedProjectId</code> (普通索引) <span style="color:#1890ff;font-weight:bold;">🆕</span></li>
+            <li><code>relatedTaskId</code> (普通索引) <span style="color:#1890ff;font-weight:bold;">🆕</span></li>
+        </ul>
+        <div class="warning-box">
+            <strong>⚠️ 字段迁移说明:</strong>
+            <ul>
+                <li><code>relatedTo</code> 字段已废弃，改用明确的关联字段</li>
+                <li>商机任务: 使用 <code>relatedOpportunityId</code></li>
+                <li>项目任务: 使用 <code>relatedProjectId</code></li>
+                <li>子任务/依赖任务: 使用 <code>relatedTaskId</code></li>
+                <li>季度措施任务: 使用 <code>relatedQuarterlyMeasureId</code></li>
+            </ul>
+        </div>
+        <div class="info-box">
+            <strong>对应前端组件:</strong> <code>components/TaskManagement.tsx</code>
+        </div>
+
+        <h3>3️⃣ opportunities - 商机管理表 <span style="color:#fa8c16;font-size:16px;">(已优化)</span></h3>
+        <h4>字段结构</h4>
+        <table>
+            <thead>
+                <tr>
+                    <th>字段名</th>
+                    <th>类型</th>
+                    <th>必填</th>
+                    <th>说明</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td><code>_id</code></td><td>string</td><td>是</td><td>MongoDB主键</td></tr>
+                <tr><td><code>name</code></td><td>string</td><td>是</td><td>商机名称</td></tr>
+                <tr><td><code>description</code></td><td>string</td><td>否</td><td>商机描述</td></tr>
+                <tr><td><code>customer</code></td><td>string</td><td>是</td><td>客户名称</td></tr>
+                <tr style="text-decoration: line-through;opacity:0.5;"><td><code>productType</code></td><td>string</td><td>否</td><td>~~产品类型（已废弃，改用productItemIds）~~</td></tr>
+                <tr class="field-new"><td><code>productItemIds</code></td><td>string[]</td><td>否</td><td>产品明细ID数组（关联product_items表）<span style="color:#1890ff;font-weight:bold;">🆕</span></td></tr>
+                <tr><td><code>estimatedAmount</code></td><td>number</td><td>是</td><td>预计金额</td></tr>
+                <tr><td><code>status</code></td><td>enum</td><td>是</td><td>状态: 线索 | 意向 | 报价 | 谈判 | 成交 | 失败</td></tr>
+                <tr><td><code>probability</code></td><td>number</td><td>是</td><td>成交概率</td></tr>
+                <tr><td><code>owner</code></td><td>string</td><td>是</td><td>负责人ID</td></tr>
+                <tr><td><code>expectedCloseDate</code></td><td>Date</td><td>是</td><td>预计成交日期</td></tr>
+                <tr><td><code>actualCloseDate</code></td><td>Date</td><td>否</td><td>实际成交日期</td></tr>
+                <tr><td><code>contactPerson</code></td><td>string</td><td>是</td><td>联系人</td></tr>
+                <tr><td><code>contactPhone</code></td><td>string</td><td>是</td><td>联系电话</td></tr>
+                <tr><td><code>contactEmail</code></td><td>string</td><td>否</td><td>联系邮箱</td></tr>
+                <tr><td><code>failReason</code></td><td>string</td><td>否</td><td>失败原因</td></tr>
+                <tr><td><code>createdBy</code></td><td>string</td><td>是</td><td>创建人ID</td></tr>
+                <tr><td><code>createdAt</code></td><td>Date</td><td>是</td><td>创建时间</td></tr>
+                <tr><td><code>updatedAt</code></td><td>Date</td><td>是</td><td>更新时间</td></tr>
+            </tbody>
+        </table>
+        <h4>索引</h4>
+        <ul>
+            <li><code>status</code> (普通索引)</li>
+            <li><code>owner</code> (普通索引)</li>
+            <li><code>expectedCloseDate</code> (普通索引)</li>
+        </ul>
+        <div class="success-box">
+            <strong>✅ 产品明细关联说明:</strong>
+            <ul>
+                <li>商机的需求产品通过 <code>productItemIds</code> 关联到 <code>product_items</code> 表</li>
+                <li>一个商机可以关联多个产品明细</li>
+                <li>产品明细包含: 产品类别、数量、销售单价、成本单价、总价</li>
+            </ul>
+        </div>
+        <div class="info-box">
+            <strong>对应前端组件:</strong> <code>components/OpportunityManagement.tsx</code>
+        </div>
+
+        <h3>4️⃣ projects - 项目管理表 <span style="color:#fa8c16;font-size:16px;">(已优化)</span></h3>
+        <h4>字段结构</h4>
+        <table>
+            <thead>
+                <tr>
+                    <th>字段名</th>
+                    <th>类型</th>
+                    <th>必填</th>
+                    <th>说明</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td><code>_id</code></td><td>string</td><td>是</td><td>MongoDB主键</td></tr>
+                <tr><td><code>name</code></td><td>string</td><td>是</td><td>项目名称</td></tr>
+                <tr><td><code>description</code></td><td>string</td><td>否</td><td>项目描述</td></tr>
+                <tr><td><code>code</code></td><td>string</td><td>否</td><td>项目编号</td></tr>
+                <tr class="field-new"><td><code>productItemIds</code></td><td>string[]</td><td>否</td><td>交付产品ID数组（关联product_items表）<span style="color:#1890ff;font-weight:bold;">🆕</span></td></tr>
+                <tr><td><code>status</code></td><td>enum</td><td>是</td><td>状态: 未开始 | 进行中 | 已完成 | 已取消</td></tr>
+                <tr><td><code>progress</code></td><td>number</td><td>是</td><td>完成进度</td></tr>
+                <tr><td><code>owner</code></td><td>string</td><td>是</td><td>项目经理ID</td></tr>
+                <tr><td><code>members</code></td><td>string[]</td><td>否</td><td>项目成员ID数组</td></tr>
+                <tr><td><code>startDate</code></td><td>Date</td><td>是</td><td>开始日期</td></tr>
+                <tr><td><code>endDate</code></td><td>Date</td><td>是</td><td>结束日期</td></tr>
+                <tr><td><code>actualStartDate</code></td><td>Date</td><td>否</td><td>实际开始日期</td></tr>
+                <tr><td><code>actualEndDate</code></td><td>Date</td><td>否</td><td>实际结束日期</td></tr>
+                <tr><td><code>budget</code></td><td>number</td><td>否</td><td>预算金额</td></tr>
+                <tr><td><code>actualCost</code></td><td>number</td><td>否</td><td>实际成本</td></tr>
+                <tr><td><code>opportunityId</code></td><td>string</td><td>否</td><td>来源商机ID</td></tr>
+                <tr><td><code>createdBy</code></td><td>string</td><td>是</td><td>创建人ID</td></tr>
+                <tr><td><code>createdAt</code></td><td>Date</td><td>是</td><td>创建时间</td></tr>
+                <tr><td><code>updatedAt</code></td><td>Date</td><td>是</td><td>更新时间</td></tr>
+            </tbody>
+        </table>
+        <h4>索引</h4>
+        <ul>
+            <li><code>status</code> (普通索引)</li>
+            <li><code>owner</code> (普通索引)</li>
+        </ul>
+        <div class="success-box">
+            <strong>✅ 项目交付产品说明:</strong>
+            <ul>
+                <li>项目的交付产品通过 <code>productItemIds</code> 关联到 <code>product_items</code> 表</li>
+                <li>一个项目可以关联多个产品明细</li>
+                <li>产品明细与商机需求使用同一个 <code>product_items</code> 表</li>
+            </ul>
+        </div>
+        <div class="info-box">
+            <strong>对应前端组件:</strong> <code>components/ProjectManagement.tsx</code>
+        </div>
+
+        <h3>5️⃣ goals - 目标管理表</h3>
+        <h4>字段结构</h4>
+        <table>
+            <thead>
+                <tr>
+                    <th>字段名</th>
+                    <th>类型</th>
+                    <th>必填</th>
+                    <th>说明</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td><code>_id</code></td><td>string</td><td>是</td><td>MongoDB主键</td></tr>
+                <tr><td><code>name</code></td><td>string</td><td>是</td><td>目标名称</td></tr>
+                <tr><td><code>description</code></td><td>string</td><td>否</td><td>目标描述</td></tr>
+                <tr><td><code>level</code></td><td>enum</td><td>是</td><td>目标级别: 公司级 | 部门级 | 个人级</td></tr>
+                <tr><td><code>status</code></td><td>enum</td><td>是</td><td>状态: 未开始 | 进行中 | 已完成 | 延期</td></tr>
+                <tr><td><code>progress</code></td><td>number</td><td>是</td><td>完成进度</td></tr>
+                <tr><td><code>owner</code></td><td>string</td><td>是</td><td>负责人ID</td></tr>
+                <tr><td><code>targetValue</code></td><td>number</td><td>是</td><td>目标值</td></tr>
+                <tr><td><code>currentValue</code></td><td>number</td><td>是</td><td>当前值</td></tr>
+                <tr><td><code>unit</code></td><td>string</td><td>是</td><td>单位</td></tr>
+                <tr><td><code>startDate</code></td><td>Date</td><td>是</td><td>开始日期</td></tr>
+                <tr><td><code>deadline</code></td><td>Date</td><td>是</td><td>截止日期</td></tr>
+                <tr><td><code>actualCompleteDate</code></td><td>Date</td><td>否</td><td>实际完成日期</td></tr>
+                <tr><td><code>createdBy</code></td><td>string</td><td>是</td><td>创建人ID</td></tr>
+                <tr><td><code>createdAt</code></td><td>Date</td><td>是</td><td>创建时间</td></tr>
+                <tr><td><code>updatedAt</code></td><td>Date</td><td>是</td><td>更新时间</td></tr>
+            </tbody>
+        </table>
+        <h4>索引</h4>
+        <ul>
+            <li><code>level, status</code> (复合索引)</li>
+            <li><code>owner</code> (普通索引)</li>
+            <li><code>deadline</code> (普通索引)</li>
+        </ul>
+        <div class="info-box">
+            <strong>对应前端组件:</strong> <code>components/GoalManagement.tsx</code>
+        </div>
+
+        <h3>6️⃣ departments - 部门管理表</h3>
+        <h4>字段结构</h4>
+        <table>
+            <thead>
+                <tr>
+                    <th>字段名</th>
+                    <th>类型</th>
+                    <th>必填</th>
+                    <th>说明</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td><code>_id</code></td><td>string</td><td>是</td><td>MongoDB主键</td></tr>
+                <tr><td><code>code</code></td><td>string</td><td>是</td><td>部门编码（唯一）</td></tr>
+                <tr><td><code>name</code></td><td>string</td><td>是</td><td>部门名称</td></tr>
+                <tr><td><code>description</code></td><td>string</td><td>否</td><td>部门描述</td></tr>
+                <tr><td><code>leader</code></td><td>string</td><td>否</td><td>部门负责人ID</td></tr>
+                <tr><td><code>isActive</code></td><td>boolean</td><td>是</td><td>是否启用</td></tr>
+                <tr><td><code>createdAt</code></td><td>Date</td><td>是</td><td>创建时间</td></tr>
+                <tr><td><code>updatedAt</code></td><td>Date</td><td>是</td><td>更新时间</td></tr>
+            </tbody>
+        </table>
+        <h4>索引</h4>
+        <ul>
+            <li><code>code</code> (唯一索引)</li>
+        </ul>
+        <h4>预置部门数据</h4>
+        <table>
+            <thead>
+                <tr>
+                    <th>部门编码</th>
+                    <th>部门名称</th>
+                    <th>状态</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>admin</td><td>管理部</td><td class="status-active">✅ 已创建</td></tr>
+                <tr><td>sales</td><td>业务部</td><td class="status-active">✅ 已创建</td></tr>
+                <tr><td>tech</td><td>技术部</td><td class="status-active">✅ 已创建</td></tr>
+                <tr><td>finance</td><td>财务部</td><td class="status-active">✅ 已创建</td></tr>
+                <tr><td>hr</td><td>人力资源部</td><td class="status-active">✅ 已创建</td></tr>
+            </tbody>
+        </table>
+
+        <h3>7️⃣ task_comments - 任务评论表</h3>
+        <h4>字段结构</h4>
+        <table>
+            <thead>
+                <tr>
+                    <th>字段名</th>
+                    <th>类型</th>
+                    <th>必填</th>
+                    <th>说明</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td><code>_id</code></td><td>string</td><td>是</td><td>MongoDB主键</td></tr>
+                <tr><td><code>taskId</code></td><td>string</td><td>是</td><td>关联任务ID</td></tr>
+                <tr><td><code>userId</code></td><td>string</td><td>是</td><td>评论人ID</td></tr>
+                <tr><td><code>content</code></td><td>string</td><td>是</td><td>评论内容</td></tr>
+                <tr><td><code>attachments</code></td><td>string[]</td><td>否</td><td>附件URL数组</td></tr>
+                <tr><td><code>createdAt</code></td><td>Date</td><td>是</td><td>创建时间</td></tr>
+                <tr><td><code>updatedAt</code></td><td>Date</td><td>是</td><td>更新时间</td></tr>
+            </tbody>
+        </table>
+        <h4>索引</h4>
+        <ul>
+            <li><code>taskId</code> (普通索引)</li>
+        </ul>
+
+        <h3>8️⃣ operation_logs - 操作日志表</h3>
+        <h4>字段结构</h4>
+        <table>
+            <thead>
+                <tr>
+                    <th>字段名</th>
+                    <th>类型</th>
+                    <th>必填</th>
+                    <th>说明</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td><code>_id</code></td><td>string</td><td>是</td><td>MongoDB主键</td></tr>
+                <tr><td><code>userId</code></td><td>string</td><td>是</td><td>操作人ID</td></tr>
+                <tr><td><code>module</code></td><td>string</td><td>是</td><td>模块（任务/商机/项目等）</td></tr>
+                <tr><td><code>action</code></td><td>string</td><td>是</td><td>操作（创建/更新/删除等）</td></tr>
+                <tr><td><code>content</code></td><td>string</td><td>是</td><td>操作描述</td></tr>
+                <tr><td><code>ipAddress</code></td><td>string</td><td>否</td><td>IP地址</td></tr>
+                <tr><td><code>userAgent</code></td><td>string</td><td>否</td><td>用户代理</td></tr>
+                <tr><td><code>createdAt</code></td><td>Date</td><td>是</td><td>创建时间</td></tr>
+            </tbody>
+        </table>
+        <h4>索引</h4>
+        <ul>
+            <li><code>userId, module</code> (复合索引)</li>
+            <li><code>createdAt</code> (降序索引)</li>
+        </ul>
+
+        <h3>9️⃣ product_items - 产品明细表 <span style="color:#1890ff;font-size:16px;font-weight:bold;">(🆕 新增)</span></h3>
+        <h4>字段结构</h4>
+        <table>
+            <thead>
+                <tr>
+                    <th>字段名</th>
+                    <th>类型</th>
+                    <th>必填</th>
+                    <th>说明</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td><code>_id</code></td><td>string</td><td>是</td><td>MongoDB主键</td></tr>
+                <tr><td><code>category</code></td><td>string</td><td>是</td><td>产品类别（如：服装、装备、鞋靴等）</td></tr>
+                <tr><td><code>name</code></td><td>string</td><td>是</td><td>产品名称</td></tr>
+                <tr><td><code>specification</code></td><td>string</td><td>否</td><td>规格型号</td></tr>
+                <tr><td><code>quantity</code></td><td>number</td><td>是</td><td>数量</td></tr>
+                <tr><td><code>unit</code></td><td>string</td><td>是</td><td>单位（如：件、套、双等）</td></tr>
+                <tr><td><code>salesPrice</code></td><td>number</td><td>是</td><td>销售单价</td></tr>
+                <tr><td><code>costPrice</code></td><td>number</td><td>否</td><td>成本单价</td></tr>
+                <tr><td><code>totalAmount</code></td><td>number</td><td>是</td><td>总价（quantity × salesPrice）</td></tr>
+                <tr><td><code>description</code></td><td>string</td><td>否</td><td>产品描述</td></tr>
+                <tr><td><code>createdBy</code></td><td>string</td><td>是</td><td>创建人ID</td></tr>
+                <tr><td><code>createdAt</code></td><td>Date</td><td>是</td><td>创建时间</td></tr>
+                <tr><td><code>updatedAt</code></td><td>Date</td><td>是</td><td>更新时间</td></tr>
+            </tbody>
+        </table>
+        <h4>索引</h4>
+        <ul>
+            <li><code>category</code> (普通索引)</li>
+            <li><code>createdAt</code> (降序索引)</li>
+        </ul>
+        <div class="success-box">
+            <strong>✅ 产品明细表说明:</strong>
+            <ul>
+                <li><strong>统一管理</strong>: 商机需求和项目交付产品使用同一个表</li>
+                <li><strong>字段说明</strong>:
+                    <ul>
+                        <li><code>category</code>: 产品类别，如服装、装备、鞋靴等</li>
+                        <li><code>quantity</code>: 产品数量</li>
+                        <li><code>salesPrice</code>: 销售单价（对客户报价）</li>
+                        <li><code>costPrice</code>: 成本单价（内部成本核算）</li>
+                        <li><code>totalAmount</code>: 总价 = 数量 × 销售单价</li>
+                    </ul>
+                </li>
+                <li><strong>关联关系</strong>:
+                    <ul>
+                        <li>商机通过 <code>opportunities.productItemIds[]</code> 关联</li>
+                        <li>项目通过 <code>projects.productItemIds[]</code> 关联</li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+
+        <h2>🔗 数据关系图</h2>
+        <pre>
+users (用户)
+  ├─→ tasks.owner (任务负责人)
+  ├─→ tasks.collaborators[] (任务协同人)
+  ├─→ opportunities.owner (商机负责人)
+  ├─→ projects.owner (项目负责人)
+  ├─→ projects.members[] (项目成员)
+  ├─→ goals.owner (目标负责人)
+  └─→ departments.leader (部门负责人)
+
+opportunities (商机)
+  ├─→ projects.opportunityId (商机转化的项目)
+  └─→ product_items._id[] (商机需求产品) <span style="color:#1890ff;font-weight:bold;">🆕</span>
+
+projects (项目)
+  └─→ product_items._id[] (项目交付产品) <span style="color:#1890ff;font-weight:bold;">🆕</span>
+
+tasks (任务)
+  ├─→ opportunities._id (关联商机) <span style="color:#fa8c16;font-weight:bold;">⚠️ 优化</span>
+  ├─→ projects._id (关联项目) <span style="color:#fa8c16;font-weight:bold;">⚠️ 优化</span>
+  ├─→ tasks._id (关联父任务) <span style="color:#1890ff;font-weight:bold;">🆕</span>
+  └─→ quarterly_measures._id (关联季度措施) <span style="color:#1890ff;font-weight:bold;">🆕</span>
+
+task_comments (任务评论)
+  └─→ tasks._id (评论所属任务)
+
+product_items (产品明细) <span style="color:#1890ff;font-weight:bold;">🆕 新增表</span>
+  ├← opportunities.productItemIds[] (被商机引用)
+  └← projects.productItemIds[] (被项目引用)
+        </pre>
+
+        <h2>📂 文件对应关系</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>前端组件</th>
+                    <th>对应数据表</th>
+                    <th>文件路径</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>TaskManagement</td>
+                    <td><code>tasks</code></td>
+                    <td><code>components/TaskManagement.tsx</code></td>
+                </tr>
+                <tr>
+                    <td>OpportunityManagement</td>
+                    <td><code>opportunities</code>, <code>product_items</code></td>
+                    <td><code>components/OpportunityManagement.tsx</code></td>
+                </tr>
+                <tr>
+                    <td>ProjectManagement</td>
+                    <td><code>projects</code>, <code>product_items</code></td>
+                    <td><code>components/ProjectManagement.tsx</code></td>
+                </tr>
+                <tr>
+                    <td>GoalManagement</td>
+                    <td><code>goals</code></td>
+                    <td><code>components/GoalManagement.tsx</code></td>
+                </tr>
+                <tr>
+                    <td>MessageCenter</td>
+                    <td>读取 <code>tasks</code>, <code>opportunities</code>, <code>projects</code></td>
+                    <td><code>components/MessageCenter.tsx</code></td>
+                </tr>
+                <tr style="background-color:#e6f7ff;">
+                    <td>ProductItemManagement <span style="color:#1890ff;font-weight:bold;">🆕</span></td>
+                    <td><code>product_items</code></td>
+                    <td><code>components/ProductItemManagement.tsx</code> (待开发)</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2>📊 统计信息</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>统计项</th>
+                    <th>v1.0</th>
+                    <th>v2.0</th>
+                    <th>变化</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>总集合数</td><td>8个</td><td>9个</td><td style="color:#52c41a;">+1个</td></tr>
+                <tr><td>已有数据集合</td><td>2个</td><td>2个</td><td>-</td></tr>
+                <tr><td>空集合</td><td>6个</td><td>7个</td><td style="color:#52c41a;">+1个</td></tr>
+                <tr><td>总索引数</td><td>23个</td><td>29个</td><td style="color:#52c41a;">+6个</td></tr>
+                <tr><td>唯一索引数</td><td>3个</td><td>5个</td><td style="color:#52c41a;">+2个</td></tr>
+                <tr><td>复合索引数</td><td>4个</td><td>4个</td><td>-</td></tr>
+            </tbody>
+        </table>
+
+        <h2>🚀 v2.0 优化总结</h2>
+        <div class="success-box">
+            <h4>✅ 主要改进</h4>
+            <ol>
+                <li><strong>微信对接支持</strong>
+                    <ul>
+                        <li>用户表新增 <code>wechatOpenId</code>、<code>wechatUnionId</code> 字段</li>
+                        <li>支持微信公众号/小程序用户身份识别</li>
+                        <li>支持同一主体下多应用用户统一</li>
+                    </ul>
+                </li>
+                <li><strong>用户体验优化</strong>
+                    <ul>
+                        <li>用户表新增 <code>nickname</code>（昵称）字段</li>
+                        <li>用户表新增 <code>signature</code>（个性签名）字段</li>
+                    </ul>
+                </li>
+                <li><strong>任务关联增强</strong>
+                    <ul>
+                        <li>明确关联字段：<code>relatedOpportunityId</code>、<code>relatedProjectId</code>、<code>relatedTaskId</code>、<code>relatedQuarterlyMeasureId</code></li>
+                        <li>废弃模糊的 <code>relatedTo</code> 字段</li>
+                        <li>支持父子任务关系</li>
+                        <li>支持季度措施关联</li>
+                    </ul>
+                </li>
+                <li><strong>产品明细独立管理</strong>
+                    <ul>
+                        <li>新增 <code>product_items</code> 表</li>
+                        <li>统一管理商机需求和项目交付产品</li>
+                        <li>包含产品类别、数量、销售单价、成本单价、总价</li>
+                        <li>支持多对多关联（一个商机/项目可关联多个产品）</li>
+                    </ul>
+                </li>
+            </ol>
+        </div>
+
+        <div class="warning-box">
+            <h4>⚠️ 数据迁移注意事项</h4>
+            <ul>
+                <li><strong>用户表</strong>: 新增字段为可选，不影响现有数据</li>
+                <li><strong>任务表</strong>: 需要将 <code>relatedTo</code> 数据迁移到对应的明确字段</li>
+                <li><strong>商机表</strong>: 需要将 <code>productType</code> 数据转换为 <code>product_items</code> 记录</li>
+                <li><strong>项目表</strong>: 需要创建对应的 <code>product_items</code> 记录</li>
+            </ul>
+        </div>
+
+        <div class="footer">
+            <p>© 2024 际华协同办公平台 - 数据库文档</p>
+            <p>生成时间: 2024年12月24日 | 版本: v2.0 - 优化版</p>
+        </div>
+    </div>
+
+    <script>
+        function downloadPDF() {
+            const element = document.querySelector('.container');
+            const opt = {
+                margin: [10, 10, 10, 10],
+                filename: '际华协同办公平台_数据库表结构文档_v2.0.pdf',
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { 
+                    scale: 2,
+                    useCORS: true,
+                    letterRendering: true
+                },
+                jsPDF: { 
+                    unit: 'mm', 
+                    format: 'a4', 
+                    orientation: 'portrait',
+                    compress: true
+                },
+                pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+            };
+
+            // 显示下载提示
+            const btn = document.querySelector('.download-btn');
+            const originalText = btn.textContent;
+            btn.textContent = '📥 生成中...';
+            btn.disabled = true;
+
+            html2pdf().set(opt).from(element).save().then(() => {
+                btn.textContent = '✅ 下载完成!';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.disabled = false;
+                }, 2000);
+            }).catch(() => {
+                btn.textContent = '❌ 下载失败';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.disabled = false;
+                }, 2000);
+            });
+        }
+    </script>
+</body>
+</html>

@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { X, AlertCircle, UserPlus } from 'lucide-react';
-import { db } from '../lib/cloudbase';
+import { app, db } from '../lib/cloudbase';
 import type { 
   CreateTaskDto, TaskLevel, TaskStatus, 
   OpportunityActionType 
 } from '../types/task';
 import type { Opportunity } from '../types/opportunity';
 import CollaboratorSelector from './CollaboratorSelector';
+import { UserAvatar } from './UserAvatar';
 
 interface CreateOpportunityTaskModalProps {
   opportunity: Opportunity;
@@ -177,7 +178,7 @@ export default function CreateOpportunityTaskModal({ opportunity, onClose, onSuc
       setSubmitting(true);
       console.log('📝 [商机跟进任务] 提交数据:', formData);
 
-      await db.collection('tasks').add({
+      const result = await db.collection('tasks').add({
         ...formData,
         createdBy: currentUser._id,
         createdAt: new Date(),
@@ -185,6 +186,50 @@ export default function CreateOpportunityTaskModal({ opportunity, onClose, onSuc
       });
 
       console.log('✅ [商机跟进任务] 任务创建成功');
+
+      // 发送消息通知给负责人
+      if (formData.owner && formData.owner !== currentUser._id) {
+        try {
+          await app.callFunction({
+            name: 'task-message',
+            data: {
+              action: 'create',
+              taskId: result.id,
+              taskName: formData.name,
+              taskLevel: formData.level,
+              receiver: formData.owner
+            }
+          });
+          console.log('✅ [商机跟进任务] 消息通知已发送');
+        } catch (error) {
+          console.error('❌ [商机跟进任务] 消息通知失败:', error);
+        }
+      }
+
+      // 发送消息通知给协同人
+      if (formData.collaborators && formData.collaborators.length > 0) {
+        const collaboratorsToNotify = formData.collaborators.filter(
+          c => c !== currentUser._id && c !== formData.owner
+        );
+        if (collaboratorsToNotify.length > 0) {
+          try {
+            await app.callFunction({
+              name: 'task-message',
+              data: {
+                action: 'collaborator',
+                taskId: result.id,
+                taskName: formData.name,
+                taskLevel: formData.level,
+                receivers: collaboratorsToNotify
+              }
+            });
+            console.log('✅ [商机跟进任务] 协同人通知已发送');
+          } catch (error) {
+            console.error('❌ [商机跟进任务] 协同人通知失败:', error);
+          }
+        }
+      }
+
       // 直接关闭模态框并刷新列表，不显示确认弹窗
       onSuccess();
       onClose();
@@ -261,7 +306,6 @@ export default function CreateOpportunityTaskModal({ opportunity, onClose, onSuc
               >
                 <option value="个人级">个人级</option>
                 <option value="团队级">团队级</option>
-                <option value="公司级">公司级</option>
               </select>
             </div>
 
@@ -417,9 +461,7 @@ export default function CreateOpportunityTaskModal({ opportunity, onClose, onSuc
                           key={user._id}
                           className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 rounded-full text-sm"
                         >
-                          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-xs font-medium">
-                            {user.name.charAt(0)}
-                          </div>
+                          <UserAvatar user={user} size="xs" />
                           <span className="text-gray-900">{user.name}</span>
                           <button
                             type="button"

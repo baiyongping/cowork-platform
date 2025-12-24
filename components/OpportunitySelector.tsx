@@ -49,13 +49,38 @@ export default function OpportunitySelector({ selectedId, onSelect, onClose }: O
   const loadOpportunities = async () => {
     setLoading(true);
     try {
-      const { data } = await db.collection('opportunities')
-        .orderBy('updatedAt', 'desc')
-        .get();
+      // 获取当前用户
+      const currentUserStr = localStorage.getItem('current_user');
+      const currentUser = currentUserStr ? JSON.parse(currentUserStr) : {};
+      console.log('🔍 [OpportunitySelector] 当前用户:', currentUser);
+      
+      // 查询所有商机（不限制阶段，由用户通过筛选器选择）
+      const query = db.collection('opportunities')
+        .orderBy('updatedAt', 'desc');
+
+      const { data } = await query.get();
+      console.log('🔍 [OpportunitySelector] 查询到的商机:', data);
+
+      // 权限过滤：只显示用户有查询权限的商机
+      let filteredData = data;
+      const userId = currentUser.userId || currentUser._id;
+      const userRoles = currentUser.roles || [];
+      const isAdmin = userRoles.includes('admin') || currentUser.role === 'admin';
+      console.log('🔍 [OpportunitySelector] 用户ID:', userId, '是否管理员:', isAdmin);
+      
+      if (!isAdmin) {
+        filteredData = data.filter((opp: any) => {
+          // 负责人或协同人可查看
+          return opp.owner === userId || 
+                 (opp.collaborators && opp.collaborators.includes(userId)) ||
+                 opp.isPublic === true;
+        });
+      }
+      console.log('🔍 [OpportunitySelector] 过滤后的商机:', filteredData);
 
       // 关联查询负责人信息
       const enrichedData = await Promise.all(
-        data.map(async (opp: any) => {
+        filteredData.map(async (opp: any) => {
           try {
             let ownerName = '未知';
             if (opp.owner) {

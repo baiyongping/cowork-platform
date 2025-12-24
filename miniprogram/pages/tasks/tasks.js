@@ -1,39 +1,24 @@
-// pages/tasks/tasks.js
 Page({
-  data: {
-    tasks: [],
-    loading: true
-  },
-
+  data: {},
+  
   onLoad() {
-    this.loadTasks();
+    this.checkAuth();
   },
-
-  async loadTasks() {
-    wx.showLoading({ title: '加载中...' });
-    
-    try {
-      const res = await wx.cloud.callFunction({
-        name: 'getTasks'
+  
+  onShow() {
+    if (typeof this.getTabBar === 'function' && this.getTabBar()) {
+      this.getTabBar().setData({
+        selected: 2
       });
-
-      if (res.result.success) {
-        this.setData({
-          tasks: res.result.tasks,
-          loading: false
-        });
-      }
-    } catch (err) {
-      console.error('加载任务失败:', err);
-      wx.showToast({ title: '加载失败', icon: 'none' });
-    } finally {
-      wx.hideLoading();
     }
   },
-
-  onPullDownRefresh() {
-    this.loadTasks().then(() => {
-      wx.stopPullDownRefresh();
-    });
+  
+  checkAuth() {
+    const app = getApp();
+    if (!app.isLoggedIn()) {
+      wx.reLaunch({
+        url: '/pages/register/register'
+      });
+    }
   }
 });

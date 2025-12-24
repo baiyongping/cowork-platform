@@ -23,13 +23,38 @@ export default function ProjectSelector({ selectedId, onSelect, onClose }: Proje
   const loadProjects = async () => {
     setLoading(true);
     try {
-      const { data } = await db.collection('projects')
-        .orderBy('updatedAt', 'desc')
-        .get();
+      // 获取当前用户
+      const currentUserStr = localStorage.getItem('current_user');
+      const currentUser = currentUserStr ? JSON.parse(currentUserStr) : {};
+      console.log('🔍 [ProjectSelector] 当前用户:', currentUser);
+      
+      // 查询所有项目（不限制状态，由用户通过筛选器选择）
+      const query = db.collection('projects')
+        .orderBy('updatedAt', 'desc');
+
+      const { data } = await query.get();
+      console.log('🔍 [ProjectSelector] 查询到的项目:', data);
+
+      // 权限过滤：只显示用户有查询权限的项目
+      let filteredData = data;
+      const userId = currentUser.userId || currentUser._id;
+      const userRoles = currentUser.roles || [];
+      const isAdmin = userRoles.includes('admin') || currentUser.role === 'admin';
+      console.log('🔍 [ProjectSelector] 用户ID:', userId, '是否管理员:', isAdmin);
+      
+      if (!isAdmin) {
+        filteredData = data.filter((proj: any) => {
+          // 负责人或协同人可查看
+          return proj.owner === userId || 
+                 (proj.members && proj.members.includes(userId)) ||
+                 proj.isPublic === true;
+        });
+      }
+      console.log('🔍 [ProjectSelector] 过滤后的项目:', filteredData);
 
       // 关联查询负责人信息
       const enrichedData = await Promise.all(
-        data.map(async (proj: any) => {
+        filteredData.map(async (proj: any) => {
           try {
             let ownerName = '未知';
             if (proj.owner) {

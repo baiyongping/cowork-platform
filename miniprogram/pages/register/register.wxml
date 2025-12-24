@@ -1,0 +1,66 @@
+<!--pages/register/register.wxml-->
+<view class="container">
+  <!-- 授权页面（第一步：未授权状态） -->
+  <view class="auth-page">
+    <!-- 标题 -->
+    <view class="header">
+      <text class="title">欢迎注册</text>
+      <text class="subtitle">际华协同办公平台</text>
+    </view>
+
+    <!-- 🎨 头像选择区域（新版微信API） -->
+    <view class="avatar-section">
+      <text class="section-label">选择头像</text>
+      <button 
+        class="avatar-button" 
+        open-type="chooseAvatar"
+        bindchooseavatar="onChooseAvatar"
+      >
+        <image 
+          class="avatar-preview" 
+          src="{{avatarUrl || '/images/default-avatar.png'}}" 
+          mode="aspectFill"
+        />
+        <view class="avatar-tip">点击选择头像</view>
+      </button>
+    </view>
+
+    <!-- 注册表单 -->
+    <view class="form-section">
+      <!-- 🆕 微信昵称（使用新版type="nickname"） -->
+      <view class="form-item">
+        <text class="label">微信昵称</text>
+        <input 
+          class="input"
+          type="nickname"
+          placeholder="请输入昵称"
+          value="{{nickName}}"
+          bindblur="onNicknameChange"
+        />
+      </view>
+
+      <view class="form-item">
+        <text class="label">真实姓名</text>
+        <input 
+          class="input" 
+          type="text" 
+          placeholder="请输入您的真实姓名" 
+          bindinput="onNameInput"
+          value="{{name}}"
+        />
+      </view>
+
+      <button 
+        class="submit-btn" 
+        type="primary" 
+        bindtap="handleSubmit"
+        disabled="{{submitting || !name}}"
+        loading="{{submitting}}"
+      >
+        {{submitting ? '提交中...' : '提交注册'}}
+      </button>
+      
+      <view class="tip">请先选择头像和填写昵称，然后提交注册</view>
+    </view>
+  </view>
+</view>

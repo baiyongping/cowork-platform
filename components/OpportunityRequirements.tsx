@@ -19,6 +19,7 @@ export default function OpportunityRequirements({
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState<OpportunityRequirement | null>(null);
   const [productTypes, setProductTypes] = useState<string[]>([]);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; id: string | null }>({ show: false, id: null });
 
   useEffect(() => {
     loadProductTypes();
@@ -221,10 +222,7 @@ export default function OpportunityRequirements({
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          // ✅ 保留删除确认
-                          if (confirm('确定要删除这条需求吗？')) {
-                            handleDelete(req.id);
-                          }
+                          setDeleteConfirm({ show: true, id: req.id });
                         }}
                         className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
                         title="删除"
@@ -263,6 +261,37 @@ export default function OpportunityRequirements({
             setEditingItem(null);
           }}
         />
+      )}
+
+      {/* 删除确认对话框 */}
+      {deleteConfirm.show && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">确认删除</h2>
+            <p className="text-gray-600 mb-6">
+              确定要删除这条需求吗？
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setDeleteConfirm({ show: false, id: null })}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={() => {
+                  if (deleteConfirm.id) {
+                    handleDelete(deleteConfirm.id);
+                  }
+                  setDeleteConfirm({ show: false, id: null });
+                }}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                确认删除
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

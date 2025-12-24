@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Building2, Shield, Tags, Plus, X, FileText, Calendar, Search, Download, UserCheck, ChevronDown, ChevronUp, Save, CheckCircle, XCircle, Trash2, User, Upload, Image as ImageIcon } from 'lucide-react';
 import { UserApprovalPage } from '../UserApprovalPage';
-import { EmployeeDetailModal } from '../EmployeeDetailModal';
+import EmployeeDetailModal from '../EmployeeDetailModal';
 import { EmployeeTrash } from '../EmployeeTrash';
 import { db, app } from '../../lib/cloudbase';
 import { usePermissionContext } from '../../contexts/PermissionContext';
@@ -15,9 +15,10 @@ interface TypeItem {
 interface SystemSettingsProps {
   currentUser: any;
   userRole: 'admin' | 'employee';
+  onPendingCountChange?: (count: number) => void;
 }
 
-export function SystemSettings({ currentUser: propCurrentUser, userRole }: SystemSettingsProps) {
+export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendingCountChange }: SystemSettingsProps) {
   const [selectedTab, setSelectedTab] = useState<'approval' | 'team' | 'department' | 'role' | 'types' | 'logs'>('approval');
   const [pendingCount, setPendingCount] = useState(0);
   const [currentUser, setCurrentUser] = useState<any>(propCurrentUser);
@@ -70,6 +71,7 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole }: Syste
         .where({ approvalStatus: 'pending' })
         .count();
       setPendingCount(result.total);
+      onPendingCountChange?.(result.total);
     } catch (error) {
       console.error('获取待审核数量失败:', error);
     }
@@ -81,6 +83,9 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole }: Syste
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showEmployeeDetail, setShowEmployeeDetail] = useState(false);
   const [showEmployeeTrash, setShowEmployeeTrash] = useState(false);
+  const [showInvitationModal, setShowInvitationModal] = useState(false);
+  const [invitationData, setInvitationData] = useState<{code: string; url: string; qrUrl: string} | null>(null);
+  const [generatingInvitation, setGeneratingInvitation] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
   const [editForm, setEditForm] = useState({
     name: '',
@@ -1090,11 +1095,8 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole }: Syste
   const loadEmployees = async () => {
     setLoadingEmployees(true);
     try {
-      const result = await db.collection('users')
-        .where({
-          approvalStatus: 'approved' // 只加载已审核通过的用户
-        })
-        .get();
+      // 🔧 修复：不再过滤审核状态，显示所有用户（除了已删除的）
+      const result = await db.collection('users').get();
       
       // 🔧 过滤掉已删除的用户和 admin 超级用户（系统默认隐藏）
       const activeUsers = result.data.filter((user: any) => 
@@ -1364,6 +1366,7 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole }: Syste
         role: editForm.roles[0] || '', // ✅ v2.2.0: 空字符串，不使用默认角色
         roles: editForm.roles, // 多角色数组
         status: editForm.status,
+        approvalStatus: editForm.approvalStatus, // 🔧 修复：添加审核状态字段
         supervisorId: editForm.supervisorId || null, // 上级ID，如果为空则设为null
         position: editForm.position || '', // 职务
         updatedAt: new Date()
@@ -1455,6 +1458,56 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole }: Syste
     } catch (error) {
       console.error('更新用户失败:', error);
       alert('更新用户失败: ' + (error as any).message);
+    }
+  };
+  
+  // 生成邀请注册链接（小程序版）
+  const handleGenerateInvitation = async () => {
+    setGeneratingInvitation(true);
+    try {
+      // 调用云函数生成小程序码
+      const result = await app.callFunction({
+        name: 'createInvitation',
+        data: {
+          action: 'create'
+        }
+      });
+
+      console.log('createInvitation result:', result);
+
+      if (result.result.code === 200) {
+        const { invitationCode, qrCodeBuffer, expireAt } = result.result.data;
+        
+        // 将小程序码 buffer 转换为 base64 图片
+        let qrCodeUrl = '';
+        if (qrCodeBuffer) {
+          // Buffer 转 base64
+          const base64 = btoa(
+            new Uint8Array(qrCodeBuffer.data)
+              .reduce((data, byte) => data + String.fromCharCode(byte), '')
+          );
+          qrCodeUrl = `data:image/png;base64,${base64}`;
+        }
+        
+        // 计算过期时间
+        const expireDate = new Date(expireAt);
+        const expireText = `${expireDate.getMonth() + 1}月${expireDate.getDate()}日 ${expireDate.getHours()}:${expireDate.getMinutes().toString().padStart(2, '0')}`;
+        
+        setInvitationData({
+          code: invitationCode,
+          url: `扫码使用小程序注册（有效期至 ${expireText}）`,
+          qrUrl: qrCodeUrl
+        });
+        
+        setShowInvitationModal(true);
+      } else {
+        throw new Error(result.result.message || '生成小程序码失败');
+      }
+    } catch (error) {
+      console.error('生成小程序码失败:', error);
+      alert('生成小程序码失败: ' + (error as Error).message + '\n\n提示：请确保已配置小程序权限');
+    } finally {
+      setGeneratingInvitation(false);
     }
   };
   
@@ -3147,15 +3200,27 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole }: Syste
             <h3 className="text-lg font-semibold text-gray-900">员工管理</h3>
             <p className="text-sm text-gray-600 mt-1">管理已审核通过的员工信息</p>
           </div>
-          {checkPermission('settings.employees', 'delete') && (
-            <button
-              onClick={() => setShowEmployeeTrash(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-orange-50 text-orange-700 border border-orange-200 rounded-lg hover:bg-orange-100 transition-colors"
-            >
-              <Trash2 className="w-4 h-4" />
-              回收站
-            </button>
-          )}
+          <div className="flex items-center gap-3">
+            {checkPermission('settings.employees', 'create') && (
+              <button
+                onClick={handleGenerateInvitation}
+                disabled={generatingInvitation}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                <Plus className="w-4 h-4" />
+                {generatingInvitation ? '生成中...' : '邀请注册'}
+              </button>
+            )}
+            {checkPermission('settings.employees', 'delete') && (
+              <button
+                onClick={() => setShowEmployeeTrash(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-orange-50 text-orange-700 border border-orange-200 rounded-lg hover:bg-orange-100 transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                回收站
+              </button>
+            )}
+          </div>
         </div>
         
         {/* 搜索和筛选栏 */}
@@ -3248,9 +3313,18 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole }: Syste
             >
               {/* 员工头像和基本信息 */}
               <div className="flex items-start gap-3 mb-4">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-semibold text-lg flex-shrink-0">
-                  {employee.name ? employee.name.charAt(0) : employee.username.charAt(0)}
-                </div>
+                {/* 🎨 显示用户头像 */}
+                {employee.avatar ? (
+                  <img 
+                    src={employee.avatar} 
+                    alt={employee.name}
+                    className="w-12 h-12 rounded-full object-cover border-2 border-blue-100 flex-shrink-0"
+                  />
+                ) : (
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-semibold text-lg flex-shrink-0">
+                    {employee.name ? employee.name.charAt(0) : employee.username.charAt(0)}
+                  </div>
+                )}
                 <div className="flex-1 min-w-0">
                   <h4 className="text-base font-semibold text-gray-900 truncate group-hover:text-blue-600 transition-colors">
                     {employee.name || employee.username}
@@ -4031,7 +4105,15 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole }: Syste
 
       {/* Content */}
       {selectedTab === 'team' && renderEmployeeSettings()}
-      {selectedTab === 'approval' && currentUser && <UserApprovalPage currentUser={currentUser} />}
+      {selectedTab === 'approval' && currentUser && (
+        <UserApprovalPage 
+          currentUser={currentUser}
+          onPendingCountChange={(count) => {
+            setPendingCount(count);
+            onPendingCountChange?.(count);
+          }}
+        />
+      )}
       {selectedTab === 'department' && renderDepartmentSettings()}
       {selectedTab === 'role' && renderRoleSettings()}
       {selectedTab === 'types' && renderTypeSettings()}
@@ -5615,6 +5697,7 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole }: Syste
             setShowEmployeeDetail(false);
             setSelectedEmployee(null);
           }}
+          rolePermissions={rolePermissions}
           onSuccess={async () => {
             console.log('🔄 [员工详情] 保存成功,准备刷新数据...');
             console.log('  - 当前员工ID:', selectedEmployee._id);
@@ -5667,6 +5750,225 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole }: Syste
           onClose={() => setShowEmployeeTrash(false)}
           onSuccess={() => loadEmployees()}
         />
+      )}
+
+      {/* 邀请注册弹窗 - 小程序版 */}
+      {showInvitationModal && invitationData && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
+            <div className="p-8">
+              {/* 标题 */}
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-2xl font-bold text-gray-900">员工注册邀请</h3>
+                <button
+                  onClick={() => {
+                    setShowInvitationModal(false);
+                    setInvitationData(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              {/* 二维码 */}
+              <div className="flex flex-col items-center gap-4 mb-6">
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-2xl shadow-inner">
+                  <img
+                    src={invitationData.qrUrl}
+                    alt="注册二维码"
+                    className="w-56 h-56 border-4 border-white shadow-lg rounded-xl"
+                  />
+                </div>
+                <p className="text-sm text-gray-600 text-center max-w-xs">
+                  使用微信扫描小程序码即可进入注册页面
+                </p>
+              </div>
+
+              {/* 操作按钮 */}
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={async () => {
+                    try {
+                      // 生成精美的下载图片
+                      const canvas = document.createElement('canvas');
+                      const ctx = canvas.getContext('2d');
+                      if (!ctx) return;
+
+                      // 设置画布尺寸（750x1334，iPhone 6/7/8标准尺寸）
+                      canvas.width = 750;
+                      canvas.height = 1334;
+
+                      // 背景渐变
+                      const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+                      gradient.addColorStop(0, '#3b82f6');
+                      gradient.addColorStop(1, '#2563eb');
+                      ctx.fillStyle = gradient;
+                      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                      // 获取系统名称
+                      let systemName = '际华定制协同办公管理平台';
+                      try {
+                        const systemNameRes = await db.collection('type_settings')
+                          .where({ type: 'systemName' })
+                          .get();
+                        
+                        if (systemNameRes.data && systemNameRes.data.length > 0 && systemNameRes.data[0].value) {
+                          systemName = systemNameRes.data[0].value;
+                        }
+                      } catch (err) {
+                        console.log('获取系统名称失败，使用默认值:', err);
+                      }
+
+                      // 绘制标题
+                      ctx.fillStyle = '#ffffff';
+                      ctx.font = 'bold 64px Arial, sans-serif';
+                      ctx.textAlign = 'center';
+                      ctx.fillText(systemName, canvas.width / 2, 180);
+
+                      // 绘制副标题
+                      ctx.font = '36px Arial, sans-serif';
+                      ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                      ctx.fillText('员工注册邀请', canvas.width / 2, 260);
+
+                      // 加载并绘制二维码
+                      const qrImg = new Image();
+                      qrImg.crossOrigin = 'anonymous';
+                      await new Promise((resolve, reject) => {
+                        qrImg.onload = resolve;
+                        qrImg.onerror = reject;
+                        qrImg.src = invitationData.qrUrl;
+                      });
+
+                      // 绘制二维码（居中，带白色背景和阴影）
+                      const qrSize = 400;
+                      const qrX = (canvas.width - qrSize) / 2;
+                      const qrY = 350;
+                      
+                      // 白色背景
+                      ctx.fillStyle = '#ffffff';
+                      ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+                      ctx.shadowBlur = 20;
+                      ctx.shadowOffsetY = 10;
+                      ctx.fillRect(qrX - 30, qrY - 30, qrSize + 60, qrSize + 60);
+                      
+                      // 重置阴影
+                      ctx.shadowColor = 'transparent';
+                      ctx.shadowBlur = 0;
+                      ctx.shadowOffsetY = 0;
+                      
+                      // 绘制二维码图片
+                      ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize);
+
+                      // 绘制使用说明
+                      ctx.fillStyle = '#ffffff';
+                      ctx.font = '32px Arial, sans-serif';
+                      ctx.textAlign = 'center';
+                      ctx.fillText('注册步骤', canvas.width / 2, 850);
+
+                      const steps = [
+                        '1. 使用微信扫描小程序码',
+                        '2. 填写您的姓名',
+                        '3. 等待管理员审核',
+                        '4. 审核通过后即可使用'
+                      ];
+
+                      ctx.font = '28px Arial, sans-serif';
+                      ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+                      ctx.textAlign = 'left';
+                      
+                      steps.forEach((step, index) => {
+                        ctx.fillText(step, 150, 920 + index * 50);
+                      });
+
+                      // 加载并绘制公司Logo（右下角）
+                      try {
+                        const logoRes = await db.collection('type_settings')
+                          .where({ type: 'companyLogo' })
+                          .get();
+                        
+                        if (logoRes.data && logoRes.data.length > 0 && logoRes.data[0].tempFileURL) {
+                          const logoImg = new Image();
+                          logoImg.crossOrigin = 'anonymous';
+                          await new Promise((resolve) => {
+                            logoImg.onload = resolve;
+                            logoImg.onerror = resolve; // 加载失败也继续
+                            logoImg.src = logoRes.data[0].tempFileURL;
+                          });
+
+                          // 计算Logo尺寸（保持宽高比，最大120x120）
+                          const maxLogoSize = 120;
+                          let logoWidth = logoImg.width;
+                          let logoHeight = logoImg.height;
+                          
+                          if (logoWidth > maxLogoSize || logoHeight > maxLogoSize) {
+                            const scale = Math.min(maxLogoSize / logoWidth, maxLogoSize / logoHeight);
+                            logoWidth *= scale;
+                            logoHeight *= scale;
+                          }
+
+                          // 绘制Logo（右下角，留边距）
+                          const logoX = canvas.width - logoWidth - 80;
+                          const logoY = canvas.height - logoHeight - 80;
+                          ctx.drawImage(logoImg, logoX, logoY, logoWidth, logoHeight);
+                        }
+                      } catch (logoError) {
+                        console.log('Logo加载失败，跳过:', logoError);
+                      }
+
+                      // 转换为Blob并下载
+                      canvas.toBlob((blob) => {
+                        if (blob) {
+                          const url = URL.createObjectURL(blob);
+                          const link = document.createElement('a');
+                          link.href = url;
+                          link.download = `员工注册邀请_${new Date().toLocaleDateString()}.png`;
+                          link.click();
+                          URL.revokeObjectURL(url);
+                          alert('二维码图片已下载！');
+                        }
+                      }, 'image/png');
+
+                    } catch (error) {
+                      console.error('生成图片失败:', error);
+                      alert('生成图片失败: ' + (error as Error).message);
+                    }
+                  }}
+                  className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors shadow-sm"
+                >
+                  <Download className="w-5 h-5" />
+                  下载邀请图片
+                </button>
+              </div>
+
+              {/* 使用说明 */}
+              <div className="mt-6 bg-blue-50 border border-blue-100 rounded-xl p-4">
+                <h4 className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
+                  <UserCheck className="w-4 h-4" />
+                  使用说明
+                </h4>
+                <ul className="text-sm text-blue-800 space-y-1.5">
+                  <li className="flex items-start gap-2">
+                    <span className="text-blue-600 mt-0.5">•</span>
+                    <span>员工使用微信扫描小程序码进入注册页面</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-blue-600 mt-0.5">•</span>
+                    <span>填写真实姓名后提交注册申请</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-blue-600 mt-0.5">•</span>
+                    <span>管理员在"用户审核"模块审核通过后员工即可使用</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-blue-600 mt-0.5">•</span>
+                    <span>可下载邀请图片分享给员工或打印张贴</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

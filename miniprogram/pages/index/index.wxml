@@ -1,5 +1,10 @@
 <!--pages/index/index.wxml-->
 <view class="container">
+  <!-- 浮动扫码按钮 -->
+  <view class="scan-float-btn" bindtap="goToScan">
+    <image class="scan-float-icon" src="/images/scan-icon.png" mode="aspectFit"></image>
+  </view>
+
   <!-- 顶部统计区域 - 非对称3列布局 -->
   <view class="stats-section">
     <view class="stat-card stat-card-large" bindtap="goToTasks">

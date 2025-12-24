@@ -138,11 +138,11 @@ export function getOpportunityStageColor(stage: string, allStages: string[]): st
 // 辅助函数：获取级别颜色
 export function getOpportunityLevelColor(level: OpportunityLevel): string {
   switch (level) {
-    case '重要':
+    case 'A级':
       return 'bg-red-100 text-red-800';
-    case '一般':
+    case 'B级':
       return 'bg-blue-100 text-blue-800';
-    case '潜在':
+    case 'C级':
       return 'bg-gray-100 text-gray-800';
     default:
       return 'bg-gray-100 text-gray-800';

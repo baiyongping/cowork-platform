@@ -1,8 +1,8 @@
 import cloudbase from '@cloudbase/js-sdk';
 
 // 从环境变量读取 CloudBase 环境 ID
-// 默认使用测试环境（本地开发和测试服务器）
-const ENV_ID = import.meta.env.VITE_CLOUDBASE_ENV_ID || 'jihua-oa-dev-3goht9irae4d949f';
+// 默认使用 Parasaga 生产环境
+const ENV_ID = import.meta.env.VITE_CLOUDBASE_ENV_ID || 'parasaga-5g6ibiua4b9422eb';
 
 console.log('🔧 CloudBase 环境:', ENV_ID);
 console.log('🔧 当前模式:', import.meta.env.MODE);

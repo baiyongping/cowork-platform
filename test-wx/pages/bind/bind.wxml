@@ -1,0 +1,41 @@
+<view class="container">
+  <view class="header">
+    <image class="logo" src="/images/logo.png" mode="aspectFit"></image>
+    <text class="title">绑定企业账号</text>
+  </view>
+
+  <view class="form">
+    <view class="form-item">
+      <text class="label">用户名</text>
+      <input 
+        class="input" 
+        placeholder="请输入用户名" 
+        value="{{username}}"
+        bindinput="onUsernameInput"
+      />
+    </view>
+
+    <view class="form-item">
+      <text class="label">密码</text>
+      <input 
+        class="input" 
+        type="password"
+        placeholder="请输入密码" 
+        value="{{password}}"
+        bindinput="onPasswordInput"
+      />
+    </view>
+
+    <button class="btn-primary" bindtap="handleBind" loading="{{loading}}">
+      {{loading ? '绑定中...' : '绑定账号'}}
+    </button>
+
+    <view class="tips">
+      <text>绑定后可通过微信快速登录</text>
+    </view>
+  </view>
+
+  <view class="footer">
+    <text class="link" bindtap="goToRegister">没有账号？立即注册</text>
+  </view>
+</view>

@@ -10,11 +10,16 @@ interface LoginPageProps {
 
 export function LoginPage({ onLogin }: LoginPageProps) {
   const [currentView, setCurrentView] = useState<'login' | 'register' | 'forgot'>('login');
+  const [loginMode, setLoginMode] = useState<'account' | 'qrcode'>('account'); // 登录方式
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [wechatChecking, setWechatChecking] = useState(true);
   const [systemName, setSystemName] = useState('际华定制协同办公管理平台');
   const [companyLogo, setCompanyLogo] = useState<string>('/logo.png'); // 默认Logo
+  
+  // 扫码登录状态
+  const [qrCodeData, setQrCodeData] = useState<{code: string; qrUrl: string; expireAt: number} | null>(null);
+  const [qrPolling, setQrPolling] = useState(false);
   
   // 登录表单
   const [loginForm, setLoginForm] = useState({
@@ -50,41 +55,68 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     const loadSystemSettings = async () => {
       try {
         const cloudbase = (await import('../lib/cloudbase')).default;
+        
+        // 确保 CloudBase 已初始化
+        if (!cloudbase) {
+          console.warn('CloudBase 未初始化，使用默认系统名称');
+          return;
+        }
+        
         const db = cloudbase.database();
         
         // 加载系统名称
-        const nameResult = await db.collection('type_settings')
-          .where({ type: 'systemName' })
-          .get();
-        
-        if (nameResult.data && nameResult.data.length > 0 && nameResult.data[0].values && nameResult.data[0].values.length > 0) {
-          const nameValue = nameResult.data[0].values[0];
-          // 支持新旧格式
-          if (typeof nameValue === 'string') {
-            setSystemName(nameValue);
-          } else if (nameValue && typeof nameValue === 'object' && nameValue.value) {
-            setSystemName(nameValue.value);
+        try {
+          const nameResult = await db.collection('type_settings')
+            .where({ type: 'systemName' })
+            .get();
+          
+          if (nameResult.data && nameResult.data.length > 0 && nameResult.data[0].values && nameResult.data[0].values.length > 0) {
+            const nameValue = nameResult.data[0].values[0];
+            // 支持新旧格式
+            if (typeof nameValue === 'string') {
+              setSystemName(nameValue);
+            } else if (nameValue && typeof nameValue === 'object' && nameValue.value) {
+              setSystemName(nameValue.value);
+            }
           }
+        } catch (nameError) {
+          console.warn('加载系统名称失败，使用默认值:', nameError);
         }
         
         // 加载公司Logo
-        const logoResult = await db.collection('type_settings')
-          .where({ type: 'companyLogo' })
-          .get();
-        
-        if (logoResult.data && logoResult.data.length > 0) {
-          const logoData = logoResult.data[0].values?.[0];
-          if (logoData) {
-            // 支持两种格式：Base64编码 或 云存储URL
-            if (logoData.base64) {
-              setCompanyLogo(logoData.base64);
-            } else if (logoData.tempFileURL) {
-              setCompanyLogo(logoData.tempFileURL);
+        try {
+          const logoResult = await db.collection('type_settings')
+            .where({ type: 'companyLogo' })
+            .get();
+          
+          if (logoResult.data && logoResult.data.length > 0) {
+            const logoData = logoResult.data[0].values?.[0];
+            if (logoData) {
+              // 支持多种格式：Base64编码 或 云存储URL
+              if (logoData.base64) {
+                setCompanyLogo(logoData.base64);
+              } else if (logoData.tempFileURL) {
+                // 过滤掉微信小程序的本地文件路径 (wxfile://)
+                const url = logoData.tempFileURL;
+                if (url && !url.startsWith('wxfile://')) {
+                  setCompanyLogo(url);
+                }
+              } else if (logoData.fileID) {
+                // 如果只有 fileID，直接使用 CloudBase 公共 URL 格式（无需登录）
+                // 格式：https://{envId}.tcb.qcloud.la/{fileID}
+                const envId = 'jihua-oa-dev-3goht9irae4d949f';
+                const publicURL = `https://${envId}.tcb.qcloud.la/${logoData.fileID}`;
+                setCompanyLogo(publicURL);
+                console.log('🔍 [LoginPage] 使用公共URL加载Logo:', publicURL);
+              }
             }
           }
+        } catch (logoError) {
+          console.warn('加载公司Logo失败，使用默认值:', logoError);
         }
       } catch (error) {
         console.error('加载系统设置失败:', error);
+        // 不影响注册流程，继续使用默认值
       }
     };
 
@@ -95,14 +127,25 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   useEffect(() => {
     const checkWechatCallback = async () => {
       try {
+        // ✅ 关键修复：只在页面首次加载时检查微信回调
+        // 避免在用户输入密码登录时重复检查
+        const hasCheckedWechat = sessionStorage.getItem('wechat-callback-checked');
+        if (hasCheckedWechat) {
+          console.log('ℹ️ 已检查过微信回调，跳过');
+          return;
+        }
+        
         setWechatChecking(true);
         const result = await handleWechatCallback();
+        
+        // 标记已检查
+        sessionStorage.setItem('wechat-callback-checked', 'true');
         
         if (result.success && result.user && result.token) {
           // 微信登录成功(已审核通过)
           onLogin(result.user, result.token);
-        } else if (result.message) {
-          // 显示错误或提示信息
+        } else if (result.message && result.message !== '未登录' && result.message !== '无用户信息') {
+          // 显示错误或提示信息（忽略常规的"未登录"消息）
           setError(result.message);
         }
       } catch (err: any) {
@@ -114,6 +157,87 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     
     checkWechatCallback();
   }, [onLogin]);
+
+  // 生成扫码登录二维码
+  const generateQRCode = async () => {
+    try {
+      setError('');
+      const cloudbase = (await import('../lib/cloudbase')).default;
+      
+      const result = await cloudbase.callFunction({
+        name: 'scanLogin',
+        data: {
+          action: 'create'
+        }
+      });
+
+      if (result.result.code === 200) {
+        const { loginCode, expireAt } = result.result.data;
+        const qrContent = `jihuaoa://scanlogin?code=${loginCode}`;
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrContent)}`;
+        
+        setQrCodeData({
+          code: loginCode,
+          qrUrl: qrUrl,
+          expireAt: expireAt
+        });
+        
+        // 开始轮询
+        startQRPolling(loginCode);
+      } else {
+        setError('生成二维码失败');
+      }
+    } catch (err: any) {
+      setError(err.message || '生成二维码失败');
+    }
+  };
+
+  // 轮询检查扫码登录状态
+  const startQRPolling = (loginCode: string) => {
+    setQrPolling(true);
+    const pollInterval = setInterval(async () => {
+      try {
+        const cloudbase = (await import('../lib/cloudbase')).default;
+        
+        const result = await cloudbase.callFunction({
+          name: 'scanLogin',
+          data: {
+            action: 'checkStatus',
+            loginCode: loginCode
+          }
+        });
+
+        if (result.result.code === 200) {
+          // 登录成功
+          clearInterval(pollInterval);
+          setQrPolling(false);
+          const { user, token } = result.result.data;
+          onLogin(user, token);
+        } else if (result.result.code === 410) {
+          // 二维码已过期
+          clearInterval(pollInterval);
+          setQrPolling(false);
+          setQrCodeData(null);
+          setError('二维码已过期，请重新生成');
+        }
+      } catch (err: any) {
+        console.error('轮询失败:', err);
+      }
+    }, 2000); // 每2秒轮询一次
+
+    // 5分钟后自动停止轮询
+    setTimeout(() => {
+      clearInterval(pollInterval);
+      setQrPolling(false);
+    }, 5 * 60 * 1000);
+  };
+
+  // 切换到扫码登录时自动生成二维码
+  useEffect(() => {
+    if (loginMode === 'qrcode' && !qrCodeData) {
+      generateQRCode();
+    }
+  }, [loginMode]);
 
   // 微信扫码登录
   const handleWechatLogin = async () => {
@@ -368,71 +492,146 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
         {currentView === 'login' ? (
           // 登录表单
-          <form onSubmit={handleLoginSubmit} className="space-y-6">
-            <div>
-              <label className="block text-sm text-gray-700 mb-2">用户名</label>
-              <div className="relative">
-                <User className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  value={loginForm.username}
-                  onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="请输入用户名"
-                  required
-                  disabled={loading}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm text-gray-700 mb-2">密码</label>
-              <div className="relative">
-                <Lock className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="password"
-                  value={loginForm.password}
-                  onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="请输入密码"
-                  required
-                  disabled={loading}
-                  autoComplete="current-password"
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between">
+          <div className="space-y-6">
+            {/* 登录方式切换 */}
+            <div className="flex items-center justify-center gap-4 mb-6">
               <button
                 type="button"
-                onClick={() => {
-                  setCurrentView('register');
-                  setError('');
-                }}
-                className="text-sm text-blue-600 hover:text-blue-700"
+                onClick={() => setLoginMode('account')}
+                className={`px-6 py-2 rounded-lg transition-colors ${
+                  loginMode === 'account'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
               >
-                注册账号
+                账号登录
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setCurrentView('forgot');
-                  setError('');
-                }}
-                className="text-sm text-blue-600 hover:text-blue-700"
+                onClick={() => setLoginMode('qrcode')}
+                className={`px-6 py-2 rounded-lg transition-colors ${
+                  loginMode === 'qrcode'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
               >
-                忘记密码？
+                扫码登录
               </button>
             </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-            >
-              {loading ? '登录中...' : '登录'}
-            </button>
-          </form>
+            {loginMode === 'account' ? (
+              // 账号密码登录
+              <form onSubmit={handleLoginSubmit} className="space-y-6">
+                <div>
+                  <label className="block text-sm text-gray-700 mb-2">用户名</label>
+                  <div className="relative">
+                    <User className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={loginForm.username}
+                      onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
+                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="请输入用户名"
+                      required
+                      disabled={loading}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm text-gray-700 mb-2">密码</label>
+                  <div className="relative">
+                    <Lock className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="password"
+                      value={loginForm.password}
+                      onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="请输入密码"
+                      required
+                      disabled={loading}
+                      autoComplete="current-password"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCurrentView('register');
+                      setError('');
+                    }}
+                    className="text-sm text-blue-600 hover:text-blue-700"
+                  >
+                    注册账号
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCurrentView('forgot');
+                      setError('');
+                    }}
+                    className="text-sm text-blue-600 hover:text-blue-700"
+                  >
+                    忘记密码？
+                  </button>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  {loading ? '登录中...' : '登录'}
+                </button>
+              </form>
+            ) : (
+              // 扫码登录
+              <div className="flex flex-col items-center space-y-6 py-8">
+                {qrCodeData ? (
+                  <>
+                    <div className="relative">
+                      <img
+                        src={qrCodeData.qrUrl}
+                        alt="登录二维码"
+                        className="w-64 h-64 border-4 border-blue-600 rounded-lg shadow-lg"
+                      />
+                      {qrPolling && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-90 rounded-lg">
+                          <div className="text-center">
+                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                            <p className="text-sm text-gray-600">等待扫码...</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="text-center space-y-2">
+                      <p className="text-lg font-medium text-gray-900">请使用微信小程序扫码登录</p>
+                      <p className="text-sm text-gray-600">打开"际华协同办公"小程序</p>
+                      <p className="text-sm text-gray-600">点击"扫一扫"功能扫描二维码</p>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        setQrCodeData(null);
+                        generateQRCode();
+                      }}
+                      className="px-6 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+                    >
+                      刷新二维码
+                    </button>
+                  </>
+                ) : (
+                  <div className="text-center py-12">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                    <p className="text-gray-600">正在生成二维码...</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         ) : currentView === 'register' ? (
           // 注册表单
           <form onSubmit={handleRegisterSubmit} className="space-y-4">

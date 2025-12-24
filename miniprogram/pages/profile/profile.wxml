@@ -1,36 +1,53 @@
-<!--pages/profile/profile.wxml-->
 <view class="container">
-  <view class="profile-header">
-    <view class="avatar-section">
-      <image class="avatar" src="{{userInfo.avatarUrl || '/images/default-avatar.png'}}"></image>
-      <view class="user-name">{{userInfo.name || '未登录'}}</view>
-      <view class="user-role">{{userInfo.role || '员工'}}</view>
+  <!-- 用户信息卡片 -->
+  <view class="user-card">
+    <!-- 🎨 头像优化：显示微信头像或默认头像 -->
+    <image 
+      class="avatar" 
+      src="{{userInfo.avatarUrl || '/images/default-avatar.png'}}" 
+      mode="aspectFill"
+    />
+    <view class="user-info">
+      <text class="name">{{userInfo.name || '未设置姓名'}}</text>
+      <!-- 🔧 显示部门信息（支持多部门） -->
+      <text class="department">{{userInfo.department || '未设置部门'}}</text>
+      <!-- 🆕 显示职务（如果有） -->
+      <text class="position" wx:if="{{userInfo.position}}">{{userInfo.position}}</text>
     </view>
   </view>
 
+  <!-- 功能菜单 -->
   <view class="menu-section">
-    <view class="menu-item">
-      <text class="menu-label">我的任务</text>
-      <text class="menu-value">查看 ></text>
+    <view class="menu-item" bindtap="goToAchievement">
+      <view class="menu-left">
+        <view class="menu-icon">🏆</view>
+        <text class="menu-title">我的业绩</text>
+      </view>
+      <text class="menu-arrow">›</text>
     </view>
-    <view class="menu-item">
-      <text class="menu-label">我的商机</text>
-      <text class="menu-value">查看 ></text>
-    </view>
-    <view class="menu-item">
-      <text class="menu-label">我的项目</text>
-      <text class="menu-value">查看 ></text>
-    </view>
-  </view>
 
-  <view class="menu-section">
-    <view class="menu-item">
-      <text class="menu-label">设置</text>
-      <text class="menu-value">></text>
+    <view class="menu-item" bindtap="goToPerformance">
+      <view class="menu-left">
+        <view class="menu-icon">📈</view>
+        <text class="menu-title">我的绩效</text>
+      </view>
+      <text class="menu-arrow">›</text>
     </view>
-    <view class="menu-item">
-      <text class="menu-label">关于</text>
-      <text class="menu-value">></text>
+
+    <view class="menu-item" bindtap="goToTeam">
+      <view class="menu-left">
+        <view class="menu-icon">👥</view>
+        <text class="menu-title">我的团队</text>
+      </view>
+      <text class="menu-arrow">›</text>
+    </view>
+
+    <view class="menu-item" bindtap="goToLoginTest">
+      <view class="menu-left">
+        <view class="menu-icon">🧪</view>
+        <text class="menu-title">登录测试</text>
+      </view>
+      <text class="menu-arrow">›</text>
     </view>
   </view>
 </view>

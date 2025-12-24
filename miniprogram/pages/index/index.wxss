@@ -6,6 +6,27 @@
   padding-bottom: 20rpx;
 }
 
+/* ========== 浮动扫码按钮 ========== */
+.scan-float-btn {
+  position: fixed;
+  right: 30rpx;
+  bottom: 120rpx;
+  width: 120rpx;
+  height: 120rpx;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8rpx 24rpx rgba(102, 126, 234, 0.4);
+  z-index: 999;
+}
+
+.scan-float-icon {
+  width: 64rpx;
+  height: 64rpx;
+}
+
 /* ========== 顶部统计区域 - 非对称布局 ========== */
 .stats-section {
   display: flex;

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Plus, Search, Filter, TrendingUp, DollarSign, Users, Calendar, CheckCircle, Edit, Trash2, ListTodo, Target, MessageSquare, UserCheck } from 'lucide-react';
-import { db, auth } from '../../lib/cloudbase';
+import { app, db, auth } from '../../lib/cloudbase';
 import CreateOpportunityModal from '../CreateOpportunityModal';
 import OpportunityDetailModal from '../OpportunityDetailModal';
 import OpportunityRecycleBin from '../OpportunityRecycleBin';
@@ -17,9 +17,11 @@ import type {
 interface OpportunityManagementProps {
   userRole: 'admin' | 'user';
   currentUserId: string;
+  openOpportunityId?: string;  // 🔧 要打开的商机ID
+  onOpportunityOpened?: () => void;  // 🔧 打开后的回调
 }
 
-export function OpportunityManagement({ userRole, currentUserId }: OpportunityManagementProps) {
+export function OpportunityManagement({ userRole, currentUserId, openOpportunityId, onOpportunityOpened }: OpportunityManagementProps) {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [loading, setLoading] = useState(false);
   const [statistics, setStatistics] = useState<OpportunityStatistics>({
@@ -281,6 +283,23 @@ export function OpportunityManagement({ userRole, currentUserId }: OpportunityMa
     }
   }, [filters, opportunityStages]);
 
+  // 🔧 自动打开指定的商机详情
+  useEffect(() => {
+    console.log('🔧 [OpportunityManagement] 检查自动打开:', { openOpportunityId, opportunitiesCount: opportunities.length });
+    if (openOpportunityId && opportunities.length > 0) {
+      const opportunityToOpen = opportunities.find(o => o._id === openOpportunityId);
+      console.log('🔧 [OpportunityManagement] 找到商机:', opportunityToOpen);
+      if (opportunityToOpen) {
+        setSelectedOpportunity(opportunityToOpen);
+        setShowDetailModal(true);
+        onOpportunityOpened?.();  // 通知父组件已打开
+        console.log('✅ [OpportunityManagement] 已打开商机详情');
+      } else {
+        console.warn('⚠️ [OpportunityManagement] 未找到商机:', openOpportunityId);
+      }
+    }
+  }, [openOpportunityId, opportunities]);
+
   // 直接更新商机阶段
   const handleUpdateOpportunityStage = async (oppId: string, newStage: string) => {
     try {
@@ -325,6 +344,25 @@ export function OpportunityManagement({ userRole, currentUserId }: OpportunityMa
           stage: newStage,
           updatedAt: new Date(),
         });
+
+        // 发送状态变更通知
+        if (opportunity.owner !== currentUserId) {
+          try {
+            await app.callFunction({
+              name: 'opportunity-message',
+              data: {
+                action: 'statusChange',
+                opportunityId: oppId,
+                opportunityName: opportunity.opportunityName,
+                customer: opportunity.customer,
+                newStatus: newStage,
+                receiver: opportunity.owner
+              }
+            });
+          } catch (error) {
+            console.error('消息通知失败:', error);
+          }
+        }
         
         // 重新加载商机列表
         await loadOpportunities();
@@ -545,7 +583,25 @@ export function OpportunityManagement({ userRole, currentUserId }: OpportunityMa
       };
 
       // 插入项目
-      await db.collection('projects').add(projectData);
+      const result = await db.collection('projects').add(projectData);
+
+      // 发送消息通知给负责人
+      if (projectData.owner && projectData.owner !== currentUserId) {
+        try {
+          await app.callFunction({
+            name: 'project-message',
+            data: {
+              action: 'create',
+              projectId: result.id,
+              projectName: projectData.name,
+              receiver: projectData.owner
+            }
+          });
+          console.log('✅ 消息通知已发送');
+        } catch (error) {
+          console.error('❌ 消息通知失败:', error);
+        }
+      }
 
       console.log('项目创建成功:', projectCode);
     } catch (error) {
@@ -920,9 +976,9 @@ function getOpportunityStageColor(stage: string, allStages: string[]): string {
 
 function getOpportunityLevelColor(level: OpportunityLevel): string {
   const colors: Record<OpportunityLevel, string> = {
-    '重点': 'bg-red-100 text-red-800',
-    '一般': 'bg-blue-100 text-blue-800',
-    '潜在': 'bg-gray-100 text-gray-800',
+    'A级': 'bg-red-100 text-red-800',
+    'B级': 'bg-blue-100 text-blue-800',
+    'C级': 'bg-gray-100 text-gray-800',
   };
   return colors[level] || 'bg-gray-100 text-gray-800';
 }

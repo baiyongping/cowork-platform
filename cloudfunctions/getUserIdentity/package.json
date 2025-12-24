@@ -1,0 +1,9 @@
+{
+  "name": "getUserIdentity",
+  "version": "1.0.0",
+  "description": "获取用户身份信息（OpenID和UnionID）",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

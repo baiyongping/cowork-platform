@@ -14,7 +14,19 @@ Page({
     userInfo: null
   },
 
-  onLoad() {
+  onLoad(options) {
+    // 检查是否是扫码进入（携带 scene 参数）
+    if (options.scene) {
+      console.log('📱 检测到扫码进入，跳转到注册页面');
+      console.log('📝 场景值:', options.scene);
+      
+      // 跳转到注册页面，并携带场景值
+      wx.redirectTo({
+        url: `/pages/register/register?scene=${options.scene}`
+      });
+      return;
+    }
+    
     this.loadData();
   },
 
@@ -65,6 +77,11 @@ Page({
   // 导航到项目列表
   goToProjects() {
     wx.navigateTo({ url: '/pages/projects/projects' });
+  },
+
+  // 导航到扫码页面
+  goToScan() {
+    wx.navigateTo({ url: '/pages/scan/scan' });
   },
 
   // 下拉刷新

@@ -1,0 +1,16 @@
+<view class="container">
+  <view class="logo">
+    <image src="/images/logo.png" mode="aspectFit"></image>
+  </view>
+  
+  <view class="title">欢迎使用际华协同办公</view>
+  <view class="subtitle">请授权微信登录</view>
+  
+  <button class="auth-btn" type="primary" bindtap="onAuthorize">
+    授权登录
+  </button>
+  
+  <view class="tips">
+    <text>授权后将获取您的头像、昵称等基本信息</text>
+  </view>
+</view>

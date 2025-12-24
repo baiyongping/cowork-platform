@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { X, Save } from 'lucide-react';
-import { db } from '../lib/cloudbase';
+import { app, db } from '../lib/cloudbase';
 import type { OpportunityStage, OpportunityLevel } from '../types/opportunity';
+import { UserAvatar } from './UserAvatar';
 
 interface CreateOpportunityModalProps {
   onClose: () => void;
@@ -165,7 +166,25 @@ export default function CreateOpportunityModal({ onClose, onSuccess }: CreateOpp
       });
 
       // 创建商机
-      await db.collection('opportunities').add(opportunityData);
+      const result = await db.collection('opportunities').add(opportunityData);
+
+      // 发送消息通知给负责人
+      if (opportunityData.owner && opportunityData.owner !== currentUser._id) {
+        try {
+          await app.callFunction({
+            name: 'opportunity-message',
+            data: {
+              action: 'create',
+              opportunityId: result.id,
+              opportunityName: opportunityData.opportunityName,
+              customer: opportunityData.customer,
+              receiver: opportunityData.owner
+            }
+          });
+        } catch (error) {
+          console.error('消息通知失败:', error);
+        }
+      }
 
       // 直接保存，不弹出提示
       onSuccess();
@@ -273,9 +292,7 @@ export default function CreateOpportunityModal({ onClose, onSuccess }: CreateOpp
             }`}>
               {currentUser ? (
                 <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-xs font-medium">
-                    {currentUser.name?.charAt(0) || '?'}
-                  </div>
+                  <UserAvatar user={currentUser} size="xs" />
                   <span>{currentUser.name}</span>
                 </div>
               ) : (

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, AlertCircle, UserPlus, Save, Link2 } from 'lucide-react';
-import { db } from '../lib/cloudbase';
+import { app, db } from '../lib/cloudbase';
 import type { 
   Task, TaskLevel, TaskType, TaskStatus, 
   OpportunityActionType, ProjectPhase 
@@ -8,6 +8,7 @@ import type {
 import CollaboratorSelector from './CollaboratorSelector';
 import OpportunitySelector from './OpportunitySelector';
 import ProjectSelector from './ProjectSelector';
+import { UserAvatar } from './UserAvatar';
 
 interface EditTaskModalProps {
   task: Task;
@@ -44,6 +45,9 @@ const projectPhases: ProjectPhase[] = [
 ];
 
 export default function EditTaskModal({ task, onClose, onSuccess, taskStatuses }: EditTaskModalProps) {
+  // 获取当前用户
+  const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+  
   const [formData, setFormData] = useState({
     name: task.name,
     level: task.level,
@@ -53,8 +57,8 @@ export default function EditTaskModal({ task, onClose, onSuccess, taskStatuses }
     owner: task.owner._id,
     collaborators: task.collaborators?.map(c => c._id) || [],
     team: task.team || '',
-    startDate: new Date(task.startDate).toISOString().split('T')[0],
-    endDate: new Date(task.endDate).toISOString().split('T')[0],
+    startDate: task.startDate ? new Date(task.startDate).toISOString().split('T')[0] : '',
+    endDate: task.endDate ? new Date(task.endDate).toISOString().split('T')[0] : '',
     description: task.description || '',
     isPublic: task.isPublic !== undefined ? task.isPublic : true,
     opportunityActionType: task.opportunityActionType || '',
@@ -64,7 +68,14 @@ export default function EditTaskModal({ task, onClose, onSuccess, taskStatuses }
     relatedTeamTask: task.relatedTeamTask || ''
   });
 
-  const [planType, setPlanType] = useState(task.planType || '本周计划');
+  // 根据任务级别初始化计划类型
+  const getInitialPlanType = () => {
+    if (task.planType) return task.planType;
+    if (task.level === '团队级') return '本月计划';
+    return '本周计划';
+  };
+  
+  const [planType, setPlanType] = useState(getInitialPlanType());
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [users, setUsers] = useState<any[]>([]);
@@ -295,12 +306,14 @@ export default function EditTaskModal({ task, onClose, onSuccess, taskStatuses }
       }
     }
 
-    if (formData.type === '商机跟进' && !formData.opportunityActionType) {
-      newErrors.opportunityActionType = '请选择商机跟进动作类型';
+    // 商机跟进类型必须选择关联商机
+    if (formData.type === '商机跟进' && !formData.relatedTo) {
+      newErrors.relatedTo = '请选择关联商机';
     }
 
-    if (formData.type === '项目任务' && !formData.projectPhase) {
-      newErrors.projectPhase = '请选择项目任务环节';
+    // 项目任务类型必须选择关联项目
+    if (formData.type === '项目任务' && !formData.relatedTo) {
+      newErrors.relatedTo = '请选择关联项目';
     }
 
     setErrors(newErrors);
@@ -339,6 +352,47 @@ export default function EditTaskModal({ task, onClose, onSuccess, taskStatuses }
         relatedTeamTask: formData.relatedTeamTask || undefined,
         updatedAt: new Date()
       });
+
+      // 检测协同人变更并发送通知
+      const oldCollaborators = task.collaborators || [];
+      const newCollaborators = formData.collaborators || [];
+      const addedCollaborators = newCollaborators.filter(c => !oldCollaborators.includes(c) && c !== currentUser._id);
+      
+      if (addedCollaborators.length > 0) {
+        try {
+          await app.callFunction({
+            name: 'task-message',
+            data: {
+              action: 'collaborator',
+              taskId: task._id,
+              taskName: formData.name,
+              taskLevel: formData.level,
+              receivers: addedCollaborators
+            }
+          });
+        } catch (error) {
+          console.error('协同人通知失败:', error);
+        }
+      }
+
+      // 如果状态改变,发送通知给负责人
+      if (task.status !== formData.status && formData.owner !== currentUser._id) {
+        try {
+          await app.callFunction({
+            name: 'task-message',
+            data: {
+              action: 'statusChange',
+              taskId: task._id,
+              taskName: formData.name,
+              taskLevel: formData.level,
+              newStatus: formData.status,
+              receiver: formData.owner
+            }
+          });
+        } catch (error) {
+          console.error('状态变更通知失败:', error);
+        }
+      }
 
       onSuccess();
       onClose();
@@ -386,71 +440,71 @@ export default function EditTaskModal({ task, onClose, onSuccess, taskStatuses }
             )}
           </div>
 
-          {/* 任务级别和类型 */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                任务级别 <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={formData.level}
-                onChange={(e) => setFormData({ ...formData, level: e.target.value as TaskLevel })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="个人级">个人级</option>
-                <option value="团队级">团队级</option>
-              </select>
+          {/* 任务类型（只读显示） */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">任务类型</label>
+            <div className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-700">
+              {formData.type}
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                任务类型 <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={formData.type}
-                onChange={(e) => {
-                  const newType = e.target.value as TaskType;
-                  setFormData({ 
-                    ...formData, 
-                    type: newType,
-                    status: '未开始',
-                    opportunityActionType: '',
-                    projectPhase: '',
-                    relatedTo: ''
-                  });
-                  // 清除已选择的商机/项目
-                  setSelectedOpportunity(null);
-                  setSelectedProject(null);
-                }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="日常工作">日常工作</option>
-                <option value="商机跟进">商机跟进</option>
-                <option value="项目任务">项目任务</option>
-              </select>
-            </div>
+            <p className="mt-1 text-xs text-gray-500">
+              任务类型创建后不可修改
+            </p>
           </div>
 
-          {/* 计划类型（仅当类型为"日常工作"时显示） */}
+          {/* 日常工作类型的字段 */}
           {formData.type === '日常工作' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                计划类型
-              </label>
-              <select
-                value={planType}
-                onChange={(e) => handlePlanTypeChange(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="本周计划">本周计划</option>
-                <option value="下周计划">下周计划</option>
-                <option value="本月计划">本月计划</option>
-                <option value="下月计划">下月计划</option>
-              </select>
-              <p className="mt-1 text-xs text-gray-500">
-                选择计划类型后，任务时间将自动调整
-              </p>
-            </div>
+            <>
+              {/* 第二步：任务级别（仅日常工作显示） */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  任务级别 <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={formData.level}
+                  onChange={(e) => {
+                    const newLevel = e.target.value as TaskLevel;
+                    setFormData({ ...formData, level: newLevel });
+                    // 根据级别重置计划类型
+                    if (newLevel === '个人级') {
+                      setPlanType('本周计划');
+                    } else if (newLevel === '团队级') {
+                      setPlanType('本月计划');
+                    }
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="个人级">个人级</option>
+                  <option value="团队级">团队级</option>
+                </select>
+              </div>
+
+              {/* 计划类型 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  计划类型 <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={planType}
+                  onChange={(e) => handlePlanTypeChange(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  {formData.level === '个人级' ? (
+                    <>
+                      <option value="本周计划">本周计划</option>
+                      <option value="下周计划">下周计划</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="本月计划">本月计划</option>
+                      <option value="下月计划">下月计划</option>
+                    </>
+                  )}
+                </select>
+                <p className="mt-1 text-xs text-gray-500">
+                  {formData.level === '个人级' ? '个人级只能选择本周或下周计划' : '团队级只能选择本月或下月计划'}
+                </p>
+              </div>
+            </>
           )}
 
           {/* 关联季度举措（仅当级别为团队级且计划类型为月度时显示） */}
@@ -529,126 +583,84 @@ export default function EditTaskModal({ task, onClose, onSuccess, taskStatuses }
             </div>
           )}
 
-          {/* 商机跟进动作类型(仅当类型为"商机跟进"时显示) */}
+          {/* 商机跟进类型的字段 */}
           {formData.type === '商机跟进' && (
-            <>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  关联商机
-                </label>
-                <div className="flex items-center gap-2">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                关联商机 <span className="text-red-500">*</span>
+              </label>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowOpportunitySelector(true)}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  <Link2 className="w-4 h-4" />
+                  {selectedOpportunity ? selectedOpportunity.name : '选择商机'}
+                </button>
+                {selectedOpportunity && (
                   <button
                     type="button"
-                    onClick={() => setShowOpportunitySelector(true)}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                    onClick={() => {
+                      setSelectedOpportunity(null);
+                      setFormData({ ...formData, relatedTo: '' });
+                    }}
+                    className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                   >
-                    <Link2 className="w-4 h-4" />
-                    {selectedOpportunity ? selectedOpportunity.name : '选择商机'}
+                    <X className="w-4 h-4" />
                   </button>
-                  {selectedOpportunity && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedOpportunity(null);
-                        setFormData({ ...formData, relatedTo: '' });
-                      }}
-                      className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-                <p className="mt-1 text-xs text-gray-500">
-                  选择本任务关联的商机(可选)
-                </p>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  商机跟进动作类型 <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={formData.opportunityActionType || ''}
-                  onChange={(e) => setFormData({ 
-                    ...formData, 
-                    opportunityActionType: e.target.value as OpportunityActionType 
-                  })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">请选择</option>
-                  {opportunityActionTypes.map(type => (
-                    <option key={type} value={type}>{type}</option>
-                  ))}
-                </select>
-                {errors.opportunityActionType && (
-                  <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
-                    <AlertCircle size={16} />
-                    {errors.opportunityActionType}
-                  </p>
                 )}
               </div>
-            </>
+              <p className="mt-1 text-xs text-gray-500">
+                从正在进行中的商机列表中选择（只显示您有查询权限的商机）
+              </p>
+              {errors.relatedTo && (
+                <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                  <AlertCircle size={16} />
+                  {errors.relatedTo}
+                </p>
+              )}
+            </div>
           )}
 
-          {/* 项目任务环节(仅当类型为"项目任务"时显示) */}
+          {/* 项目任务类型的字段 */}
           {formData.type === '项目任务' && (
-            <>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  关联项目
-                </label>
-                <div className="flex items-center gap-2">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                关联项目 <span className="text-red-500">*</span>
+              </label>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowProjectSelector(true)}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  <Link2 className="w-4 h-4" />
+                  {selectedProject ? selectedProject.name : '选择项目'}
+                </button>
+                {selectedProject && (
                   <button
                     type="button"
-                    onClick={() => setShowProjectSelector(true)}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                    onClick={() => {
+                      setSelectedProject(null);
+                      setFormData({ ...formData, relatedTo: '' });
+                    }}
+                    className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                   >
-                    <Link2 className="w-4 h-4" />
-                    {selectedProject ? selectedProject.name : '选择项目'}
+                    <X className="w-4 h-4" />
                   </button>
-                  {selectedProject && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedProject(null);
-                        setFormData({ ...formData, relatedTo: '' });
-                      }}
-                      className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-                <p className="mt-1 text-xs text-gray-500">
-                  选择本任务关联的项目(可选)
-                </p>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  项目任务环节 <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={formData.projectPhase || ''}
-                  onChange={(e) => setFormData({ 
-                    ...formData, 
-                    projectPhase: e.target.value as ProjectPhase 
-                  })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">请选择</option>
-                  {projectPhases.map(phase => (
-                    <option key={phase} value={phase}>{phase}</option>
-                  ))}
-                </select>
-                {errors.projectPhase && (
-                  <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
-                    <AlertCircle size={16} />
-                    {errors.projectPhase}
-                  </p>
                 )}
               </div>
-            </>
+              <p className="mt-1 text-xs text-gray-500">
+                从正在进行中的项目列表中选择（只显示您有查询权限的项目）
+              </p>
+              {errors.relatedTo && (
+                <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                  <AlertCircle size={16} />
+                  {errors.relatedTo}
+                </p>
+              )}
+            </div>
           )}
 
           {/* 任务状态 */}
@@ -767,9 +779,7 @@ export default function EditTaskModal({ task, onClose, onSuccess, taskStatuses }
                           key={user._id}
                           className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 rounded-full text-sm"
                         >
-                          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-xs font-medium">
-                            {user.name.charAt(0)}
-                          </div>
+                          <UserAvatar user={user} size="xs" />
                           <span className="text-gray-900">{user.name}</span>
                           <button
                             type="button"

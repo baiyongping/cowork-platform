@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { Toaster } from 'react-hot-toast';
+import { Bell } from 'lucide-react';
 import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './components/pages/Dashboard';
 import { TaskManagement } from './components/pages/TaskManagement';
@@ -8,9 +10,12 @@ import { GoalManagement } from './components/pages/GoalManagement';
 import { SystemSettings } from './components/pages/SystemSettings';
 import { AccountSettings } from './components/pages/AccountSettings';
 import { LoginPage } from './components/LoginPage';
+import { WechatBindModal } from './components/WechatBindModal';
+import { MessageCenter } from './components/MessageCenter';
 import { verifyToken } from './lib/auth-service';
-import { ensureAuth } from './lib/cloudbase';
+import { ensureAuth, app } from './lib/cloudbase';
 import { PermissionProvider } from './contexts/PermissionContext';
+import { useNotificationStore } from './lib/notification-store';
 
 type PageType = 'dashboard' | 'tasks' | 'opportunities' | 'projects' | 'goals' | 'settings' | 'account';
 
@@ -20,6 +25,19 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [authReady, setAuthReady] = useState(false);
+  const [showWechatBindModal, setShowWechatBindModal] = useState(false);
+  const [pendingUserCount, setPendingUserCount] = useState(0);
+  const [openItemId, setOpenItemId] = useState<string | undefined>();  // 🔧 保存要打开的项目ID
+  
+  // 🔔 使用消息通知 store
+  const { unreadCount, setUnreadCount, showNotification, setShowNotification, playNotificationSound } = useNotificationStore();
+
+  // 🔧 处理页面导航（支持传递 itemId）
+  const handleNavigate = (page: PageType, itemId?: string) => {
+    console.log('🔧 [App] handleNavigate:', { page, itemId });
+    setCurrentPage(page);
+    setOpenItemId(itemId);
+  };
 
   // 🎯 步骤1: 确保 CloudBase 认证完成
   useEffect(() => {
@@ -63,6 +81,71 @@ export default function App() {
     setLoading(false);
   }, [authReady]);
 
+  // 🎯 步骤3: 加载待审核用户数量和未读消息数
+  useEffect(() => {
+    if (!isLoggedIn || !currentUser) return;
+    
+    const loadPendingUsers = async () => {
+      try {
+        const { db } = await import('./lib/cloudbase');
+        const result = await db.collection('users')
+          .where({ approvalStatus: 'pending' })
+          .count();
+        setPendingUserCount(result.total);
+      } catch (error) {
+        console.error('获取待审核数量失败:', error);
+      }
+    };
+    
+    const loadUnreadCount = async () => {
+      try {
+        // 🔧 防御性检查：确保用户已登录且有 userId
+        if (!currentUser?.userId) {
+          console.log('🔔 [App] 用户未登录或缺少 userId，跳过统计未读消息');
+          return;
+        }
+        
+        console.log('🔔 [App] 开始统计未读消息, userId:', currentUser.userId);
+        
+        // 🔧 传递当前用户ID给云函数
+        const result = await app.callFunction({
+          name: 'message-count',
+          data: {
+            userId: currentUser.userId
+          }
+        });
+        
+        console.log('🔔 [App] 未读消息统计返回:', result);
+        
+        if (result.result?.success && result.result?.data) {
+          const newCount = result.result.data.total || 0;
+          const oldCount = unreadCount;
+          
+          console.log('🔔 [App] 更新未读数:', { oldCount, newCount });
+          setUnreadCount(newCount);
+          
+          // 🔔 如果有新消息,播放提示音
+          if (newCount > oldCount && oldCount !== 0) {
+            playNotificationSound();
+          }
+        }
+      } catch (error) {
+        console.error('获取未读消息数失败:', error);
+      }
+    };
+    
+    loadPendingUsers();
+    loadUnreadCount();
+    
+    // 每30秒刷新一次
+    const interval = setInterval(() => {
+      loadPendingUsers();
+      loadUnreadCount();
+    }, 30000);
+    
+    return () => clearInterval(interval);
+  }, [isLoggedIn, currentUser, unreadCount, setUnreadCount, playNotificationSound]);
+
   const handleLogin = (user: any, token: string) => {
     // 保存用户信息和token到本地存储
     localStorage.setItem('auth_token', token);
@@ -70,6 +153,14 @@ export default function App() {
     
     setCurrentUser(user);
     setIsLoggedIn(true);
+    
+    // 检查是否是超级管理员且未绑定微信
+    if (user.role === 'admin' && !user.wxOpenId) {
+      // 延迟500ms显示弹窗，避免登录动画冲突
+      setTimeout(() => {
+        setShowWechatBindModal(true);
+      }, 500);
+    }
   };
 
   const handleUserUpdate = (updatedUser: any) => {
@@ -134,17 +225,53 @@ export default function App() {
       case 'dashboard':
         return <Dashboard userRole={currentUser?.role} currentUser={currentUser} />;
       case 'tasks':
-        return <TaskManagement userRole={currentUser?.role} currentUser={currentUser} />;
+        return <TaskManagement 
+          userRole={currentUser?.role} 
+          currentUser={currentUser}
+          openTaskId={openItemId}  // 🔧 传递要打开的任务ID
+          onTaskOpened={() => {
+            console.log('✅ [App] 任务详情已打开，清除 openItemId');
+            setOpenItemId(undefined);  // 🔧 打开后清除ID
+          }}
+        />;
       case 'opportunities':
-        return <OpportunityManagement userRole={currentUser?.role} currentUserId={currentUser?._id} />;
+        return <OpportunityManagement 
+          userRole={currentUser?.role} 
+          currentUserId={currentUser?._id}
+          openOpportunityId={openItemId}  // 🔧 传递要打开的商机ID
+          onOpportunityOpened={() => {
+            console.log('✅ [App] 商机详情已打开，清除 openItemId');
+            setOpenItemId(undefined);  // 🔧 打开后清除ID
+          }}
+        />;
       case 'projects':
-        return <ProjectManagement userRole={currentUser?.role} currentUserId={currentUser?._id} />;
+        return <ProjectManagement 
+          userRole={currentUser?.role} 
+          currentUserId={currentUser?._id}
+          openProjectId={openItemId}  // 🔧 传递要打开的项目ID
+          onProjectOpened={() => {
+            console.log('✅ [App] 项目详情已打开，清除 openItemId');
+            setOpenItemId(undefined);  // 🔧 打开后清除ID
+          }}
+        />;
       case 'goals':
-        return <GoalManagement userRole={currentUser?.role} currentUser={currentUser} />;
+        return <GoalManagement 
+          userRole={currentUser?.role} 
+          currentUser={currentUser}
+          openGoalId={openItemId}  // 🔧 传递要打开的目标ID
+          onGoalOpened={() => {
+            console.log('✅ [App] 目标详情已打开，清除 openItemId');
+            setOpenItemId(undefined);  // 🔧 打开后清除ID
+          }}
+        />;
       case 'account':
-        return <AccountSettings currentUser={currentUser} onUserUpdate={handleUserUpdate} />;
+        return <AccountSettings currentUser={currentUser} onUserUpdate={handleUserUpdate} onNavigate={handleNavigate} />;
       case 'settings':
-        return <SystemSettings currentUser={currentUser} userRole={currentUser?.role} />;
+        return <SystemSettings 
+          currentUser={currentUser} 
+          userRole={currentUser?.role}
+          onPendingCountChange={setPendingUserCount}
+        />;
       default:
         return <Dashboard userRole={currentUser?.role} currentUser={currentUser} />;
     }
@@ -155,15 +282,78 @@ export default function App() {
       <div className="flex h-screen bg-gray-50">
         <Sidebar 
           currentPage={currentPage} 
-          onPageChange={setCurrentPage} 
+          onPageChange={handleNavigate}  // 🔧 使用 handleNavigate 支持传递 itemId
           userRole={currentUser?.role}
           currentUser={currentUser}
           onLogout={handleLogout}
+          pendingUserCount={pendingUserCount}
         />
-        <main className="flex-1 overflow-auto">
-          {renderPage()}
-        </main>
+        
+        {/* 主内容区 */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* 页面内容 */}
+          <main className="flex-1 overflow-auto">
+            {renderPage()}
+          </main>
+        </div>
       </div>
+
+      {/* 🔔 消息中心弹窗 */}
+      {showNotification && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl h-[80vh] overflow-hidden">
+            <MessageCenter 
+              onClose={() => setShowNotification(false)}
+              onNavigate={(page, itemId) => {
+                handleNavigate(page, itemId);
+                setShowNotification(false);  // 跳转后关闭消息中心
+              }}
+            />
+          </div>
+        </div>
+      )}
+      
+      {/* 全局Toast通知 */}
+      <Toaster 
+        position="top-center"
+        reverseOrder={false}
+        gutter={8}
+        toastOptions={{
+          duration: 3000,
+          style: {
+            background: '#fff',
+            color: '#363636',
+            padding: '16px',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+            fontSize: '14px',
+          },
+          success: {
+            iconTheme: {
+              primary: '#10B981',
+              secondary: '#fff',
+            },
+          },
+          error: {
+            iconTheme: {
+              primary: '#EF4444',
+              secondary: '#fff',
+            },
+          },
+        }}
+      />
+      
+      {/* 超级管理员微信绑定弹窗 */}
+      {showWechatBindModal && (
+        <WechatBindModal
+          onClose={() => setShowWechatBindModal(false)}
+          onSuccess={(updatedUser) => {
+            setCurrentUser(updatedUser);
+            localStorage.setItem('current_user', JSON.stringify(updatedUser));
+            setShowWechatBindModal(false);
+          }}
+        />
+      )}
     </PermissionProvider>
   );
 }

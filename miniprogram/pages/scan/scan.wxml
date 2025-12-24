@@ -1,0 +1,28 @@
+<view class="container">
+  <view class="header">
+    <text class="title">扫一扫</text>
+    <text class="desc">扫描二维码进行注册或登录</text>
+  </view>
+
+  <view class="scan-btn-wrapper">
+    <button class="scan-btn" bindtap="handleScan">
+      <image class="scan-icon" src="/images/scan-icon.png" mode="aspectFit"></image>
+      <text class="scan-text">点击扫描二维码</text>
+    </button>
+  </view>
+
+  <view class="tips">
+    <view class="tip-item">
+      <text class="tip-dot">●</text>
+      <text class="tip-text">扫描注册二维码可快速注册账号</text>
+    </view>
+    <view class="tip-item">
+      <text class="tip-dot">●</text>
+      <text class="tip-text">扫描登录二维码可快速登录Web端</text>
+    </view>
+    <view class="tip-item">
+      <text class="tip-dot">●</text>
+      <text class="tip-text">扫描绑定二维码可绑定微信账号</text>
+    </view>
+  </view>
+</view>

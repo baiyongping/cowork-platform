@@ -1,0 +1,16 @@
+<view class="container">
+  <view class="success-icon">
+    <image src="/images/success.png" mode="aspectFit"></image>
+  </view>
+
+  <view class="success-title">登录成功</view>
+  <view class="success-subtitle">欢迎使用际华协同办公</view>
+
+  <view class="redirect-tips">
+    <text>{{countdown}} 秒后自动跳转...</text>
+  </view>
+
+  <button class="goto-btn" bindtap="onGotoIndex">
+    立即进入
+  </button>
+</view>

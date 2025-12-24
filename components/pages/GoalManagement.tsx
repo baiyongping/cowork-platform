@@ -5,10 +5,13 @@ import { db } from '../../lib/cloudbase';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { usePermissionContext } from '../../contexts/PermissionContext';
+import { ConfirmDialog } from '../ConfirmDialog';
 
 interface GoalManagementProps {
   userRole: 'admin' | 'employee';
   currentUser: any;
+  openGoalId?: string;  // 🔧 要打开的目标ID
+  onGoalOpened?: () => void;  // 🔧 打开后的回调
 }
 
 // 销售目标接口
@@ -72,7 +75,7 @@ interface QuarterlyMeasure {
   updatedAt: Date;
 }
 
-export function GoalManagement({ userRole, currentUser }: GoalManagementProps) {
+export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened }: GoalManagementProps) {
   const [selectedTab, setSelectedTab] = useState<'sales' | 'opportunity' | 'strategy' | 'execution'>('sales');
   const [selectedYear, setSelectedYear] = useState(2025);
   
@@ -155,6 +158,13 @@ export function GoalManagement({ userRole, currentUser }: GoalManagementProps) {
   
   // 经营策略状态选项(从系统设置加载)
   const [strategyStatuses, setStrategyStatuses] = useState<string[]>([]);
+  
+  // 删除确认对话框状态
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    show: boolean;
+    id: string | null;
+    type: 'strategy' | 'measure' | null;
+  }>({ show: false, id: null, type: null });
 
   // 表单状态
   const [salesForm, setSalesForm] = useState({
@@ -867,6 +877,62 @@ export function GoalManagement({ userRole, currentUser }: GoalManagementProps) {
     }
   }, [selectedTab, selectedYear]);
 
+  // 🔧 自动打开指定的策略/措施详情
+  useEffect(() => {
+    console.log('🔧 [GoalManagement] 检查自动打开:', { 
+      openGoalId, 
+      strategiesCount: annualStrategies.length,
+      measuresCount: quarterlyMeasures.length,
+      executionTreeCount: executionTreeData?.children?.length || 0
+    });
+    
+    if (openGoalId) {
+      // 先检查是否是策略
+      const strategyToOpen = annualStrategies.find(s => s._id === openGoalId);
+      if (strategyToOpen) {
+        console.log('🔧 [GoalManagement] 找到策略:', strategyToOpen);
+        setSelectedTab('strategy');  // 切换到策略Tab
+        setSelectedStrategy(strategyToOpen);
+        setShowStrategyDetail(true);
+        onGoalOpened?.();
+        console.log('✅ [GoalManagement] 已打开策略详情');
+        return;
+      }
+
+      // 检查是否是措施
+      const measureToOpen = quarterlyMeasures.find(m => m._id === openGoalId);
+      if (measureToOpen) {
+        console.log('🔧 [GoalManagement] 找到措施:', measureToOpen);
+        setSelectedTab('strategy');  // 切换到策略Tab
+        setSelectedMeasure(measureToOpen);
+        setShowMeasureDetail(true);
+        onGoalOpened?.();
+        console.log('✅ [GoalManagement] 已打开措施详情');
+        return;
+      }
+
+      // 检查是否是执行力地图中的项目
+      if (executionTreeData?.children?.length > 0) {
+        for (const strategy of executionTreeData.children) {
+          for (const measure of strategy.measures || []) {
+            const goalToOpen = measure.goals?.find((g: any) => g._id === openGoalId);
+            if (goalToOpen) {
+              console.log('🔧 [GoalManagement] 找到执行力地图项目:', goalToOpen);
+              setSelectedTab('execution');  // 切换到执行力地图Tab
+              setSelectedExecutionGoal(goalToOpen);
+              setShowExecutionDetailModal(true);
+              onGoalOpened?.();
+              console.log('✅ [GoalManagement] 已打开执行力地图详情');
+              return;
+            }
+          }
+        }
+      }
+      
+      console.warn('⚠️ [GoalManagement] 未找到目标:', openGoalId);
+    }
+  }, [openGoalId, annualStrategies, quarterlyMeasures, executionTreeData]);
+
   // 保存销售目标
   const handleSaveSalesGoal = async () => {
     try {
@@ -1095,9 +1161,6 @@ export function GoalManagement({ userRole, currentUser }: GoalManagementProps) {
 
   // 删除策略
   const handleDeleteStrategy = async (id: string, type: 'strategy' | 'measure') => {
-    // ✅ 保留删除确认
-    if (!confirm('确定要删除吗？')) return;
-
     try {
       setLoading(true);
       const collection = type === 'strategy' ? 'annual_strategies' : 'quarterly_measures';
@@ -1859,7 +1922,7 @@ export function GoalManagement({ userRole, currentUser }: GoalManagementProps) {
                     )}
                     {checkPermission('goal.strategy', 'delete') && (
                       <button 
-                        onClick={() => handleDeleteStrategy(strategy._id!, 'strategy')}
+                        onClick={() => setDeleteConfirm({ show: true, id: strategy._id!, type: 'strategy' })}
                         className="p-1 text-red-600 hover:bg-red-50 rounded"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -1969,7 +2032,7 @@ export function GoalManagement({ userRole, currentUser }: GoalManagementProps) {
                         <button 
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleDeleteStrategy(measure._id!, 'measure');
+                            setDeleteConfirm({ show: true, id: measure._id!, type: 'measure' });
                           }}
                           className="p-2 text-red-600 hover:bg-red-100 rounded"
                         >
@@ -3038,8 +3101,8 @@ export function GoalManagement({ userRole, currentUser }: GoalManagementProps) {
                               {opp.stage}
                             </span>
                             <span className={`text-xs px-2 py-1 rounded ${
-                              opp.level === '重要' ? 'bg-red-100 text-red-700' :
-                              opp.level === '一般' ? 'bg-yellow-100 text-yellow-700' :
+                              opp.level === 'A级' ? 'bg-red-100 text-red-700' :
+                              opp.level === 'B级' ? 'bg-yellow-100 text-yellow-700' :
                               'bg-gray-100 text-gray-700'
                             }`}>
                               {opp.level}
@@ -3384,6 +3447,20 @@ export function GoalManagement({ userRole, currentUser }: GoalManagementProps) {
           </div>
         </div>
       )}
+
+      {/* 删除确认对话框 */}
+      <ConfirmDialog
+        show={deleteConfirm.show}
+        title="确认删除"
+        message="确定要删除吗？"
+        onConfirm={async () => {
+          if (deleteConfirm.id && deleteConfirm.type) {
+            await handleDeleteStrategy(deleteConfirm.id, deleteConfirm.type);
+          }
+          setDeleteConfirm({ show: false, id: null, type: null });
+        }}
+        onCancel={() => setDeleteConfirm({ show: false, id: null, type: null })}
+      />
     </div>
   );
 }

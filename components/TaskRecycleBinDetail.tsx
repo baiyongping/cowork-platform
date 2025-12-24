@@ -2,6 +2,7 @@ import { X, User, Calendar, FileText, RotateCcw, Trash2, AlertCircle } from 'luc
 import { Task } from '../types/task';
 import { useState } from 'react';
 import { db } from '../lib/cloudbase';
+import { UserAvatar } from './UserAvatar';
 
 interface TaskRecycleBinDetailProps {
   task: Task;
@@ -127,9 +128,7 @@ export default function TaskRecycleBinDetail({ task, onClose, onRestoreSuccess }
                   负责人
                 </label>
                 <div className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-full inline-flex">
-                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center text-white text-xs font-medium">
-                    {task.owner.name.charAt(0)}
-                  </div>
+                  <UserAvatar user={task.owner} size="xs" />
                   <span className="text-sm font-medium text-gray-900">{task.owner.name}</span>
                 </div>
               </div>

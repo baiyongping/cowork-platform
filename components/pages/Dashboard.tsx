@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, Target, FolderKanban, CheckSquare, Users, DollarSign, X, Calendar, User as UserIcon, AlertCircle, Clock } from 'lucide-react';
+import { TrendingUp, TrendingDown, Target, FolderKanban, CheckSquare, Users, DollarSign, X, Calendar, User as UserIcon, AlertCircle, Clock, Bell } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { OpportunityFunnel } from '../OpportunityFunnel';
 import { db } from '../../lib/cloudbase';
+import { useNotificationStore } from '../../lib/notification-store';
 
 interface DashboardProps {
   userRole: 'admin' | 'employee';
@@ -99,6 +100,9 @@ export function Dashboard({ userRole, currentUser }: DashboardProps) {
   
   const [showAllStrategies, setShowAllStrategies] = useState(false);
   const [showAllMeasures, setShowAllMeasures] = useState(false);
+  
+  // 🔔 使用消息通知 store
+  const { unreadCount, setShowNotification } = useNotificationStore();
 
   // 加载工作台数据
   useEffect(() => {
@@ -638,10 +642,28 @@ export function Dashboard({ userRole, currentUser }: DashboardProps) {
   if (!dashboardData) return null;
 
   return (
-    <div className="p-8">
-      <div className="mb-6">
-        <h1 className="text-gray-900 mb-2">工作台</h1>
-        <p className="text-gray-600">欢迎回来，{currentUser?.name || '管理员'}</p>
+    <div className="p-6 pb-3">
+      {/* 工作台标题区 - 添加消息铃铛 */}
+      <div className="mb-6 flex items-start justify-between">
+        <div>
+          <h1 className="text-gray-900 mb-2">工作台</h1>
+          <p className="text-gray-600">欢迎回来，{currentUser?.name || '管理员'}</p>
+        </div>
+        
+        {/* 🔔 消息铃铛按钮 */}
+        <button
+          onClick={() => setShowNotification(true)}
+          className="relative p-3 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200 group"
+          title="消息中心"
+        >
+          <Bell className="h-6 w-6 group-hover:scale-110 transition-transform" />
+          {/* 未读消息徽章 */}
+          {unreadCount > 0 && (
+            <span className="absolute -top-1 -right-1 inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold text-white bg-red-500 rounded-full min-w-[20px] shadow-md animate-pulse">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          )}
+        </button>
       </div>
 
       {/* 重点关注区域 */}
@@ -846,7 +868,7 @@ export function Dashboard({ userRole, currentUser }: DashboardProps) {
             ) : (
               <div className="flex items-center gap-1 text-sm text-red-600">
                 <TrendingDown className="w-4 h-4" />
-                <span>{Math.abs(parseFloat(dashboardData.monthlyTasks.growth))}</span>
+                <span>{Math.abs(parseFloat(dashboardData.monthlyTasks.growth) || 0)}</span>
               </div>
             )}
           </div>
@@ -871,7 +893,7 @@ export function Dashboard({ userRole, currentUser }: DashboardProps) {
             ) : (
               <div className="flex items-center gap-1 text-sm text-red-600">
                 <TrendingDown className="w-4 h-4" />
-                <span>{Math.abs(parseFloat(dashboardData.followingOpportunities.growth))}</span>
+                <span>{Math.abs(parseFloat(dashboardData.followingOpportunities.growth) || 0)}</span>
               </div>
             )}
           </div>
@@ -896,7 +918,7 @@ export function Dashboard({ userRole, currentUser }: DashboardProps) {
             ) : (
               <div className="flex items-center gap-1 text-sm text-red-600">
                 <TrendingDown className="w-4 h-4" />
-                <span>{Math.abs(parseFloat(dashboardData.ongoingProjects.growth))}</span>
+                <span>{Math.abs(parseFloat(dashboardData.ongoingProjects.growth) || 0)}</span>
               </div>
             )}
           </div>
@@ -927,158 +949,162 @@ export function Dashboard({ userRole, currentUser }: DashboardProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-6 mb-8">
-        {/* 商机漏斗分析 - 不可点击 */}
-        <div className="bg-white rounded-lg p-6 border border-gray-200 pointer-events-none">
-          <h3 className="text-gray-900 mb-4">商机漏斗分析</h3>
-          <OpportunityFunnel
-            data={dashboardData.opportunityFunnel.stages}
-            totalTarget={dashboardData.opportunityFunnel.targetCount}
-            totalActual={dashboardData.opportunityFunnel.actualCount}
-            newThisQuarter={dashboardData.opportunityFunnel.actualCount}
-            closedCount={dashboardData.opportunityFunnel.wonCount}
-            failedCount={dashboardData.opportunityFunnel.lostCount}
-            onStageClick={() => {}} // 禁用点击
-          />
+      {/* 任务数据区域 - 整合为一个大面板 */}
+      <div className="bg-white rounded-lg border border-gray-200 mb-4">
+        {/* 商机漏斗和年度任务 - 上半部分 */}
+        <div className="grid grid-cols-2 gap-6 p-6 border-b border-gray-200">
+          {/* 商机漏斗分析 - 不可点击 */}
+          <div className="pointer-events-none">
+            <h3 className="text-gray-900 mb-4">商机漏斗分析</h3>
+            <OpportunityFunnel
+              data={dashboardData.opportunityFunnel.stages}
+              totalTarget={dashboardData.opportunityFunnel.targetCount}
+              totalActual={dashboardData.opportunityFunnel.actualCount}
+              newThisQuarter={dashboardData.opportunityFunnel.actualCount}
+              closedCount={dashboardData.opportunityFunnel.wonCount}
+              failedCount={dashboardData.opportunityFunnel.lostCount}
+              onStageClick={() => {}} // 禁用点击
+            />
+          </div>
+
+          {/* 年度任务完成情况 */}
+          <div>
+            <h3 className="text-gray-900 mb-4">年度任务完成情况</h3>
+            <ResponsiveContainer width="100%" height={400}>
+              <BarChart data={dashboardData.yearlyTaskChart}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="completed" fill="#3b82f6" name="已完成" />
+                <Bar dataKey="total" fill="#e5e7eb" name="总任务" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
 
-        {/* 年度任务完成情况 */}
-        <div className="bg-white rounded-lg p-6 border border-gray-200">
-          <h3 className="text-gray-900 mb-4">年度任务完成情况</h3>
-          <ResponsiveContainer width="100%" height={400}>
-            <BarChart data={dashboardData.yearlyTaskChart}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="completed" fill="#3b82f6" name="已完成" />
-              <Bar dataKey="total" fill="#e5e7eb" name="总任务" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* 团队任务列表 - 表格样式 */}
-      <div className="bg-white rounded-lg border border-gray-200" style={{ display: 'flex', flexDirection: 'column', maxHeight: '60vh' }}>
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-gray-900">{new Date().getFullYear()}年{new Date().getMonth() + 1}月团队任务列表</h3>
-        </div>
-        {dashboardData.teamTasks.length === 0 ? (
-          <div className="px-6 py-12 text-center text-gray-500">
-            <p>本月暂无团队任务</p>
+        {/* 团队任务列表 - 下半部分 */}
+        <div style={{ display: 'flex', flexDirection: 'column', maxHeight: '30vh' }}>
+          <div className="px-6 py-3 bg-gray-50">
+            <h3 className="text-gray-900">{new Date().getFullYear()}年{new Date().getMonth() + 1}月团队任务列表</h3>
           </div>
-        ) : (
-          <div className="team-task-scroll-container flex-1 overflow-y-auto" style={{ 
-            WebkitOverflowScrolling: 'touch'
-          }}>
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50 sticky top-0 z-10">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    任务名称
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    级别
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    类型
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    负责人
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    截止日期
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    状态
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    进度
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {dashboardData.teamTasks.map((task) => {
-                  const isCompleted = task.status === '已完成';
-                  const isCancelled = task.status === '取消';
-                  
-                  return (
-                    <tr 
-                      key={task._id} 
-                      className={`transition-colors ${
-                        isCompleted 
-                          ? 'bg-green-50 hover:bg-green-100 opacity-75' 
-                          : isCancelled
-                          ? 'bg-red-50 hover:bg-red-100 opacity-75'
-                          : 'hover:bg-gray-50'
-                      }`}
-                    >
-                      <td className="px-6 py-4">
-                        <div className="text-sm font-medium text-gray-900" title={task.name}>
-                          {task.name && task.name.length > 20 ? `${task.name.substring(0, 20)}...` : (task.name || '未命名')}
-                        </div>
-                        {task.description && (
-                          <div className="text-xs text-gray-500 mt-1 line-clamp-1">
-                            {task.description}
+          {dashboardData.teamTasks.length === 0 ? (
+            <div className="px-6 py-8 text-center text-gray-500">
+              <p>本月暂无团队任务</p>
+            </div>
+          ) : (
+            <div className="team-task-scroll-container flex-1 overflow-y-auto" style={{ 
+              WebkitOverflowScrolling: 'touch'
+            }}>
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50 sticky top-0 z-10">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      任务名称
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      级别
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      类型
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      负责人
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      截止日期
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      状态
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      进度
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {dashboardData.teamTasks.map((task) => {
+                    const isCompleted = task.status === '已完成';
+                    const isCancelled = task.status === '取消';
+                    
+                    return (
+                      <tr 
+                        key={task._id} 
+                        className={`transition-colors ${
+                          isCompleted 
+                            ? 'bg-green-50 hover:bg-green-100 opacity-75' 
+                            : isCancelled
+                            ? 'bg-red-50 hover:bg-red-100 opacity-75'
+                            : 'hover:bg-gray-50'
+                        }`}
+                      >
+                        <td className="px-6 py-4">
+                          <div className="text-sm font-medium text-gray-900" title={task.name}>
+                            {task.name && task.name.length > 20 ? `${task.name.substring(0, 20)}...` : (task.name || '未命名')}
                           </div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                          {task.level}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-sm text-gray-900">{task.type}</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900">{task.owner?.name || '未知'}</div>
-                        {task.team && (
-                          <div className="text-xs text-gray-500">{task.team}</div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className={`text-sm ${
-                          new Date(task.endDate) < new Date() && task.status !== '已完成'
-                            ? 'text-red-600 font-medium'
-                            : 'text-gray-900'
-                        }`}>
-                          {new Date(task.endDate).toLocaleDateString()}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          task.status === '已完成' ? 'bg-green-100 text-green-800' :
-                          task.status === '进行中' ? 'bg-blue-100 text-blue-800' :
-                          task.status === '未开始' ? 'bg-gray-100 text-gray-800' :
-                          task.status === '延期' ? 'bg-red-100 text-red-800' :
-                          task.status === '暂停' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
-                          {task.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 bg-gray-200 rounded-full h-2">
-                            <div
-                              className={`h-2 rounded-full ${
-                                task.progress === 100 ? 'bg-green-600' : 'bg-blue-600'
-                              }`}
-                              style={{ width: `${task.progress || 0}%` }}
-                            />
+                          {task.description && (
+                            <div className="text-xs text-gray-500 mt-1 line-clamp-1">
+                              {task.description}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                            {task.level}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="text-sm text-gray-900">{task.type}</span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-sm text-gray-900">{task.owner?.name || '未知'}</div>
+                          {task.team && (
+                            <div className="text-xs text-gray-500">{task.team}</div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className={`text-sm ${
+                            new Date(task.endDate) < new Date() && task.status !== '已完成'
+                              ? 'text-red-600 font-medium'
+                              : 'text-gray-900'
+                          }`}>
+                            {new Date(task.endDate).toLocaleDateString()}
                           </div>
-                          <span className="text-sm text-gray-600 w-12 text-right">{task.progress || 0}%</span>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            task.status === '已完成' ? 'bg-green-100 text-green-800' :
+                            task.status === '进行中' ? 'bg-blue-100 text-blue-800' :
+                            task.status === '未开始' ? 'bg-gray-100 text-gray-800' :
+                            task.status === '延期' ? 'bg-red-100 text-red-800' :
+                            task.status === '暂停' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {task.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 bg-gray-200 rounded-full h-2">
+                              <div
+                                className={`h-2 rounded-full ${
+                                  task.progress === 100 ? 'bg-green-600' : 'bg-blue-600'
+                                }`}
+                                style={{ width: `${task.progress || 0}%` }}
+                              />
+                            </div>
+                            <span className="text-sm text-gray-600 w-12 text-right">{task.progress || 0}%</span>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

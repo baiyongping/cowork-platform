@@ -68,9 +68,9 @@ export const mockOpportunityStages = [
 ];
 
 export const mockOpportunityLevels = [
-  '重要',
-  '一般',
-  '低优先级'
+  'A级',
+  'B级',
+  'C级'
 ];
 
 export const mockFollowUpTasks = [

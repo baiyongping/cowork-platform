@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Save, CheckCircle } from 'lucide-react';
-import { db } from '../lib/cloudbase';
+import { app, db } from '../lib/cloudbase';
 
 interface CreateProjectFromOpportunityModalProps {
   opportunity: any;
@@ -87,6 +87,27 @@ export default function CreateProjectFromOpportunityModal({
       };
 
       const projectResult = await db.collection('projects').add(projectData);
+
+      // 获取当前用户ID
+      const currentUserStr = localStorage.getItem('current_user');
+      const currentUserId = currentUserStr ? JSON.parse(currentUserStr).userId : null;
+
+      // 发送消息通知给负责人
+      if (projectData.owner && projectData.owner !== currentUserId) {
+        try {
+          await app.callFunction({
+            name: 'project-message',
+            data: {
+              action: 'create',
+              projectId: projectResult.id,
+              projectName: projectData.name,
+              receiver: projectData.owner
+            }
+          });
+        } catch (error) {
+          console.error('消息通知失败:', error);
+        }
+      }
 
       // 更新商机的 projectId 字段，标记已形成项目
       await db.collection('opportunities').doc(opportunity._id).update({

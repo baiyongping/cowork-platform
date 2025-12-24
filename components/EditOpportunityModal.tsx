@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Save, UserPlus } from 'lucide-react';
-import { db } from '../lib/cloudbase';
+import { app, db } from '../lib/cloudbase';
 import CollaboratorSelector from './CollaboratorSelector';
 import OpportunityRequirements from './OpportunityRequirements';
 import type { Opportunity, OpportunityStage, OpportunityLevel, ProductType, OpportunityRequirement } from '../types/opportunity';
@@ -9,9 +9,10 @@ interface EditOpportunityModalProps {
   opportunity: Opportunity;
   onClose: () => void;
   onSuccess: () => void;
+  currentUserId: string;
 }
 
-export default function EditOpportunityModal({ opportunity, onClose, onSuccess }: EditOpportunityModalProps) {
+export default function EditOpportunityModal({ opportunity, onClose, onSuccess, currentUserId }: EditOpportunityModalProps) {
   // 判断商机是否已锁定（取消或失败，成交状态不锁定其他字段）
   const isLocked = opportunity.stage === '取消' || opportunity.stage === '失败';
   // 判断商机状态是否锁定（成交、取消、失败都锁定状态）
@@ -37,9 +38,11 @@ export default function EditOpportunityModal({ opportunity, onClose, onSuccess }
     stage: opportunity.stage as OpportunityStage,
     level: opportunity.level as OpportunityLevel,
     customer: opportunity.customer,
+    productType: opportunity.productType, // ✅ 添加产品类型
     contactPerson: opportunity.contactPerson,
     contactPhone: opportunity.contactPhone,
     contactEmail: opportunity.contactEmail || '',
+    address: opportunity.address || '', // ✅ 添加客户地址
     estimatedAmount: opportunity.estimatedAmount, // 自动计算
     expectedCloseDate: opportunity.expectedCloseDate 
       ? (typeof opportunity.expectedCloseDate === 'string' 
@@ -48,6 +51,7 @@ export default function EditOpportunityModal({ opportunity, onClose, onSuccess }
       : new Date().toISOString().split('T')[0], // 如果为空，默认当前日期
     probability: opportunity.probability,
     description: opportunity.description || '',
+    notes: opportunity.notes || '', // ✅ 添加备注
     owner: opportunity.owner,
     collaborators: opportunity.collaborators || [] as string[],
     isPublic: opportunity.isPublic !== false
@@ -159,12 +163,49 @@ export default function EditOpportunityModal({ opportunity, onClose, onSuccess }
     try {
       setSubmitting(true);
 
-      // 更新商机，去掉已删除的字段
-      await db.collection('opportunities').doc(opportunity._id).update({
-        ...formData,
+      // 更新商机 - 只更新用户可编辑的字段，避免覆盖系统字段
+      const updateData = {
+        name: formData.name,
+        stage: formData.stage,
+        level: formData.level,
+        customer: formData.customer,
+        productType: formData.productType,
+        contactPerson: formData.contactPerson,
+        contactPhone: formData.contactPhone,
+        contactEmail: formData.contactEmail,
+        address: formData.address,
+        estimatedAmount: formData.estimatedAmount,
+        expectedCloseDate: formData.expectedCloseDate,
+        probability: formData.probability,
+        description: formData.description,
+        notes: formData.notes,
+        owner: formData.owner,
+        collaborators: formData.collaborators,
+        isPublic: formData.isPublic,
         requirements: requirements, // 商机需求列表
         updatedAt: new Date()
-      });
+      };
+
+      await db.collection('opportunities').doc(opportunity._id).update(updateData);
+
+      // 如果状态改变,发送通知给负责人
+      if (opportunity.stage !== formData.stage && formData.owner !== currentUserId) {
+        try {
+          await app.callFunction({
+            name: 'opportunity-message',
+            data: {
+              action: 'statusChange',
+              opportunityId: opportunity._id,
+              opportunityName: formData.name,
+              customer: formData.customer,
+              newStatus: formData.stage,
+              receiver: formData.owner
+            }
+          });
+        } catch (error) {
+          console.error('状态变更通知失败:', error);
+        }
+      }
 
       onSuccess();
       onClose();
@@ -249,7 +290,7 @@ export default function EditOpportunityModal({ opportunity, onClose, onSuccess }
               {/* 商机重要性 */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  商机重要性 <span className="text-red-500">*</span>
+                  重要程度 <span className="text-red-500">*</span>
                 </label>
                 <select
                   value={formData.level}
@@ -259,9 +300,9 @@ export default function EditOpportunityModal({ opportunity, onClose, onSuccess }
                     isLocked ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''
                   }`}
                 >
-                  <option value="重要">重要</option>
-                  <option value="一般">一般</option>
-                  <option value="潜在">潜在</option>
+                  <option value="A级">A级</option>
+                  <option value="B级">B级</option>
+                  <option value="C级">C级</option>
                 </select>
               </div>
 
@@ -302,6 +343,91 @@ export default function EditOpportunityModal({ opportunity, onClose, onSuccess }
                   />
                   {errors.customer && <p className="mt-1 text-sm text-red-500">{errors.customer}</p>}
                 </div>
+
+                {/* 联系人 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    联系人
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.contactPerson}
+                    onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
+                    disabled={isLocked}
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      isLocked ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''
+                    }`}
+                    placeholder="请输入联系人"
+                  />
+                </div>
+
+                {/* 联系电话 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    联系电话
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.contactPhone}
+                    onChange={(e) => setFormData({ ...formData, contactPhone: e.target.value })}
+                    disabled={isLocked}
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      isLocked ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''
+                    }`}
+                    placeholder="请输入联系电话"
+                  />
+                </div>
+
+                {/* 联系邮箱 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    联系邮箱
+                  </label>
+                  <input
+                    type="email"
+                    value={formData.contactEmail}
+                    onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
+                    disabled={isLocked}
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      isLocked ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''
+                    }`}
+                    placeholder="请输入联系邮箱"
+                  />
+                </div>
+
+                {/* 客户地址 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    客户地址
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.address}
+                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                    disabled={isLocked}
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      isLocked ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''
+                    }`}
+                    placeholder="请输入客户地址"
+                  />
+                </div>
+
+                {/* 产品类型 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    产品类型
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.productType}
+                    onChange={(e) => setFormData({ ...formData, productType: e.target.value })}
+                    disabled={isLocked}
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      isLocked ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''
+                    }`}
+                    placeholder="请输入产品类型"
+                  />
+                </div>
               </div>
             </div>
 
@@ -316,21 +442,43 @@ export default function EditOpportunityModal({ opportunity, onClose, onSuccess }
               readOnly={isLocked}
             />
 
-            {/* 商机备忘 */}
+            {/* 商机备忘和备注 */}
             <div className="border-t border-gray-200 pt-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                商机备忘
-              </label>
-              <textarea
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                disabled={isLocked}
-                rows={4}
-                className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  isLocked ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''
-                }`}
-                placeholder="输入商机备忘信息..."
-              />
+              <div className="grid grid-cols-2 gap-6">
+                {/* 商机备忘 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    商机备忘
+                  </label>
+                  <textarea
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    disabled={isLocked}
+                    rows={4}
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      isLocked ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''
+                    }`}
+                    placeholder="输入商机备忘信息..."
+                  />
+                </div>
+
+                {/* 备注信息 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    备注信息
+                  </label>
+                  <textarea
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    disabled={isLocked}
+                    rows={4}
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      isLocked ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''
+                    }`}
+                    placeholder="输入备注信息..."
+                  />
+                </div>
+              </div>
             </div>
 
             {/* 商机进展 */}

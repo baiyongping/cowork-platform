@@ -1,7 +1,7 @@
 {
   "name": "jihua-oa-platform",
   "private": true,
-  "version": "3.0.0",
+  "version": "3.3.0",
   "type": "module",
   "description": "际华定制协同办公管理平台",
   "scripts": {
@@ -44,9 +44,11 @@
     "react": "^18.2.0",
     "react-day-picker": "^8.10.1",
     "react-dom": "^18.2.0",
+    "react-hot-toast": "^2.6.0",
     "recharts": "^2.15.2",
     "tailwind-merge": "^2.2.0",
-    "vaul": "^1.1.2"
+    "vaul": "^1.1.2",
+    "zustand": "^5.0.9"
   },
   "devDependencies": {
     "@cloudbase/node-sdk": "^3.14.2",

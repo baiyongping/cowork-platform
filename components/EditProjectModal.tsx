@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { X, Save, UserPlus, Package } from 'lucide-react';
-import { db } from '../lib/cloudbase';
+import { app, db } from '../lib/cloudbase';
 import CollaboratorSelector from './CollaboratorSelector';
 import type { Project, ProjectStatus, ProjectPhase } from '../types/project';
+import { UserAvatar } from './UserAvatar';
 
 interface EditProjectModalProps {
   project: Project;
@@ -484,6 +485,24 @@ export default function EditProjectModal({ project, onClose, onSuccess }: EditPr
         updatedAt: new Date(),
       });
 
+      // 如果状态改变,发送通知给负责人
+      if (project.status !== formData.status && formData.owner !== currentUser._id) {
+        try {
+          await app.callFunction({
+            name: 'project-message',
+            data: {
+              action: 'statusChange',
+              projectId: project._id,
+              projectName: formData.name,
+              newStatus: formData.status,
+              receiver: formData.owner
+            }
+          });
+        } catch (error) {
+          console.error('状态变更通知失败:', error);
+        }
+      }
+
       console.log('✅ 项目更新成功，已保存到数据库');
       onSuccess();
       onClose();
@@ -739,9 +758,7 @@ export default function EditProjectModal({ project, onClose, onSuccess }: EditPr
                           key={user._id}
                           className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 rounded-full text-sm"
                         >
-                          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-xs font-medium">
-                            {user.name.charAt(0)}
-                          </div>
+                          <UserAvatar user={user} size="xs" />
                           <span className="text-gray-900">{user.name}</span>
                           <button
                             type="button"

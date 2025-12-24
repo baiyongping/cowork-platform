@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Plus, Search, FolderKanban, Users, Calendar, DollarSign, TrendingUp, Eye, Edit, Trash2, AlertCircle, Archive } from 'lucide-react';
-import { db, auth } from '../../lib/cloudbase';
+import { app, db, auth } from '../../lib/cloudbase';
 import CreateProjectModal from '../CreateProjectModal';
 import ProjectDetailModal from '../ProjectDetailModal';
 import { buildQueryConditions } from '../../utils/permission';
@@ -15,9 +15,11 @@ import { getProjectStatusColor, getProjectPhaseColor } from '../../types/project
 interface ProjectManagementProps {
   userRole: 'admin' | 'user';
   currentUserId: string;
+  openProjectId?: string;  // 🔧 要打开的项目ID
+  onProjectOpened?: () => void;  // 🔧 打开后的回调
 }
 
-export function ProjectManagement({ userRole, currentUserId }: ProjectManagementProps) {
+export function ProjectManagement({ userRole, currentUserId, openProjectId, onProjectOpened }: ProjectManagementProps) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(false);
   const [statistics, setStatistics] = useState<ProjectStatistics>({
@@ -286,6 +288,23 @@ export function ProjectManagement({ userRole, currentUserId }: ProjectManagement
     loadProjects();
   }, [filters]);
 
+  // 🔧 自动打开指定的项目详情
+  useEffect(() => {
+    console.log('🔧 [ProjectManagement] 检查自动打开:', { openProjectId, projectsCount: projects.length });
+    if (openProjectId && projects.length > 0) {
+      const projectToOpen = projects.find(p => p._id === openProjectId);
+      console.log('🔧 [ProjectManagement] 找到项目:', projectToOpen);
+      if (projectToOpen) {
+        setSelectedProject(projectToOpen);
+        setShowDetailModal(true);
+        onProjectOpened?.();  // 通知父组件已打开
+        console.log('✅ [ProjectManagement] 已打开项目详情');
+      } else {
+        console.warn('⚠️ [ProjectManagement] 未找到项目:', openProjectId);
+      }
+    }
+  }, [openProjectId, projects]);
+
   // 格式化金额
   const formatAmount = (amount?: number): string => {
     // 修复：处理 undefined 或 null 的情况
@@ -334,6 +353,25 @@ export function ProjectManagement({ userRole, currentUserId }: ProjectManagement
       }
       
       await db.collection('projects').doc(projId).update(updateData);
+
+      // 发送状态变更通知
+      const project = projects.find(p => p._id === projId);
+      if (project && project.owner !== currentUserId) {
+        try {
+          await app.callFunction({
+            name: 'project-message',
+            data: {
+              action: 'statusChange',
+              projectId: project._id,
+              projectName: project.name,
+              newStatus,
+              receiver: project.owner
+            }
+          });
+        } catch (error) {
+          console.error('消息通知失败:', error);
+        }
+      }
       
       // 重新加载项目列表
       await loadProjects();

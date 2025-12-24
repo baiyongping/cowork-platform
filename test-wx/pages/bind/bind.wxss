@@ -1,0 +1,98 @@
+/* pages/bind/bind.wxss */
+.container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 40rpx;
+}
+
+.header {
+  text-align: center;
+  margin-top: 80rpx;
+  margin-bottom: 60rpx;
+}
+
+.logo {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 20rpx;
+  margin-bottom: 30rpx;
+}
+
+.title {
+  display: block;
+  font-size: 48rpx;
+  font-weight: bold;
+  color: #fff;
+}
+
+.form {
+  background: #fff;
+  border-radius: 20rpx;
+  padding: 40rpx;
+  box-shadow: 0 10rpx 30rpx rgba(0, 0, 0, 0.1);
+}
+
+.form-item {
+  margin-bottom: 30rpx;
+}
+
+.label {
+  display: block;
+  font-size: 28rpx;
+  color: #333;
+  margin-bottom: 15rpx;
+  font-weight: 500;
+}
+
+.input {
+  width: 100%;
+  height: 80rpx;
+  background: #f5f7fa;
+  border-radius: 10rpx;
+  padding: 0 20rpx;
+  font-size: 28rpx;
+  border: 2rpx solid transparent;
+  transition: all 0.3s;
+}
+
+.input:focus {
+  background: #fff;
+  border-color: #667eea;
+}
+
+.btn-primary {
+  width: 100%;
+  height: 88rpx;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  border-radius: 10rpx;
+  font-size: 32rpx;
+  font-weight: bold;
+  border: none;
+  margin-top: 40rpx;
+}
+
+.btn-primary::after {
+  border: none;
+}
+
+.tips {
+  text-align: center;
+  margin-top: 20rpx;
+}
+
+.tips text {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.footer {
+  text-align: center;
+  margin-top: 40rpx;
+}
+
+.link {
+  font-size: 28rpx;
+  color: #fff;
+  text-decoration: underline;
+}

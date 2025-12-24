@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>清除登录态 - Parasaga系统</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      max-width: 600px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 20px;
+    }
+    .btn {
+      background: #1890ff;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      margin-right: 10px;
+    }
+    .btn:hover {
+      background: #40a9ff;
+    }
+    .btn-danger {
+      background: #ff4d4f;
+    }
+    .btn-danger:hover {
+      background: #ff7875;
+    }
+    .status {
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 4px;
+      display: none;
+    }
+    .status.success {
+      background: #f6ffed;
+      border: 1px solid #b7eb8f;
+      color: #52c41a;
+      display: block;
+    }
+    .status.error {
+      background: #fff2f0;
+      border: 1px solid #ffccc7;
+      color: #ff4d4f;
+      display: block;
+    }
+    .info {
+      background: #e6f7ff;
+      border: 1px solid #91d5ff;
+      padding: 15px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔧 清除登录态工具</h1>
+    
+    <div class="info">
+      <strong>⚠️ 使用说明：</strong>
+      <ul>
+        <li>如果用户名密码登录失败，可能是旧的微信登录态干扰</li>
+        <li>点击下方按钮清除所有登录态</li>
+        <li>清除后需要重新登录</li>
+      </ul>
+    </div>
+
+    <button class="btn btn-danger" onclick="clearLoginState()">🗑️ 清除所有登录态</button>
+    <button class="btn" onclick="checkLoginState()">🔍 检查当前登录态</button>
+    
+    <div id="status" class="status"></div>
+  </div>
+
+  <script src="https://web-9gikcbug35bad3a8-1304825656.tcloudbaseapp.com/sdk/2.0.1/cloud.js"></script>
+  <script>
+    // 初始化 CloudBase
+    const app = cloudbase.init({
+      env: 'parasaga-5g6ibiua4b9422eb',
+      region: 'ap-shanghai'
+    });
+
+    const auth = app.auth({ persistence: 'local' });
+
+    async function checkLoginState() {
+      try {
+        const loginState = await auth.getLoginState();
+        
+        const statusDiv = document.getElementById('status');
+        
+        if (loginState && loginState.user) {
+          statusDiv.className = 'status success';
+          statusDiv.innerHTML = `
+            <strong>✅ 检测到登录态</strong><br>
+            <strong>用户ID:</strong> ${loginState.user.uid}<br>
+            <strong>登录方式:</strong> ${loginState.loginType || '未知'}<br>
+            <strong>昵称:</strong> ${loginState.user.nickName || '未设置'}<br>
+            <br>
+            <em>如果要使用用户名密码登录，请先清除此登录态</em>
+          `;
+        } else {
+          statusDiv.className = 'status success';
+          statusDiv.innerHTML = '<strong>✅ 当前无登录态</strong><br>可以正常使用用户名密码登录';
+        }
+      } catch (error) {
+        const statusDiv = document.getElementById('status');
+        statusDiv.className = 'status error';
+        statusDiv.innerHTML = `<strong>❌ 检查失败:</strong> ${error.message}`;
+      }
+    }
+
+    async function clearLoginState() {
+      try {
+        // 检查是否有登录态
+        const loginState = await auth.getLoginState();
+        
+        if (!loginState) {
+          const statusDiv = document.getElementById('status');
+          statusDiv.className = 'status success';
+          statusDiv.innerHTML = '<strong>✅ 当前无登录态</strong><br>无需清除';
+          return;
+        }
+
+        // 登出 CloudBase
+        await auth.signOut();
+        
+        // 清除本地存储
+        localStorage.clear();
+        sessionStorage.clear();
+        
+        const statusDiv = document.getElementById('status');
+        statusDiv.className = 'status success';
+        statusDiv.innerHTML = `
+          <strong>✅ 登录态已清除！</strong><br>
+          <strong>清除前用户:</strong> ${loginState.user.uid}<br>
+          <br>
+          <em>现在可以关闭此页面，返回登录页使用用户名密码登录</em><br>
+          <button class="btn" onclick="window.close()" style="margin-top: 10px;">关闭窗口</button>
+        `;
+        
+        console.log('✅ 登录态清除成功');
+      } catch (error) {
+        const statusDiv = document.getElementById('status');
+        statusDiv.className = 'status error';
+        statusDiv.innerHTML = `<strong>❌ 清除失败:</strong> ${error.message}`;
+        console.error('清除登录态失败:', error);
+      }
+    }
+
+    // 页面加载时自动检查
+    window.addEventListener('load', checkLoginState);
+  </script>
+</body>
+</html>

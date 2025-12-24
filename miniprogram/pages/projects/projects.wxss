@@ -1,84 +1,35 @@
-/* pages/projects/projects.wxss */
 .container {
   min-height: 100vh;
-  background: #F8F9FA;
-  padding: 24rpx;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 120rpx;
 }
 
-.page-title {
-  font-size: 40rpx;
-  font-weight: 600;
-  color: #1A202C;
-  margin-bottom: 24rpx;
-  border-left: 6rpx solid #FF6B35;
-  padding-left: 20rpx;
-}
-
-.project-list {
+.pending-wrapper {
   display: flex;
   flex-direction: column;
-  gap: 20rpx;
+  align-items: center;
+  padding: 60rpx 40rpx;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 24rpx;
+  backdrop-filter: blur(10px);
 }
 
-.project-item {
-  background: #FFFFFF;
-  border-radius: 16rpx;
-  padding: 28rpx 24rpx;
-  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
+.icon {
+  font-size: 120rpx;
+  margin-bottom: 32rpx;
 }
 
-.project-name {
-  font-size: 30rpx;
-  font-weight: 500;
-  color: #1A202C;
+.title {
+  font-size: 40rpx;
+  color: #ffffff;
+  font-weight: bold;
   margin-bottom: 16rpx;
 }
 
-.project-progress {
-  display: flex;
-  align-items: center;
-  gap: 16rpx;
-  margin-bottom: 12rpx;
-}
-
-.progress-bar {
-  flex: 1;
-  height: 12rpx;
-  background: #E5E7EB;
-  border-radius: 6rpx;
-  overflow: hidden;
-}
-
-.progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #FF6B35 0%, #F39C12 100%);
-  transition: width 0.3s;
-}
-
-.progress-text {
-  font-size: 24rpx;
-  color: #7A7E83;
-  font-family: 'DIN Alternate', 'PingFang SC', sans-serif;
-}
-
-.project-meta {
-  display: flex;
-  justify-content: space-between;
-  font-size: 24rpx;
-  color: #7A7E83;
-}
-
-.project-status {
-  color: #FF6B35;
-  font-weight: 500;
-}
-
-.empty-state {
-  padding: 120rpx 0;
-  text-align: center;
-}
-
-.empty-text {
+.subtitle {
   font-size: 28rpx;
-  color: #B0B5BA;
+  color: rgba(255, 255, 255, 0.8);
 }

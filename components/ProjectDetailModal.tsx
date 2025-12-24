@@ -1,11 +1,12 @@
-import { useState } from 'react';
-import { X, Edit, Trash2, Calendar, Users, DollarSign, TrendingUp, Target, FolderKanban, AlertCircle, Package, CheckCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, Edit, Trash2, Calendar, Users, DollarSign, TrendingUp, Target, FolderKanban, AlertCircle, Package, CheckCircle, Briefcase } from 'lucide-react';
 import { db } from '../lib/cloudbase';
 import type { Project } from '../types/project';
 import { getProjectStatusColor, isProjectOverdue } from '../types/project';
 import ProjectTaskList from './ProjectTaskList';
 import EditProjectModal from './EditProjectModal';
 import { usePermissionContext } from '../contexts/PermissionContext';
+import Drawer from './Drawer';
 
 interface ProjectDetailModalProps {
   project: Project;
@@ -19,6 +20,7 @@ export default function ProjectDetailModal({ project, onClose, onSuccess }: Proj
   const [loading, setLoading] = useState(false);
   const [currentProject, setCurrentProject] = useState(project);
   const [recordingRevenue, setRecordingRevenue] = useState(false);
+  const [showRevenueConfirm, setShowRevenueConfirm] = useState(false);
   
   // 使用新权限系统
   const { checkPermission } = usePermissionContext();
@@ -59,6 +61,18 @@ export default function ProjectDetailModal({ project, onClose, onSuccess }: Proj
     }
   };
 
+  // 打开编辑Modal
+  const handleEdit = () => {
+    setShowEditModal(true);
+  };
+
+  // 编辑成功回调
+  const handleEditSuccess = () => {
+    setShowEditModal(false);
+    refreshProject(); // 刷新项目数据
+    onSuccess(); // 刷新父组件
+  };
+
   // 处理放入回收站（软删除）
   const handleDelete = async () => {
     try {
@@ -92,11 +106,6 @@ export default function ProjectDetailModal({ project, onClose, onSuccess }: Proj
     // 检查项目总金额
     if (!totalAmount || totalAmount <= 0) {
       alert('项目总金额为0，无法计入销售业绩');
-      return;
-    }
-
-    // ✅ 添加删除确认
-    if (!window.confirm(`确认将项目总金额 ${formatAmount(totalAmount)} 计入销售业绩？\n\n此操作不可撤销。`)) {
       return;
     }
 
@@ -285,20 +294,44 @@ export default function ProjectDetailModal({ project, onClose, onSuccess }: Proj
 
   return (
     <>
-      {/* 主模态框 */}
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-          {/* 头部 */}
-          <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900">项目详情</h2>
+      {/* 侧边抽屉式项目详情 */}
+      <Drawer
+        isOpen={true}
+        onClose={onClose}
+        title={
+          <div className="flex items-center gap-3">
+            <div className={`p-2 rounded-lg ${getProjectStatusColor(currentProject.status)} bg-opacity-20`}>
+              <FolderKanban className="w-6 h-6" />
             </div>
-            <div className="flex items-center gap-3">
-              {/* 确认销售收入按钮 */}
-              <button
-                onClick={handleRecordRevenue}
+            <div className="flex-1 min-w-0">
+              <h2 className="text-xl font-semibold text-gray-900 truncate">
+                {currentProject.name}
+              </h2>
+              <div className="flex items-center gap-2 mt-1">
+                <span className={`px-2 py-1 text-xs rounded-full font-medium ${getProjectStatusColor(currentProject.status)}`}>
+                  {currentProject.status}
+                </span>
+                {currentProject.revenueRecorded && (
+                  <span className="px-2 py-1 text-xs rounded-full font-medium bg-green-100 text-green-700">
+                    ✓ 已确认收入
+                  </span>
+                )}
+                {isProjectOverdue(currentProject) && (
+                  <span className="px-2 py-1 text-xs rounded-full font-medium bg-red-100 text-red-700">
+                    已逾期
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        }
+        actions={
+          <div className="flex items-center gap-2">
+            {/* 确认销售收入按钮 */}
+            <button
+                onClick={() => setShowRevenueConfirm(true)}
                 disabled={currentProject.revenueRecorded || recordingRevenue}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors shadow-sm ${
                   currentProject.revenueRecorded
                     ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                     : 'bg-green-600 text-white hover:bg-green-700'
@@ -313,166 +346,143 @@ export default function ProjectDetailModal({ project, onClose, onSuccess }: Proj
                 ) : (
                   <>
                     <CheckCircle className="w-4 h-4" />
-                    {currentProject.revenueRecorded ? '已确认收入' : '确认销售收入'}
+                    {currentProject.revenueRecorded ? '已确认收入' : '确认收入'}
                   </>
                 )}
               </button>
               {checkPermission('projects', 'edit') && (
                 <button
-                  onClick={() => setShowEditModal(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  onClick={handleEdit}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
                   title="编辑项目"
                 >
                   <Edit className="w-4 h-4" />
                   编辑
                 </button>
               )}
-              <button
-                onClick={async () => {
-                  await refreshProject();
-                  onClose();
-                }}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-              >
-                <CheckCircle className="w-4 h-4" />
-                保存退出
-              </button>
-              <button
-                onClick={onClose}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5 text-gray-500" />
-              </button>
             </div>
-          </div>
+        }
+      >
+        <div className="space-y-6">
+          {/* 关键指标 */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="text-sm text-gray-600 mb-1">项目总金额</div>
+                <div className="flex items-center gap-2">
+                  <DollarSign className="w-5 h-5 text-blue-600" />
+                  <span className="text-lg font-medium text-gray-900">{formatAmount(totalAmount)}</span>
+                </div>
+              </div>
+              
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="text-sm text-gray-600 mb-1">项目毛利润</div>
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-green-600" />
+                  <span className="text-lg font-medium text-gray-900">{formatAmount(grossProfit)}</span>
+                </div>
+                <div className="text-xs text-gray-500 mt-1">成本: {formatAmount(totalCost)}</div>
+              </div>
+              
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="text-sm text-gray-600 mb-1">项目状态</div>
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getProjectStatusColor(currentProject.status)}`}>
+                  {currentProject.status}
+                </span>
+                {currentProject.phase && ['准备期', '制造期', '交付期'].includes(currentProject.status) && (
+                  <div className="text-xs text-gray-500 mt-1">环节: {currentProject.phase}</div>
+                )}
+              </div>
 
-          {/* 内容 */}
-          <div className="p-6 space-y-6">
-            {/* 项目名称 */}
-            <div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-4">{currentProject.name}</h3>
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="text-sm text-gray-600 mb-1">项目进度</div>
+                <div className="flex items-center gap-2">
+                  <Target className="w-5 h-5 text-purple-600" />
+                  <span className="text-lg font-medium text-gray-900">{currentProject.progress || 0}%</span>
+                </div>
+                <div className="bg-gray-200 rounded-full h-2 mt-2">
+                  <div
+                    className="bg-purple-600 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${Math.min(100, Math.max(0, currentProject.progress || 0))}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 基本信息 */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {currentProject.code && (
-                <p className="text-sm text-gray-500">项目编号: {currentProject.code}</p>
-              )}
-            </div>
-
-            {/* 项目基本信息 - 文字字段形式 */}
-            <div className="grid grid-cols-2 gap-6 bg-gray-50 rounded-lg p-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">项目总金额</label>
-                <div className="text-2xl font-bold text-blue-600">{formatAmount(totalAmount)}</div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">项目毛利润</label>
-                <div className="text-2xl font-bold text-green-600">{formatAmount(grossProfit)}</div>
-                <div className="text-sm text-gray-500 mt-1">成本: {formatAmount(totalCost)}</div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">项目阶段</label>
-                <div className="text-lg font-semibold text-gray-900">{currentProject.status}</div>
-              </div>
-              {currentProject.phase && ['准备期', '制造期', '交付期'].includes(currentProject.status) && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">项目环节</label>
-                  <div className="text-lg font-semibold text-gray-900">{currentProject.phase}</div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">项目编号</label>
+                  <span className="text-gray-900">{currentProject.code}</span>
                 </div>
               )}
+
               <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">项目进度</label>
-                <div className="flex items-center gap-3">
-                  <div className="text-2xl font-bold text-purple-600">{currentProject.progress || 0}%</div>
-                  <div className="flex-1 bg-gray-200 rounded-full h-2">
-                    <div
-                      className="bg-purple-500 h-2 rounded-full transition-all"
-                      style={{ width: `${Math.min(100, Math.max(0, currentProject.progress || 0))}%` }}
-                    />
-                  </div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">客户名称</label>
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4 text-gray-500" />
+                  <span className="text-gray-900">{currentProject.customer}</span>
                 </div>
               </div>
-            </div>
 
-            {/* 客户信息 */}
-            <div className="border-t border-gray-200 pt-6">
-              <h4 className="text-lg font-semibold text-gray-900 mb-4">客户信息</h4>
-              <div className="grid grid-cols-3 gap-6">
+              {currentProject.contactPerson && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    <Users className="w-4 h-4 inline mr-1" />
-                    客户名称
-                  </label>
-                  <div className="text-gray-900">{currentProject.customer}</div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">对接人</label>
+                  <span className="text-gray-900">{currentProject.contactPerson}</span>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    对接人
-                  </label>
-                  <div className="text-gray-900">{currentProject.contactPerson || '-'}</div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    联系电话
-                  </label>
-                  <div className="text-gray-900">{currentProject.contactPhone || '-'}</div>
-                </div>
-              </div>
-            </div>
+              )}
 
-            {/* 项目时间 */}
-            <div className="border-t border-gray-200 pt-6">
-              <div className="flex items-center gap-2 mb-4">
-                <Calendar className="w-5 h-5 text-gray-600" />
-                <h4 className="text-lg font-semibold text-gray-900">项目时间</h4>
-                {isProjectOverdue(currentProject) && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-medium">
-                    <AlertCircle className="w-3 h-3" />
-                    已延期
-                  </span>
-                )}
-              </div>
-              <div className="grid grid-cols-2 gap-6">
+              {currentProject.contactPhone && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    开始日期
-                  </label>
-                  <div className="text-gray-900">{formatDate(currentProject.startDate)}</div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">联系电话</label>
+                  <span className="text-gray-900">{currentProject.contactPhone}</span>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    计划交付日期
-                  </label>
-                  <div className="text-gray-900">{formatDate(currentProject.endDate)}</div>
-                </div>
-              </div>
-            </div>
+              )}
 
-            {/* 负责人和成员 */}
-            <div className="border-t border-gray-200 pt-6">
-              <h4 className="text-lg font-semibold text-gray-900 mb-4">团队信息</h4>
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    <Target className="w-4 h-4 inline mr-1" />
-                    项目经理
-                  </label>
-                  <div className="text-gray-900">{currentProject.managerName || '未知'}</div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">开始日期</label>
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-gray-500" />
+                  <span className="text-gray-900">{formatDate(currentProject.startDate)}</span>
                 </div>
-                {currentProject.memberNames && currentProject.memberNames.length > 0 && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      <Users className="w-4 h-4 inline mr-1" />
-                      项目成员
-                    </label>
-                    <div className="text-gray-900">{currentProject.memberNames.join(', ')}</div>
-                  </div>
-                )}
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">计划交付日期</label>
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-gray-500" />
+                  <span className="text-gray-900">{formatDate(currentProject.endDate)}</span>
+                  {isProjectOverdue(currentProject) && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-medium">
+                      <AlertCircle className="w-3 h-3" />
+                      已延期
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {currentProject.managerName && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">项目经理</label>
+                  <span className="text-gray-900">{currentProject.managerName}</span>
+                </div>
+              )}
+
+              {currentProject.memberNames && currentProject.memberNames.length > 0 && (
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">项目成员</label>
+                  <span className="text-gray-900">{currentProject.memberNames.join(', ')}</span>
+                </div>
+              )}
             </div>
 
             {/* 项目描述 */}
             {currentProject.description && (
-              <div className="border-t border-gray-200 pt-6">
-                <h4 className="text-lg font-semibold text-gray-900 mb-2">项目备注</h4>
-                <div className="bg-gray-50 rounded-lg p-4 text-gray-700 whitespace-pre-wrap">{currentProject.description}</div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">项目描述</label>
+                <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-700 whitespace-pre-wrap">
+                  {currentProject.description}
+                </div>
               </div>
             )}
 
@@ -565,7 +575,7 @@ export default function ProjectDetailModal({ project, onClose, onSuccess }: Proj
 
             {/* 项目任务列表 */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-              <ProjectTaskList 
+              <ProjectTaskList
                 projectId={currentProject._id}
                 onTaskUpdate={() => {
                   refreshProject();
@@ -573,8 +583,7 @@ export default function ProjectDetailModal({ project, onClose, onSuccess }: Proj
               />
             </div>
           </div>
-        </div>
-      </div>
+      </Drawer>
 
       {/* 删除确认对话框 */}
       {showDeleteConfirm && (
@@ -615,6 +624,38 @@ export default function ProjectDetailModal({ project, onClose, onSuccess }: Proj
                     确认移入回收站
                   </>
                 )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 收入确认对话框 */}
+      {showRevenueConfirm && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">确认计入销售业绩</h2>
+            <p className="text-gray-600 mb-6">
+              确认将项目总金额 <span className="font-bold text-blue-600">{formatAmount(totalAmount)}</span> 计入销售业绩？
+              <br /><br />
+              <span className="text-red-600">此操作不可撤销</span>
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowRevenueConfirm(false)}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={() => {
+                  setShowRevenueConfirm(false);
+                  handleRecordRevenue();
+                }}
+                disabled={recordingRevenue}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+              >
+                {recordingRevenue ? '处理中...' : '确认计入'}
               </button>
             </div>
           </div>
