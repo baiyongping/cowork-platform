@@ -24,8 +24,8 @@ export function ConfirmDialog({
   if (!show) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-gray-900 bg-opacity-20">
+      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">{title}</h2>
         <p className="text-gray-600 mb-6 whitespace-pre-line">{message}</p>
         <div className="flex justify-end gap-3">

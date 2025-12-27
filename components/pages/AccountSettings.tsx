@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User, Phone, Lock, Save, Send, Users, ChevronDown, ChevronUp, Building2, Edit2, Mail } from 'lucide-react';
+import { User, Phone, Lock, Save, Send, Users, ChevronDown, ChevronUp, Building2, Edit2, Mail, Target, Zap, Award } from 'lucide-react';
 import { changePassword, changePhone, sendVerificationCode } from '../../lib/auth-service';
 import { db } from '../../lib/cloudbase';
 import toast, { Toaster } from 'react-hot-toast';
@@ -13,7 +13,7 @@ interface AccountSettingsProps {
 }
 
 export function AccountSettings({ currentUser, onUserUpdate, onNavigate }: AccountSettingsProps) {
-  const [activeTab, setActiveTab] = useState<'info' | 'team' | 'message'>('info');
+  const [activeTab, setActiveTab] = useState<'info' | 'team' | 'message' | 'goals' | 'execution' | 'performance'>('info');
   const [userInfo, setUserInfo] = useState<any>(currentUser);
   const [loadingUserInfo, setLoadingUserInfo] = useState(false);
   
@@ -457,10 +457,10 @@ export function AccountSettings({ currentUser, onUserUpdate, onNavigate }: Accou
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 mb-6">
+      <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
         <button
           onClick={() => setActiveTab('info')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${
             activeTab === 'info' ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50'
           }`}
         >
@@ -470,7 +470,7 @@ export function AccountSettings({ currentUser, onUserUpdate, onNavigate }: Accou
         
         <button
           onClick={() => setActiveTab('team')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${
             activeTab === 'team' ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50'
           }`}
         >
@@ -480,7 +480,7 @@ export function AccountSettings({ currentUser, onUserUpdate, onNavigate }: Accou
         
         <button
           onClick={() => setActiveTab('message')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors relative ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors relative whitespace-nowrap ${
             activeTab === 'message' ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50'
           }`}
         >
@@ -492,6 +492,36 @@ export function AccountSettings({ currentUser, onUserUpdate, onNavigate }: Accou
               {unreadCount > 9 ? '9+' : unreadCount}
             </span>
           )}
+        </button>
+        
+        <button
+          onClick={() => setActiveTab('goals')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${
+            activeTab === 'goals' ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50'
+          }`}
+        >
+          <Target className="w-5 h-5" />
+          我的目标
+        </button>
+        
+        <button
+          onClick={() => setActiveTab('execution')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${
+            activeTab === 'execution' ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50'
+          }`}
+        >
+          <Zap className="w-5 h-5" />
+          执行力
+        </button>
+        
+        <button
+          onClick={() => setActiveTab('performance')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${
+            activeTab === 'performance' ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50'
+          }`}
+        >
+          <Award className="w-5 h-5" />
+          绩效
         </button>
       </div>
 
@@ -908,6 +938,60 @@ export function AccountSettings({ currentUser, onUserUpdate, onNavigate }: Accou
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* 我的目标 */}
+      {activeTab === 'goals' && (
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="bg-gradient-to-r from-purple-50 to-pink-50 px-6 py-4 border-b border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900">我的目标</h3>
+            <p className="text-sm text-gray-600 mt-1">查看个人目标完成情况和进度</p>
+          </div>
+          
+          <div className="p-6">
+            <div className="text-center py-12">
+              <Target className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500 mb-2">目标功能开发中</p>
+              <p className="text-sm text-gray-400">将显示您的个人目标、完成进度、时间轴等信息</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 执行力 */}
+      {activeTab === 'execution' && (
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="bg-gradient-to-r from-orange-50 to-red-50 px-6 py-4 border-b border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900">执行力</h3>
+            <p className="text-sm text-gray-600 mt-1">查看任务执行效率和质量数据</p>
+          </div>
+          
+          <div className="p-6">
+            <div className="text-center py-12">
+              <Zap className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500 mb-2">执行力分析功能开发中</p>
+              <p className="text-sm text-gray-400">将显示任务完成率、准时率、质量评分等执行力指标</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 绩效 */}
+      {activeTab === 'performance' && (
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="bg-gradient-to-r from-green-50 to-emerald-50 px-6 py-4 border-b border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900">绩效</h3>
+            <p className="text-sm text-gray-600 mt-1">查看个人绩效评估结果和历史记录</p>
+          </div>
+          
+          <div className="p-6">
+            <div className="text-center py-12">
+              <Award className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500 mb-2">绩效评估功能开发中</p>
+              <p className="text-sm text-gray-400">将显示绩效评分、考核结果、奖惩记录等信息</p>
+            </div>
+          </div>
         </div>
       )}
 

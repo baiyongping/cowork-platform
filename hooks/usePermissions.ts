@@ -28,14 +28,23 @@ export function usePermissions(currentUser: User | null) {
   useEffect(() => {
     const loadRolePermissions = async () => {
       try {
+        console.log('🔐 [usePermissions] 开始加载角色权限配置...');
         const result = await db.collection('role_permissions').get();
+        console.log('✅ [usePermissions] 角色权限查询完成:', result);
         
         if (result.data && result.data.length > 0) {
           setRolePermissions(result.data);
+          console.log(`✅ [usePermissions] 加载了 ${result.data.length} 条角色权限配置`);
+        } else {
+          console.warn('⚠️ [usePermissions] 未找到角色权限配置，使用默认权限');
+          setRolePermissions([]); // 明确设置为空数组
         }
       } catch (error) {
-        console.error('加载角色权限配置失败:', error);
+        console.error('❌ [usePermissions] 加载角色权限配置失败:', error);
+        // 即使失败也要设置为空数组,避免一直loading
+        setRolePermissions([]);
       } finally {
+        console.log('✅ [usePermissions] 权限加载完成，设置 loading = false');
         setLoading(false);
       }
     };

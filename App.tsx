@@ -1,12 +1,16 @@
 import { useState, useEffect } from 'react';
 import { Toaster } from 'react-hot-toast';
-import { Bell } from 'lucide-react';
+import { Bell, LogOut } from 'lucide-react';
 import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './components/pages/Dashboard';
 import { TaskManagement } from './components/pages/TaskManagement';
 import { OpportunityManagement } from './components/pages/OpportunityManagement';
 import { ProjectManagement } from './components/pages/ProjectManagement';
 import { GoalManagement } from './components/pages/GoalManagement';
+import { BudgetManagement } from './components/pages/BudgetManagement';
+import { MeetingManagement } from './components/pages/MeetingManagement';
+import { PerformanceManagement } from './components/pages/PerformanceManagement';
+import { BusinessManagement } from './components/pages/BusinessManagement';
 import { SystemSettings } from './components/pages/SystemSettings';
 import { AccountSettings } from './components/pages/AccountSettings';
 import { LoginPage } from './components/LoginPage';
@@ -17,7 +21,13 @@ import { ensureAuth, app } from './lib/cloudbase';
 import { PermissionProvider } from './contexts/PermissionContext';
 import { useNotificationStore } from './lib/notification-store';
 
-type PageType = 'dashboard' | 'tasks' | 'opportunities' | 'projects' | 'goals' | 'settings' | 'account';
+// 开发环境日志工具（生产环境静默）
+const isDev = import.meta.env.DEV;
+const devLog = (...args: any[]) => {
+  if (isDev) console.log(...args);
+};
+
+type PageType = 'dashboard' | 'tasks' | 'opportunities' | 'projects' | 'goals' | 'budget' | 'meetings' | 'performance' | 'business' | 'settings' | 'account';
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState<PageType>('dashboard');
@@ -28,6 +38,7 @@ export default function App() {
   const [showWechatBindModal, setShowWechatBindModal] = useState(false);
   const [pendingUserCount, setPendingUserCount] = useState(0);
   const [openItemId, setOpenItemId] = useState<string | undefined>();  // 🔧 保存要打开的项目ID
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);  // 🎨 侧边栏收起状态
   
   // 🔔 使用消息通知 store
   const { unreadCount, setUnreadCount, showNotification, setShowNotification, playNotificationSound } = useNotificationStore();
@@ -38,6 +49,17 @@ export default function App() {
     setCurrentPage(page);
     setOpenItemId(itemId);
   };
+
+  // 🎨 监听页面变化，自动收起/展开侧边栏
+  useEffect(() => {
+    if (currentPage === 'budget') {
+      // 进入预算管理页面，自动收起侧边栏
+      setSidebarCollapsed(true);
+    } else {
+      // 离开预算管理页面，自动展开侧边栏
+      setSidebarCollapsed(false);
+    }
+  }, [currentPage]);
 
   // 🎯 步骤1: 确保 CloudBase 认证完成
   useEffect(() => {
@@ -101,11 +123,11 @@ export default function App() {
       try {
         // 🔧 防御性检查：确保用户已登录且有 userId
         if (!currentUser?.userId) {
-          console.log('🔔 [App] 用户未登录或缺少 userId，跳过统计未读消息');
+          devLog('🔔 [App] 用户未登录或缺少 userId，跳过统计未读消息');
           return;
         }
         
-        console.log('🔔 [App] 开始统计未读消息, userId:', currentUser.userId);
+        devLog('🔔 [App] 开始统计未读消息, userId:', currentUser.userId);
         
         // 🔧 传递当前用户ID给云函数
         const result = await app.callFunction({
@@ -115,13 +137,13 @@ export default function App() {
           }
         });
         
-        console.log('🔔 [App] 未读消息统计返回:', result);
+        devLog('🔔 [App] 未读消息统计返回:', result);
         
         if (result.result?.success && result.result?.data) {
           const newCount = result.result.data.total || 0;
           const oldCount = unreadCount;
           
-          console.log('🔔 [App] 更新未读数:', { oldCount, newCount });
+          devLog('🔔 [App] 更新未读数:', { oldCount, newCount });
           setUnreadCount(newCount);
           
           // 🔔 如果有新消息,播放提示音
@@ -223,7 +245,7 @@ export default function App() {
   const renderPage = () => {
     switch (currentPage) {
       case 'dashboard':
-        return <Dashboard userRole={currentUser?.role} currentUser={currentUser} />;
+        return <Dashboard userRole={currentUser?.role} currentUser={currentUser} onLogout={handleLogout} />;
       case 'tasks':
         return <TaskManagement 
           userRole={currentUser?.role} 
@@ -264,6 +286,26 @@ export default function App() {
             setOpenItemId(undefined);  // 🔧 打开后清除ID
           }}
         />;
+      case 'budget':
+        return <BudgetManagement 
+          userRole={currentUser?.role} 
+          currentUser={currentUser}
+        />;
+      case 'meetings':
+        return <MeetingManagement 
+          userRole={currentUser?.role} 
+          currentUser={currentUser}
+        />;
+      case 'performance':
+        return <PerformanceManagement 
+          userRole={currentUser?.role} 
+          currentUser={currentUser}
+        />;
+      case 'business':
+        return <BusinessManagement 
+          userRole={currentUser?.role} 
+          currentUser={currentUser}
+        />;
       case 'account':
         return <AccountSettings currentUser={currentUser} onUserUpdate={handleUserUpdate} onNavigate={handleNavigate} />;
       case 'settings':
@@ -287,6 +329,8 @@ export default function App() {
           currentUser={currentUser}
           onLogout={handleLogout}
           pendingUserCount={pendingUserCount}
+          collapsed={sidebarCollapsed}  // 🎨 传递收起状态
+          onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}  // 🎨 切换函数
         />
         
         {/* 主内容区 */}

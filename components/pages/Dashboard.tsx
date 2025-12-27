@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, Target, FolderKanban, CheckSquare, Users, DollarSign, X, Calendar, User as UserIcon, AlertCircle, Clock, Bell } from 'lucide-react';
+import { TrendingUp, TrendingDown, Target, FolderKanban, CheckSquare, Users, DollarSign, X, Calendar, User as UserIcon, AlertCircle, Clock, Bell, LogOut } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { OpportunityFunnel } from '../OpportunityFunnel';
 import { db } from '../../lib/cloudbase';
@@ -8,6 +8,7 @@ import { useNotificationStore } from '../../lib/notification-store';
 interface DashboardProps {
   userRole: 'admin' | 'employee';
   currentUser: any;
+  onLogout?: () => void;  // 🔧 退出登录回调
 }
 
 // 重点关注项
@@ -93,7 +94,7 @@ interface DashboardData {
   focusItems: FocusItem[];
 }
 
-export function Dashboard({ userRole, currentUser }: DashboardProps) {
+export function Dashboard({ userRole, currentUser, onLogout }: DashboardProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
@@ -643,27 +644,42 @@ export function Dashboard({ userRole, currentUser }: DashboardProps) {
 
   return (
     <div className="p-6 pb-3">
-      {/* 工作台标题区 - 添加消息铃铛 */}
+      {/* 工作台标题区 - 添加消息铃铛和退出登录 */}
       <div className="mb-6 flex items-start justify-between">
         <div>
           <h1 className="text-gray-900 mb-2">工作台</h1>
           <p className="text-gray-600">欢迎回来，{currentUser?.name || '管理员'}</p>
         </div>
         
-        {/* 🔔 消息铃铛按钮 */}
-        <button
-          onClick={() => setShowNotification(true)}
-          className="relative p-3 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200 group"
-          title="消息中心"
-        >
-          <Bell className="h-6 w-6 group-hover:scale-110 transition-transform" />
-          {/* 未读消息徽章 */}
-          {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold text-white bg-red-500 rounded-full min-w-[20px] shadow-md animate-pulse">
-              {unreadCount > 9 ? '9+' : unreadCount}
-            </span>
+        {/* 右侧操作区 - 消息和退出登录 */}
+        <div className="flex items-center gap-2">
+          {/* 🔔 消息铃铛按钮 */}
+          <button
+            onClick={() => setShowNotification(true)}
+            className="relative p-3 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200 group"
+            title="消息中心"
+          >
+            <Bell className="h-6 w-6 group-hover:scale-110 transition-transform" />
+            {/* 未读消息徽章 */}
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold text-white bg-red-500 rounded-full min-w-[20px] shadow-md animate-pulse">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </button>
+          
+          {/* 🚪 退出登录按钮 */}
+          {onLogout && (
+            <button
+              onClick={onLogout}
+              className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              title="退出登录"
+            >
+              <LogOut className="h-5 w-5" />
+              <span className="text-sm font-medium">退出</span>
+            </button>
           )}
-        </button>
+        </div>
       </div>
 
       {/* 重点关注区域 */}

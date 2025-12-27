@@ -2,7 +2,7 @@
 
 > 基于 React + TypeScript + Tailwind CSS + CloudBase 的现代化企业协同办公管理平台
 
-[![Version](https://img.shields.io/badge/version-3.3.0-blue.svg)](https://github.com/your-repo)
+[![Version](https://img.shields.io/badge/version-3.4.0-blue.svg)](https://github.com/your-repo)
 [![React](https://img.shields.io/badge/React-18.2-61dafb.svg)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.2-3178c6.svg)](https://www.typescriptlang.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4.0-38bdf8.svg)](https://tailwindcss.com/)
@@ -402,6 +402,21 @@ ssh root@152.136.183.181 "chown -R nginx:nginx /var/www/jihua-dev && chmod -R 75
 ---
 
 ## 📝 版本历史
+
+### v3.4.0 (2025-12-24) - 四大功能模块框架搭建版 🏗️
+- 🏗️ **新增四大功能模块框架**
+  - ✅ 预算管理（Budget Management）- 绿色主题
+  - ✅ 例会管理（Meeting Management）- 蓝色主题
+  - ✅ 绩效管理（Performance Management）- 紫色主题
+  - ✅ 业务管理（Business Management）- 橙色主题
+- 📦 **技术架构升级**
+  - ✅ Sidebar 支持扩展至10个功能模块
+  - ✅ 路由系统完善，支持新增模块
+  - ✅ 统一的页面框架设计
+- 🎨 **UI/UX 优化**
+  - ✅ 每个模块独立的图标和主题色
+  - ✅ 统一的"功能开发中"占位符设计
+  - ✅ 渐变背景与卡片式布局
 
 ### v3.3.0 (2025-12-24) - 详情页统一优化版 ✨
 - 🎨 **UI/UX 统一优化**
