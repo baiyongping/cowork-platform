@@ -7,7 +7,7 @@
 export type TaskLevel = '团队级' | '个人级';
 
 // 任务类型
-export type TaskType = '日常工作' | '商机跟进' | '项目任务';
+export type TaskType = '日常工作' | '商机跟进' | '项目任务' | '采购任务';
 
 // 任务状态（日常工作和商机跟进）
 export type TaskStatus = '未开始' | '进行中' | '已完成' | '延期' | '取消' | '暂停';
@@ -40,6 +40,9 @@ export type ProjectPhase =
   | '产品交付'
   | '售后服务';
 
+// 🆕 采购任务阶段
+export type PurchasePhase = '采购申请' | '采购执行' | '采购验收';
+
 // 计划类型
 export type PlanType = 
   | '本周计划'
@@ -70,6 +73,10 @@ export interface Task {
   planType?: PlanType; // 计划类型
   opportunityActionType?: OpportunityActionType;
   projectPhase?: ProjectPhase;
+  purchasePhase?: PurchasePhase; // 🆕 采购任务阶段
+  purchaseProjectId?: string; // 🆕 关联的采购预算项目ID
+  purchaseBatchId?: string; // 🆕 关联的采购批次ID
+  canStart?: boolean; // 🆕 是否可以启动（前置任务依赖控制）
   relatedTo?: string; // 关联的商机ID或项目ID
   relatedMeasure?: string; // 关联的季度举措ID(团队级月度计划)
   relatedTeamTask?: string; // 关联的团队月度工作任务ID(个人级周计划)
@@ -99,6 +106,10 @@ export interface CreateTaskDto {
   planType?: PlanType; // 计划类型
   opportunityActionType?: OpportunityActionType;
   projectPhase?: ProjectPhase;
+  purchasePhase?: PurchasePhase; // 🆕 采购任务阶段
+  purchaseProjectId?: string; // 🆕 关联的采购预算项目ID
+  purchaseBatchId?: string; // 🆕 关联的采购批次ID
+  canStart?: boolean; // 🆕 是否可以启动
   relatedTo?: string;
   relatedMeasure?: string; // 关联的季度举措ID(团队级月度计划)
   relatedTeamTask?: string; // 关联的团队月度工作任务ID(个人级周计划)

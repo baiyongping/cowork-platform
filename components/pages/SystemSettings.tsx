@@ -134,6 +134,7 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
       goal: {
         salesGoal: { view: true, create: true, edit: false, delete: false, export: false },
         opportunityGoal: { view: true, create: true, edit: false, delete: false, export: false },
+        productOrder: { view: true, create: true, edit: false, delete: false, export: false },
         strategy: { view: true, create: true, edit: false, delete: false, export: false },
         execution: { view: true, create: true, edit: false, delete: false, export: false }
       },
@@ -217,6 +218,7 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
               goal: {
                 salesGoal: { view: true, create: true, edit: true, delete: true, export: true },
                 opportunityGoal: { view: true, create: true, edit: true, delete: true, export: true },
+                productOrder: { view: true, create: true, edit: true, delete: true, export: true },
                 strategy: { view: true, create: true, edit: true, delete: true, export: true },
                 execution: { view: true, create: true, edit: true, delete: true, export: true }
               },
@@ -3617,6 +3619,7 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                             salesGoal: '销售目标',
                             opportunityGoal: '商机目标',
                             strategy: '经营策略',
+                            decomposition: '目标分解',
                             execution: '执行力地图'
                           };
                           
@@ -4983,7 +4986,9 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                             const subModules = {
                               salesGoal: '销售目标',
                               opportunityGoal: '商机目标',
+                              productOrder: '产品目标',
                               strategy: '经营策略',
+                              decomposition: '目标分解',
                               execution: '执行力地图'
                             };
                             
@@ -5348,7 +5353,9 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                             const subModules = {
                               salesGoal: '销售目标',
                               opportunityGoal: '商机目标',
+                              productOrder: '产品目标',
                               strategy: '经营策略',
+                              decomposition: '目标分解',
                               execution: '执行力地图'
                             };
                             
@@ -5699,7 +5706,7 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
           }}
           rolePermissions={rolePermissions}
           onSuccess={async () => {
-            console.log('🔄 [员工详情] 保存成功,准备刷新数据...');
+            // console.log('🔄 [员工详情] 保存成功,准备刷新数据...'); // 已禁用保存成功提示
             console.log('  - 当前员工ID:', selectedEmployee._id);
             console.log('  - 对话框状态:', { showEmployeeDetail });
             

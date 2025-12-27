@@ -1,0 +1,9 @@
+{
+  "name": "sync-product-forecast",
+  "version": "1.0.0",
+  "description": "同步产品订单预测数据",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

@@ -171,14 +171,36 @@ export default function OpportunityDetailModal({ opportunity, onClose, onSuccess
     try {
       setLoading(true);
       
-      // 1. 软删除商机
+      // 1. 如果商机已形成项目，先扣减产品订单数据
+      if (opportunity.isProjectFormed) {
+        console.log('⚠️  该商机已形成项目，先扣减产品订单数据...');
+        
+        const removeResult = await cloudbase.callFunction({
+          name: 'remove-product-forecast',
+          data: { opportunityId: opportunity._id }
+        });
+        
+        console.log('扣减产品订单返回:', removeResult);
+        
+        if (!removeResult.result || !removeResult.result.success) {
+          const errorMsg = removeResult.result?.message || '扣减产品订单失败';
+          console.error('❌ 扣减产品订单失败:', errorMsg);
+          alert(`删除失败: ${errorMsg}`);
+          setLoading(false);
+          return;
+        }
+        
+        console.log('✅ 产品订单扣减成功');
+      }
+      
+      // 2. 软删除商机
       await db.collection('opportunities').doc(opportunity._id).update({
         isDeleted: true,
         deletedAt: new Date(),
         updatedAt: new Date()
       });
 
-      // 2. 同步软删除关联的商机跟进任务
+      // 3. 同步软删除关联的商机跟进任务
       const tasksResult = await db.collection('tasks')
         .where({
           relatedTo: opportunity._id,
@@ -272,17 +294,17 @@ export default function OpportunityDetailModal({ opportunity, onClose, onSuccess
             {/* 仅当商机阶段为"成交"时显示"形成项目"按钮 */}
             {opportunity.stage === '成交' && (
                 <button
-                  onClick={() => !opportunity.projectId && setShowCreateProjectModal(true)}
-                  disabled={!!opportunity.projectId}
+                  onClick={() => !opportunity.isProjectFormed && setShowCreateProjectModal(true)}
+                  disabled={!!opportunity.isProjectFormed}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors shadow-sm ${
-                    opportunity.projectId
+                    opportunity.isProjectFormed
                       ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                       : 'bg-green-600 text-white hover:bg-green-700'
                   }`}
-                  title={opportunity.projectId ? '该商机已形成项目' : '点击形成项目'}
+                  title={opportunity.isProjectFormed ? '该商机已形成项目' : '点击形成项目'}
                 >
                   <CheckCircle className="w-4 h-4" />
-                  {opportunity.projectId ? '已形成项目' : '形成项目'}
+                  {opportunity.isProjectFormed ? '已形成项目' : '形成项目'}
                 </button>
               )}
               {!isLocked && checkPermission('opportunities', 'edit') && (

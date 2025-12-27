@@ -115,6 +115,26 @@ export default function CreateProjectFromOpportunityModal({
         updatedAt: new Date(),
       });
 
+      // 更新产品订单预测（从商机需求表统计）
+      try {
+        console.log('📊 开始更新产品订单预测...');
+        const forecastResult = await app.callFunction({
+          name: 'update-product-forecast',
+          data: {
+            opportunityId: opportunity._id
+          }
+        });
+        
+        if (forecastResult.result?.success) {
+          console.log(`✅ 产品订单预测更新成功: ${forecastResult.result.message}`);
+        } else {
+          console.error('❌ 产品订单预测更新失败:', forecastResult.result?.message);
+        }
+      } catch (error) {
+        console.error('❌ 调用产品订单预测云函数失败:', error);
+        // 不阻断项目创建流程，只记录错误
+      }
+
       alert('✅ 项目创建成功！');
       onSuccess();
       onClose();

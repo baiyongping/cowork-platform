@@ -289,7 +289,7 @@ export function Sidebar({ currentPage, onPageChange, userRole, currentUser, onLo
       </div>
 
       {/* ========== 底部区域：个人信息 ========== */}
-      <div className="flex-shrink-0 px-3 py-3 bg-gray-50 border-t border-gray-200 relative">
+      <div className="flex-shrink-0 px-3 py-3 bg-gray-50 border-t border-gray-200">
         {/* 个人信息显示区域 - 可点击跳转到个人信息页面 - 收起时隐藏 */}
         {!collapsed && (
           <button
@@ -322,22 +322,22 @@ export function Sidebar({ currentPage, onPageChange, userRole, currentUser, onLo
             </div>
           </button>
         )}
-        
-        {/* 🎨 切换按钮 - 始终显示在右下角 */}
-        {onToggleCollapse && (
-          <button
-            onClick={onToggleCollapse}
-            className="absolute right-2 bottom-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg p-2 shadow-lg transition-all hover:scale-105 z-20"
-            title={collapsed ? "展开侧边栏" : "收起侧边栏"}
-          >
-            {collapsed ? (
-              <ChevronsRight className="w-4 h-4" />
-            ) : (
-              <ChevronsLeft className="w-4 h-4" />
-            )}
-          </button>
-        )}
       </div>
+      
+      {/* 🎨 切换按钮 - 始终固定在整个侧边栏的右下角 */}
+      {onToggleCollapse && (
+        <button
+          onClick={onToggleCollapse}
+          className="absolute right-2 bottom-2 bg-gray-200 hover:bg-gray-300 text-gray-700 border border-gray-300 rounded-lg p-2 shadow-lg transition-all hover:scale-105 z-20"
+          title={collapsed ? "展开侧边栏" : "收起侧边栏"}
+        >
+          {collapsed ? (
+            <ChevronsRight className="w-4 h-4" />
+          ) : (
+            <ChevronsLeft className="w-4 h-4" />
+          )}
+        </button>
+      )}
     </div>
   );
 }

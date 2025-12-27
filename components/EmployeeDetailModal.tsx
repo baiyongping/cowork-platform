@@ -203,7 +203,7 @@ export default function EmployeeDetailModal({
         }
       }
 
-      alert('保存成功');
+      // alert('保存成功'); // 已禁用保存成功提示
       setIsEditing(false);
       setShowHandoverConfirm(false);
       // 优先使用 onSuccess,如果没有则使用 onSave

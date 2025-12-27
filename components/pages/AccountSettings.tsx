@@ -163,7 +163,7 @@ export function AccountSettings({ currentUser, onUserUpdate, onNavigate }: Accou
         [field]: value
       });
       
-      console.log(`✅ ${field}字段保存成功`);
+      // console.log(`✅ ${field}字段保存成功`); // 已禁用保存成功提示
       
       // 更新本地状态
       const updatedUser = { ...userInfo, [field]: value };
@@ -176,7 +176,7 @@ export function AccountSettings({ currentUser, onUserUpdate, onNavigate }: Accou
       
       if (!silent) {
         // 不弹提示,只在控制台输出
-        console.log('✓ 保存成功');
+        // console.log('✓ 保存成功'); // 已禁用保存成功提示
       }
     } catch (error) {
       console.error(`❌ 保存${field}失败:`, error);

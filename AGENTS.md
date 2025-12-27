@@ -160,6 +160,7 @@ Identify current development scenario type, mainly for understanding project typ
 
 **Universal Rule Files (All Projects):**
 - **⚠️ `rules/ui-design/rule.md`** - **MANDATORY - HIGHEST PRIORITY** - Must read FIRST before any UI/page/component/style generation
+- **📊 `rules/table-display-rules.md`** - **数字表格显示规则** - 统一所有数字表格的UI和显示风格(字体、对齐、格式化、颜色、布局)
 - `rules/spec-workflow/rule.md` - Standard software engineering process (if needed)
 
 ### 3. Development Confirmation

@@ -1,0 +1,9 @@
+{
+  "name": "saveAssetBudgets",
+  "version": "1.0.0",
+  "description": "保存资产预算数据",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "latest"
+  }
+}

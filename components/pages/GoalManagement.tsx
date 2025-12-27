@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Target, TrendingUp, Briefcase, Plus, X, Edit2, Trash2, Save, Download } from 'lucide-react';
+import { Target, TrendingUp, Briefcase, ShoppingCart, Plus, X, Edit2, Trash2, Save, Download } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { db } from '../../lib/cloudbase';
 import jsPDF from 'jspdf';
@@ -75,8 +75,42 @@ interface QuarterlyMeasure {
   updatedAt: Date;
 }
 
+// 产品目标数据接口
+interface ProductOrderForecast {
+  _id?: string;
+  year: number;              // 年份
+  categoryName: string;      // 产品类别名称
+  
+  // 产品目标
+  forecast: {
+    quantity: number;        // 数量
+    unitPrice: number;       // 单价
+    avgCost: number;         // 平均成本(元)
+    avgGrossMargin: number;  // 平均毛利率(%)（自动计算）
+    totalAmount: number;     // 预计订单额（自动计算）
+  };
+  
+  // 实际订单部分
+  actual: {
+    completedAmount: number;    // 实际完成订单额
+    completionRate: number;     // 实际完成率（%）
+    totalQuantity: number;      // 累计订单数量
+    totalCost: number;          // 总成本(元)
+    avgUnitPrice: number;       // 平均单价
+    avgCost: number;            // 平均成本(元)
+    avgGrossMargin: number;     // 平均毛利率(%)
+    q1Amount: number;           // Q1订单额
+    q2Amount: number;           // Q2订单额
+    q3Amount: number;           // Q3订单额
+    q4Amount: number;           // Q4订单额
+  };
+  
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
 export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened }: GoalManagementProps) {
-  const [selectedTab, setSelectedTab] = useState<'sales' | 'opportunity' | 'strategy' | 'execution'>('sales');
+  const [selectedTab, setSelectedTab] = useState<'sales' | 'opportunity' | 'product' | 'strategy' | 'decomposition' | 'execution'>('sales');
   const [selectedYear, setSelectedYear] = useState(2025);
   
   // 使用新的权限上下文
@@ -85,11 +119,13 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
   // 🔧 自动选择第一个有权限的Tab
   useEffect(() => {
     if (!permissionLoading) {
-      const tabs: Array<'sales' | 'opportunity' | 'strategy' | 'execution'> = ['sales', 'opportunity', 'strategy', 'execution'];
+      const tabs: Array<'sales' | 'opportunity' | 'product' | 'strategy' | 'decomposition' | 'execution'> = ['sales', 'opportunity', 'product', 'strategy', 'decomposition', 'execution'];
       const moduleMap = {
         sales: 'goal.salesGoal',
         opportunity: 'goal.opportunityGoal',
+        product: 'goal.productOrder',
         strategy: 'goal.strategy',
+        decomposition: 'goal.decomposition',
         execution: 'goal.execution'
       };
       
@@ -152,6 +188,13 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
   const [salesGoals, setSalesGoals] = useState<SalesGoal[]>([]);
   const [opportunityGoals, setOpportunityGoals] = useState<OpportunityGoal[]>([]);
   const [annualStrategies, setAnnualStrategies] = useState<AnnualStrategy[]>([]);
+  
+  // 产品目标状态
+  const [productForecasts, setProductForecasts] = useState<ProductOrderForecast[]>([]);
+  const [isEditingForecast, setIsEditingForecast] = useState(false);
+  const [isSavingForecast, setIsSavingForecast] = useState(false);
+  const [hoveredForecastCell, setHoveredForecastCell] = useState<{productId: string, field: string} | null>(null);
+  const [focusedForecastCell, setFocusedForecastCell] = useState<{productId: string, field: string} | null>(null);
   const [quarterlyMeasures, setQuarterlyMeasures] = useState<QuarterlyMeasure[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -363,6 +406,156 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
     }
   };
 
+  // 加载产品目标
+  const loadProductForecasts = async () => {
+    try {
+      setLoading(true);
+      const res = await db.collection('product_order_forecast')
+        .where({ year: selectedYear })
+        .get();
+      
+      if (res.code) {
+        console.error('❌ CloudBase查询错误:', res.code, res.message);
+        setProductForecasts([]);
+        return;
+      }
+      
+      const data = Array.isArray(res.data) ? res.data : [];
+      console.log('📦 加载产品目标数据:', data.length, '条');
+      
+      // 如果没有数据，自动初始化
+      if (data.length === 0) {
+        console.log(`⚠️  ${selectedYear} 年暂无产品目标数据，开始自动初始化...`);
+        await initializeProductForecasts(selectedYear);
+      } else {
+        // 按照正确的产品类别顺序排序
+        const categoryOrder = ['职业装', '工作服', '制服', '防护服', '其他'];
+        const sortedData = data.sort((a: any, b: any) => {
+          const indexA = categoryOrder.indexOf(a.categoryName);
+          const indexB = categoryOrder.indexOf(b.categoryName);
+          // 如果类别不在列表中，放到最后
+          if (indexA === -1) return 1;
+          if (indexB === -1) return -1;
+          return indexA - indexB;
+        });
+        setProductForecasts(sortedData);
+      }
+    } catch (error) {
+      console.error('❌ 加载产品目标失败:', error);
+      setProductForecasts([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // 初始化产品目标数据（首次访问时自动创建）
+  const initializeProductForecasts = async (year: number) => {
+    try {
+      // 1. 从 type_settings 中读取产品类别列表
+      const productTypesResult = await db.collection('type_settings')
+        .where({ type: 'productType' })
+        .get();
+      
+      if (!productTypesResult.data || productTypesResult.data.length === 0) {
+        console.error('❌ 未找到产品类别设置！请先在"系统设置 → 类型设置 → 产品类别"中添加产品类别。');
+        return;
+      }
+      
+      const productTypes = productTypesResult.data[0].values || [];
+      console.log(`✓ 找到 ${productTypes.length} 个产品类别:`, productTypes);
+      
+      // 2. 为每个产品类别创建空白记录
+      const newForecasts: ProductOrderForecast[] = [];
+      
+      for (const category of productTypes) {
+        const record = {
+          year,
+          categoryName: category.value,
+          
+          // 产品目标
+          forecast: {
+            quantity: 0,        // 数量
+            unitPrice: 0,       // 单价
+            avgCost: 0,         // 平均成本(元)
+            avgGrossMargin: 0,  // 平均毛利率(%)
+            totalAmount: 0      // 预计订单额（自动计算）
+          },
+          
+          // 实际订单部分（从商机"形成项目"时统计）
+          actual: {
+            completedAmount: 0,    // 实际完成订单额
+            completionRate: 0,     // 实际完成率（%）
+            totalQuantity: 0,      // 累计订单数量
+            totalCost: 0,          // 总成本(元)
+            avgUnitPrice: 0,       // 平均单价
+            avgCost: 0,            // 平均成本(元)
+            avgGrossMargin: 0,     // 平均毛利率(%)
+            q1Amount: 0,           // Q1订单额（1-3月）
+            q2Amount: 0,           // Q2订单额（4-6月）
+            q3Amount: 0,           // Q3订单额（7-9月）
+            q4Amount: 0            // Q4订单额（10-12月）
+          },
+          
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+        
+        // 创建记录并获取返回的ID
+        const addResult = await db.collection('product_order_forecast').add(record);
+        
+        // 云开发的add()返回格式: { id: string } 或 { _id: string }
+        const recordId = addResult.id || addResult._id;
+        console.log(`  ✓ 创建 [${category.value}] 的订单目标记录，ID: ${recordId}`);
+        
+        // 将带有_id的记录添加到数组
+        newForecasts.push({
+          ...record,
+          _id: recordId
+        } as ProductOrderForecast);
+      }
+      
+      console.log(`✅ 初始化完成！为 ${year} 年创建了 ${newForecasts.length} 条记录`);
+      setProductForecasts(newForecasts);
+      
+    } catch (error) {
+      console.error('❌ 初始化产品目标失败:', error);
+    }
+  };
+
+  // 保存产品目标
+  const saveProductForecasts = async () => {
+    try {
+      setIsSavingForecast(true);
+      
+      const updatePromises = productForecasts.map(async (product) => {
+        if (product._id) {
+          await db.collection('product_order_forecast').doc(product._id).update({
+            ...product,
+            updatedAt: new Date()
+          });
+        }
+      });
+      
+      await Promise.all(updatePromises);
+      
+      // 静默保存，不弹窗提示
+      // console.log('✅ 产品目标保存成功!'); // 已禁用保存成功提示
+      setIsEditingForecast(false);
+      await loadProductForecasts(); // 重新加载数据
+    } catch (error) {
+      console.error('❌ 保存产品目标失败:', error);
+      alert('❌ 保存失败: ' + (error as Error).message);
+    } finally {
+      setIsSavingForecast(false);
+    }
+  };
+
+  // 取消编辑产品目标
+  const cancelEditForecast = () => {
+    setIsEditingForecast(false);
+    loadProductForecasts(); // 重新加载数据，恢复原始值
+  };
+
   // 加载年度策略
   const loadAnnualStrategies = async () => {
     try {
@@ -445,6 +638,23 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
     } catch (error) {
       console.error('❌ 加载季度措施失败:', error);
       setQuarterlyMeasures([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 加载目标分解数据
+  const loadGoalDecomposition = async () => {
+    try {
+      setLoading(true);
+      console.log('📊 加载目标分解数据...');
+      
+      // 这里可以加载目标分解相关的数据
+      // TODO: 实现具体的数据加载逻辑
+      
+      console.log('✅ 目标分解数据加载完成');
+    } catch (error) {
+      console.error('❌ 加载目标分解数据失败:', error);
     } finally {
       setLoading(false);
     }
@@ -869,9 +1079,14 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
       loadSalesGoals();
     } else if (selectedTab === 'opportunity') {
       loadOpportunityGoals();
+    } else if (selectedTab === 'product') {
+      loadProductForecasts();
     } else if (selectedTab === 'strategy') {
       loadAnnualStrategies();
       loadQuarterlyMeasures();
+    } else if (selectedTab === 'decomposition') {
+      // 目标分解数据加载
+      loadGoalDecomposition();
     } else if (selectedTab === 'execution') {
       loadExecutionMapData();
     }
@@ -1822,6 +2037,358 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
     );
   };
 
+  // 渲染产品目标表格
+  const renderProductOrderForecast = () => {
+    const formatNumber = (num: number) => Math.round(num).toLocaleString();
+    const formatAmount = (num: number) => (num / 10000).toFixed(1);
+    
+    return (
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        {/* 标题区 */}
+        <div className="bg-gradient-to-r from-green-50 to-emerald-50 px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">📦 产品目标</h3>
+            <p className="text-sm text-gray-600 mt-1">
+              设定{selectedYear}年各产品类别的订单目标,自动跟踪实际完成情况
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            {!isEditingForecast ? (
+              checkPermission('goal.productOrder', 'update') && (
+                <button
+                  onClick={() => setIsEditingForecast(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <Edit2 className="w-4 h-4" />
+                  编辑目标
+                </button>
+              )
+            ) : (
+              <>
+                <button
+                  onClick={cancelEditForecast}
+                  disabled={isSavingForecast}
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors disabled:opacity-50"
+                >
+                  <X className="w-4 h-4" />
+                  取消
+                </button>
+                <button
+                  onClick={saveProductForecasts}
+                  disabled={isSavingForecast}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                >
+                  <Save className="w-4 h-4" />
+                  {isSavingForecast ? '保存中...' : '保存'}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* 表格区 */}
+        <div className="overflow-x-auto">
+          {productForecasts.length > 0 ? (
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b-2 border-gray-300">
+                <tr>
+                  <th className="border border-gray-200 px-4 py-3 text-center font-semibold text-gray-700" rowSpan={2}>序号</th>
+                  <th className="border border-gray-200 px-4 py-3 text-center font-semibold text-gray-700" rowSpan={2}>产品类别</th>
+                  <th className="border border-gray-200 px-4 py-3 text-center font-semibold text-gray-700 bg-blue-50" colSpan={5}>年度订单目标</th>
+                  <th className="border border-gray-200 px-4 py-3 text-center font-semibold text-gray-700 bg-green-50" colSpan={9}>实际订单（系统自动填报）</th>
+                </tr>
+                <tr>
+                  <th className="border border-gray-200 px-3 py-2 text-center text-xs font-medium text-gray-600 bg-blue-50">数量</th>
+                  <th className="border border-gray-200 px-3 py-2 text-center text-xs font-medium text-gray-600 bg-blue-50">单价(元)</th>
+                  <th className="border border-gray-200 px-3 py-2 text-center text-xs font-medium text-gray-600 bg-blue-50">平均成本(元)</th>
+                  <th className="border border-gray-200 px-3 py-2 text-center text-xs font-medium text-gray-600 bg-blue-50">平均毛利率(%)</th>
+                  <th className="border border-gray-200 px-3 py-2 text-center text-xs font-medium text-gray-600 bg-blue-50">预计订单额(万元)</th>
+                  <th className="border border-gray-200 px-3 py-2 text-center text-xs font-medium text-gray-600 bg-green-50">实际完成额(万元)</th>
+                  <th className="border border-gray-200 px-3 py-2 text-center text-xs font-medium text-gray-600 bg-green-50">完成率(%)</th>
+                  <th className="border border-gray-200 px-3 py-2 text-center text-xs font-medium text-gray-600 bg-green-50">累计数量</th>
+                  <th className="border border-gray-200 px-3 py-2 text-center text-xs font-medium text-gray-600 bg-green-50">平均单价(元)</th>
+                  <th className="border border-gray-200 px-3 py-2 text-center text-xs font-medium text-gray-600 bg-green-50">平均成本(元)</th>
+                  <th className="border border-gray-200 px-3 py-2 text-center text-xs font-medium text-gray-600 bg-green-50">平均毛利率(%)</th>
+                  <th className="border border-gray-200 px-3 py-2 text-center text-xs font-medium text-gray-600 bg-green-50">Q1订单额(万元)</th>
+                  <th className="border border-gray-200 px-3 py-2 text-center text-xs font-medium text-gray-600 bg-green-50">Q2订单额(万元)</th>
+                  <th className="border border-gray-200 px-3 py-2 text-center text-xs font-medium text-gray-600 bg-green-50">Q3订单额(万元)</th>
+                  <th className="border border-gray-200 px-3 py-2 text-center text-xs font-medium text-gray-600 bg-green-50">Q4订单额(万元)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {productForecasts.map((item, index) => (
+                  <tr key={item._id} className="hover:bg-gray-50 transition-colors">
+                    <td className="border border-gray-200 px-4 py-2 text-center text-gray-600">{index + 1}</td>
+                    <td className="border border-gray-200 px-4 py-2 font-medium text-gray-900">{item.categoryName}</td>
+                    
+                    {/* 数量 - 可编辑 */}
+                    <td className={`border border-gray-200 px-0 py-0 transition-all duration-200 ${
+                      focusedForecastCell?.productId === item._id && focusedForecastCell?.field === 'quantity'
+                        ? 'bg-amber-200 shadow-[inset_0_2px_4px_0_rgba(0,0,0,0.15)]'
+                        : hoveredForecastCell?.productId === item._id && hoveredForecastCell?.field === 'quantity'
+                        ? 'bg-amber-100 shadow-[0_0_0_2px_rgba(217,119,6,0.3)]'
+                        : isEditingForecast ? 'bg-yellow-50' : 'bg-blue-50'
+                    }`}
+                    onMouseEnter={() => isEditingForecast && setHoveredForecastCell({productId: item._id!, field: 'quantity'})}
+                    onMouseLeave={() => setHoveredForecastCell(null)}>
+                      {isEditingForecast ? (
+                        <input
+                          type="number"
+                          value={item.forecast.quantity}
+                          onChange={(e) => {
+                            const value = Math.max(0, parseFloat(e.target.value) || 0);
+                            setProductForecasts(prev => prev.map(f => 
+                              f._id === item._id ? {
+                                ...f,
+                                forecast: {
+                                  ...f.forecast,
+                                  quantity: value,
+                                  totalAmount: value * f.forecast.unitPrice
+                                }
+                              } : f
+                            ));
+                          }}
+                          onFocus={() => setFocusedForecastCell({productId: item._id!, field: 'quantity'})}
+                          onBlur={() => setFocusedForecastCell(null)}
+                          className="w-full h-full px-4 py-3 text-[15px] font-mono text-right focus:outline-none bg-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        />
+                      ) : (
+                        <div className="w-full h-full px-4 py-3 text-[15px] font-mono text-right">
+                          {formatNumber(item.forecast.quantity)}
+                        </div>
+                      )}
+                    </td>
+                    
+                    {/* 单价 - 可编辑 */}
+                    <td className={`border border-gray-200 px-0 py-0 transition-all duration-200 ${
+                      focusedForecastCell?.productId === item._id && focusedForecastCell?.field === 'unitPrice'
+                        ? 'bg-amber-200 shadow-[inset_0_2px_4px_0_rgba(0,0,0,0.15)]'
+                        : hoveredForecastCell?.productId === item._id && hoveredForecastCell?.field === 'unitPrice'
+                        ? 'bg-amber-100 shadow-[0_0_0_2px_rgba(217,119,6,0.3)]'
+                        : isEditingForecast ? 'bg-yellow-50' : 'bg-blue-50'
+                    }`}
+                    onMouseEnter={() => isEditingForecast && setHoveredForecastCell({productId: item._id!, field: 'unitPrice'})}
+                    onMouseLeave={() => setHoveredForecastCell(null)}>
+                      {isEditingForecast ? (
+                        <input
+                          type="number"
+                          value={item.forecast.unitPrice}
+                          onChange={(e) => {
+                            const value = Math.max(0, parseFloat(e.target.value) || 0);
+                            setProductForecasts(prev => prev.map(f => 
+                              f._id === item._id ? {
+                                ...f,
+                                forecast: {
+                                  ...f.forecast,
+                                  unitPrice: value,
+                                  totalAmount: f.forecast.quantity * value,
+                                  avgGrossMargin: value > 0 ? ((value - (f.forecast.avgCost || 0)) / value * 100) : 0
+                                }
+                              } : f
+                            ));
+                          }}
+                          onFocus={() => setFocusedForecastCell({productId: item._id!, field: 'unitPrice'})}
+                          onBlur={() => setFocusedForecastCell(null)}
+                          className="w-full h-full px-4 py-3 text-[15px] font-mono text-right focus:outline-none bg-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        />
+                      ) : (
+                        <div className="w-full h-full px-4 py-3 text-[15px] font-mono text-right">
+                          {formatNumber(item.forecast.unitPrice)}
+                        </div>
+                      )}
+                    </td>
+                    
+                    {/* 平均成本 - 可编辑 */}
+                    <td className={`border border-gray-200 px-0 py-0 transition-all duration-200 ${
+                      focusedForecastCell?.productId === item._id && focusedForecastCell?.field === 'avgCost'
+                        ? 'bg-amber-200 shadow-[inset_0_2px_4px_0_rgba(0,0,0,0.15)]'
+                        : hoveredForecastCell?.productId === item._id && hoveredForecastCell?.field === 'avgCost'
+                        ? 'bg-amber-100 shadow-[0_0_0_2px_rgba(217,119,6,0.3)]'
+                        : isEditingForecast ? 'bg-yellow-50' : 'bg-blue-50'
+                    }`}
+                    onMouseEnter={() => isEditingForecast && setHoveredForecastCell({productId: item._id!, field: 'avgCost'})}
+                    onMouseLeave={() => setHoveredForecastCell(null)}>
+                      {isEditingForecast ? (
+                        <input
+                          type="number"
+                          value={item.forecast.avgCost}
+                          onChange={(e) => {
+                            const value = Math.max(0, parseFloat(e.target.value) || 0);
+                            setProductForecasts(prev => prev.map(f => 
+                              f._id === item._id ? {
+                                ...f,
+                                forecast: {
+                                  ...f.forecast,
+                                  avgCost: value,
+                                  avgGrossMargin: (f.forecast.unitPrice || 0) > 0 
+                                    ? (((f.forecast.unitPrice || 0) - value) / (f.forecast.unitPrice || 0) * 100) 
+                                    : 0
+                                }
+                              } : f
+                            ));
+                          }}
+                          onFocus={() => setFocusedForecastCell({productId: item._id!, field: 'avgCost'})}
+                          onBlur={() => setFocusedForecastCell(null)}
+                          className="w-full h-full px-4 py-3 text-[15px] font-mono text-right focus:outline-none bg-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        />
+                      ) : (
+                        <div className="w-full h-full px-4 py-3 text-[15px] font-mono text-right">
+                          {formatNumber(item.forecast.avgCost)}
+                        </div>
+                      )}
+                    </td>
+                    
+                    {/* 平均毛利率 - 自动计算 */}
+                    <td className="border border-gray-200 px-3 py-2 text-right bg-gray-50 font-mono text-[15px] font-medium text-gray-700">
+                      {item.forecast.unitPrice > 0 ? (item.forecast.avgGrossMargin || 0).toFixed(1) : '--'}
+                    </td>
+                    
+                    {/* 预计订单额 - 自动计算 */}
+                    <td className="border border-gray-200 px-3 py-2 text-right bg-blue-50 font-mono text-[15px] font-medium text-gray-700">
+                      {formatAmount(item.forecast.totalAmount)}
+                    </td>
+                    
+                    {/* 实际完成额 */}
+                    <td className="border border-gray-200 px-3 py-2 text-right bg-gray-50 font-mono text-[15px] text-gray-600">
+                      {formatAmount(item.actual.completedAmount)}
+                    </td>
+                    
+                    {/* 完成率 */}
+                    <td className="border border-gray-200 px-3 py-2 text-center bg-gray-50">
+                      <span className={`px-2 py-1 rounded text-xs font-mono font-medium ${
+                        item.actual.completionRate >= 100 ? 'bg-green-100 text-green-700' :
+                        item.actual.completionRate >= 80 ? 'bg-blue-100 text-blue-700' :
+                        item.actual.completionRate >= 50 ? 'bg-yellow-100 text-yellow-700' :
+                        'bg-red-100 text-red-700'
+                      }`}>
+                        {item.forecast.totalAmount > 0 ? item.actual.completionRate.toFixed(1) : '-'}
+                      </span>
+                    </td>
+                    
+                    {/* 累计数量 */}
+                    <td className="border border-gray-200 px-3 py-2 text-right bg-gray-50 font-mono text-[15px] text-gray-600">
+                      {formatNumber(item.actual.totalQuantity)}
+                    </td>
+                    
+                    {/* 平均单价 */}
+                    <td className="border border-gray-200 px-3 py-2 text-right bg-gray-50 font-mono text-[15px] text-gray-600">
+                      {formatNumber(item.actual.avgUnitPrice)}
+                    </td>
+                    
+                    {/* 平均成本 */}
+                    <td className="border border-gray-200 px-3 py-2 text-right bg-gray-50 font-mono text-[15px] text-gray-600">
+                      {formatNumber(item.actual.avgCost || 0)}
+                    </td>
+                    
+                    {/* 平均毛利率 */}
+                    <td className="border border-gray-200 px-3 py-2 text-right bg-gray-50">
+                      <span className={`px-2 py-1 rounded text-xs font-mono font-medium ${
+                        (item.actual.avgGrossMargin || 0) >= 30 ? 'bg-green-100 text-green-700' :
+                        (item.actual.avgGrossMargin || 0) >= 20 ? 'bg-blue-100 text-blue-700' :
+                        (item.actual.avgGrossMargin || 0) >= 10 ? 'bg-yellow-100 text-yellow-700' :
+                        'bg-red-100 text-red-700'
+                      }`}>
+                        {item.actual.avgUnitPrice > 0 ? (item.actual.avgGrossMargin || 0).toFixed(1) : '--'}
+                      </span>
+                    </td>
+                    
+                    {/* Q1-Q4订单额 */}
+                    <td className="border border-gray-200 px-3 py-2 text-right bg-gray-50 font-mono text-[15px] text-gray-600">
+                      {formatAmount(item.actual.q1Amount)}
+                    </td>
+                    <td className="border border-gray-200 px-3 py-2 text-right bg-gray-50 font-mono text-[15px] text-gray-600">
+                      {formatAmount(item.actual.q2Amount)}
+                    </td>
+                    <td className="border border-gray-200 px-3 py-2 text-right bg-gray-50 font-mono text-[15px] text-gray-600">
+                      {formatAmount(item.actual.q3Amount)}
+                    </td>
+                    <td className="border border-gray-200 px-3 py-2 text-right bg-gray-50 font-mono text-[15px] text-gray-600">
+                      {formatAmount(item.actual.q4Amount)}
+                    </td>
+                  </tr>
+                ))}
+                
+                {/* 合计行 */}
+                <tr className="bg-blue-100 font-bold">
+                  <td className="border border-gray-200 px-4 py-2 text-center" colSpan={2}>合计</td>
+                  <td className="border border-gray-200 px-3 py-2 text-right font-mono text-base">
+                    {formatNumber(productForecasts.reduce((sum, f) => sum + f.forecast.quantity, 0))}
+                  </td>
+                  <td className="border border-gray-200 px-3 py-2 text-center">-</td>
+                  <td className="border border-gray-200 px-3 py-2 text-center">-</td>
+                  <td className="border border-gray-200 px-3 py-2 text-center">-</td>
+                  <td className="border border-gray-200 px-3 py-2 text-right font-mono text-base">
+                    {formatAmount(productForecasts.reduce((sum, f) => sum + f.forecast.totalAmount, 0))}
+                  </td>
+                  <td className="border border-gray-200 px-3 py-2 text-right font-mono text-base">
+                    {formatAmount(productForecasts.reduce((sum, f) => sum + f.actual.completedAmount, 0))}
+                  </td>
+                  <td className="border border-gray-200 px-3 py-2 text-center font-mono text-base">
+                    {(() => {
+                      const totalForecast = productForecasts.reduce((sum, f) => sum + f.forecast.totalAmount, 0);
+                      const totalActual = productForecasts.reduce((sum, f) => sum + f.actual.completedAmount, 0);
+                      return totalForecast > 0 ? `${(totalActual / totalForecast * 100).toFixed(1)}%` : '-';
+                    })()}
+                  </td>
+                  <td className="border border-gray-200 px-3 py-2 text-right font-mono text-base">
+                    {formatNumber(productForecasts.reduce((sum, f) => sum + f.actual.totalQuantity, 0))}
+                  </td>
+                  <td className="border border-gray-200 px-3 py-2 text-center">-</td>
+                  <td className="border border-gray-200 px-3 py-2 text-center">-</td>
+                  <td className="border border-gray-200 px-3 py-2 text-center">-</td>
+                  <td className="border border-gray-200 px-3 py-2 text-right font-mono text-base">
+                    {formatAmount(productForecasts.reduce((sum, f) => sum + f.actual.q1Amount, 0))}
+                  </td>
+                  <td className="border border-gray-200 px-3 py-2 text-right font-mono text-base">
+                    {formatAmount(productForecasts.reduce((sum, f) => sum + f.actual.q2Amount, 0))}
+                  </td>
+                  <td className="border border-gray-200 px-3 py-2 text-right font-mono text-base">
+                    {formatAmount(productForecasts.reduce((sum, f) => sum + f.actual.q3Amount, 0))}
+                  </td>
+                  <td className="border border-gray-200 px-3 py-2 text-right font-mono text-base">
+                    {formatAmount(productForecasts.reduce((sum, f) => sum + f.actual.q4Amount, 0))}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          ) : (
+            <div className="text-center py-12">
+              <ShoppingCart className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500 mb-2">正在初始化产品目标数据...</p>
+              <p className="text-sm text-gray-400">
+                首次访问将自动根据产品类别设置创建目标表
+              </p>
+            </div>
+          )}
+        </div>
+        
+        {/* 提示信息 */}
+        {isEditingForecast && (
+          <div className="px-6 pb-6">
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <p className="text-sm text-yellow-800">
+                <strong>提示:</strong> 
+                <span className="ml-2">编辑模式已开启，修改目标数据后点击"保存"按钮</span>
+              </p>
+              <p className="text-sm text-yellow-700 mt-1">
+                • 预计订单额 = 数量 × 单价（自动计算）
+              </p>
+              <p className="text-sm text-yellow-700">
+                • 平均毛利率 = (单价 - 平均成本) ÷ 单价 × 100%（自动计算）
+              </p>
+              <p className="text-sm text-yellow-700">
+                • 实际订单数据来源于商机"形成项目"时的需求统计
+              </p>
+              <p className="text-sm text-yellow-700">
+                • 完成率 = 实际完成额 ÷ 预计订单额 × 100%
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const renderStrategies = () => (
     <div className="space-y-6">
       {/* 年度经营策略 */}
@@ -2241,6 +2808,51 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
       console.error('PDF导出失败:', error);
       alert('PDF导出失败，请重试: ' + (error instanceof Error ? error.message : String(error)));
     }
+  };
+
+  // 渲染目标分解
+  const renderGoalDecomposition = () => {
+    return (
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        {/* 标题区 */}
+        <div className="bg-gradient-to-r from-purple-50 to-indigo-50 px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h4a1 1 0 011 1v7a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM14 5a1 1 0 011-1h4a1 1 0 011 1v7a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 16a1 1 0 011-1h4a1 1 0 011 1v3a1 1 0 01-1 1H5a1 1 0 01-1-1v-3zM14 16a1 1 0 011-1h4a1 1 0 011 1v3a1 1 0 01-1 1h-4a1 1 0 01-1-1v-3z" />
+                </svg>
+                目标分解
+              </h3>
+              <p className="text-sm text-gray-600 mt-1">
+                将年度目标分解为季度、月度可执行的子目标，明确责任人和考核指标
+              </p>
+            </div>
+            {checkPermission('goal.decomposition', 'edit') && (
+              <button
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                新增分解
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* 内容区 */}
+        <div className="p-6">
+          <div className="text-center py-12">
+            <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h4a1 1 0 011 1v7a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM14 5a1 1 0 011-1h4a1 1 0 011 1v7a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 16a1 1 0 011-1h4a1 1 0 011 1v3a1 1 0 01-1 1H5a1 1 0 01-1-1v-3zM14 16a1 1 0 011-1h4a1 1 0 011 1v3a1 1 0 01-1 1h-4a1 1 0 01-1-1v-3z" />
+            </svg>
+            <p className="text-gray-500 mb-2">目标分解功能开发中...</p>
+            <p className="text-sm text-gray-400">
+              即将为您呈现完整的目标分解体系
+            </p>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   // 渲染执行力地图
@@ -2730,6 +3342,19 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
             商机目标
           </button>
         )}
+        {checkPermission('goal.productOrder', 'view') && (
+          <button
+            onClick={() => setSelectedTab('product')}
+            className={`flex items-center gap-2 px-6 py-3 font-medium transition-colors relative ${
+              selectedTab === 'product' 
+                ? 'text-blue-600 border-b-2 border-blue-600' 
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <ShoppingCart className="w-5 h-5" />
+            产品目标
+          </button>
+        )}
         {checkPermission('goal.strategy', 'view') && (
           <button
             onClick={() => setSelectedTab('strategy')}
@@ -2741,6 +3366,21 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
           >
             <Briefcase className="w-5 h-5" />
             经营策略
+          </button>
+        )}
+        {checkPermission('goal.decomposition', 'view') && (
+          <button
+            onClick={() => setSelectedTab('decomposition')}
+            className={`flex items-center gap-2 px-6 py-3 font-medium transition-colors relative ${
+              selectedTab === 'decomposition' 
+                ? 'text-blue-600 border-b-2 border-blue-600' 
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h4a1 1 0 011 1v7a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM14 5a1 1 0 011-1h4a1 1 0 011 1v7a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 16a1 1 0 011-1h4a1 1 0 011 1v3a1 1 0 01-1 1H5a1 1 0 01-1-1v-3zM14 16a1 1 0 011-1h4a1 1 0 011 1v3a1 1 0 01-1 1h-4a1 1 0 01-1-1v-3z" />
+            </svg>
+            目标分解
           </button>
         )}
         {checkPermission('goal.execution', 'view') && (
@@ -2767,7 +3407,9 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
         <>
           {selectedTab === 'sales' && renderSalesGoals()}
           {selectedTab === 'opportunity' && renderOpportunityGoals()}
+          {selectedTab === 'product' && renderProductOrderForecast()}
           {selectedTab === 'strategy' && renderStrategies()}
+          {selectedTab === 'decomposition' && renderGoalDecomposition()}
           {selectedTab === 'execution' && renderExecutionMap()}
         </>
       )}
