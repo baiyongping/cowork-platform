@@ -241,7 +241,9 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
   const loadUsers = async () => {
     try {
       const res = await db.collection('users').get();
-      setUsers(res.data);
+      // 🔧 过滤掉已删除的用户
+      const activeUsers = res.data.filter((user: any) => user.deleted !== true);
+      setUsers(activeUsers);
     } catch (error) {
       console.error('加载用户列表失败:', error);
     }
@@ -2240,7 +2242,7 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
                     
                     {/* 平均毛利率 - 自动计算 */}
                     <td className="border border-gray-200 px-3 py-2 text-right bg-gray-50 font-mono text-[15px] font-medium text-gray-700">
-                      {item.forecast.unitPrice > 0 ? (item.forecast.avgGrossMargin || 0).toFixed(1) : '--'}
+                      {item.forecast.unitPrice > 0 ? `${(item.forecast.avgGrossMargin || 0).toFixed(1)}%` : '--'}
                     </td>
                     
                     {/* 预计订单额 - 自动计算 */}
@@ -2288,7 +2290,7 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
                         (item.actual.avgGrossMargin || 0) >= 10 ? 'bg-yellow-100 text-yellow-700' :
                         'bg-red-100 text-red-700'
                       }`}>
-                        {item.actual.avgUnitPrice > 0 ? (item.actual.avgGrossMargin || 0).toFixed(1) : '--'}
+                        {item.actual.avgUnitPrice > 0 ? `${(item.actual.avgGrossMargin || 0).toFixed(1)}%` : '--'}
                       </span>
                     </td>
                     

@@ -15,6 +15,7 @@ interface EditTaskModalProps {
   onClose: () => void;
   onSuccess: () => void;
   taskStatuses: string[];
+  taskTypes: string[];  // 🆕 任务类型
 }
 
 // 商机跟进动作类型选项
@@ -44,7 +45,7 @@ const projectPhases: ProjectPhase[] = [
   '售后服务'
 ];
 
-export default function EditTaskModal({ task, onClose, onSuccess, taskStatuses }: EditTaskModalProps) {
+export default function EditTaskModal({ task, onClose, onSuccess, taskStatuses, taskTypes }: EditTaskModalProps) {
   // 获取当前用户
   const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
   
@@ -106,7 +107,11 @@ export default function EditTaskModal({ task, onClose, onSuccess, taskStatuses }
   const loadUsers = async () => {
     try {
       const result = await db.collection('users')
-        .where({ approvalStatus: 'approved', isActive: true })
+        .where({ 
+          approvalStatus: 'approved', 
+          isActive: true,
+          deleted: db.command.neq(true) // 🔧 过滤已删除用户
+        })
         .get();
       if (result.data) {
         setUsers(result.data);

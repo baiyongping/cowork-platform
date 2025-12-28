@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>附件上传功能测试</title>
+  <!-- 加载 CloudBase SDK -->
+  <script src="https://web.sdk.qcloud.com/tcb-js-sdk/1.1.0/tcb.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+    }
+    .test-section {
+      border: 1px solid #ddd;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 8px;
+    }
+    .test-section h3 {
+      margin-top: 0;
+      color: #333;
+    }
+    button {
+      background: #1890ff;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 5px;
+    }
+    button:hover {
+      background: #40a9ff;
+    }
+    .result {
+      background: #f5f5f5;
+      padding: 15px;
+      margin-top: 10px;
+      border-radius: 4px;
+      font-family: monospace;
+      white-space: pre-wrap;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    .success {
+      color: #52c41a;
+      font-weight: bold;
+    }
+    .error {
+      color: #ff4d4f;
+      font-weight: bold;
+    }
+    input[type="file"] {
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>📎 附件上传功能测试</h1>
+  
+  <div class="test-section">
+    <h3>1️⃣ 初始化 CloudBase</h3>
+    <button onclick="initCloudBase()">初始化</button>
+    <div id="init-result" class="result"></div>
+  </div>
+
+  <div class="test-section">
+    <h3>2️⃣ 上传文件</h3>
+    <input type="file" id="file-input" multiple />
+    <button onclick="uploadFile()">上传文件</button>
+    <div id="upload-result" class="result"></div>
+  </div>
+
+  <div class="test-section">
+    <h3>3️⃣ 获取临时URL (云函数方案)</h3>
+    <input type="text" id="file-id" placeholder="输入 fileID" style="width: 500px; padding: 8px;" />
+    <button onclick="getTempURL()">获取URL</button>
+    <div id="url-result" class="result"></div>
+  </div>
+
+  <div class="test-section">
+    <h3>4️⃣ 测试文件访问</h3>
+    <input type="text" id="test-url" placeholder="输入文件URL" style="width: 500px; padding: 8px;" />
+    <button onclick="testFileAccess()">测试访问</button>
+    <div id="access-result" class="result"></div>
+  </div>
+
+  <script>
+    let app;
+    const ENV_ID = 'cowork-9gg9oocb516be5fb';
+
+    // 1. 初始化 CloudBase
+    function initCloudBase() {
+      const resultDiv = document.getElementById('init-result');
+      resultDiv.innerHTML = '⏳ 正在初始化...';
+
+      try {
+        app = tcb.init({
+          env: ENV_ID
+        });
+        
+        resultDiv.innerHTML = `<span class="success">✅ 初始化成功!</span>\n环境 ID: ${ENV_ID}`;
+      } catch (error) {
+        resultDiv.innerHTML = `<span class="error">❌ 初始化失败</span>\n${error.message}`;
+      }
+    }
+
+    // 2. 上传文件
+    async function uploadFile() {
+      const resultDiv = document.getElementById('upload-result');
+      const fileInput = document.getElementById('file-input');
+      
+      if (!app) {
+        resultDiv.innerHTML = '<span class="error">❌ 请先初始化 CloudBase</span>';
+        return;
+      }
+
+      const files = fileInput.files;
+      if (files.length === 0) {
+        resultDiv.innerHTML = '<span class="error">❌ 请选择文件</span>';
+        return;
+      }
+
+      resultDiv.innerHTML = '⏳ 正在上传文件...';
+
+      try {
+        const uploadPromises = Array.from(files).map(async (file) => {
+          // 生成唯一文件名
+          const timestamp = Date.now();
+          const randomStr = Math.random().toString(36).substring(2, 8);
+          const fileName = `issue-attachments/${timestamp}-${randomStr}-${file.name}`;
+
+          const result = await app.uploadFile({
+            cloudPath: fileName,
+            filePath: file
+          });
+
+          return {
+            name: file.name,
+            size: file.size,
+            type: file.type,
+            fileID: result.fileID,
+            cloudPath: fileName
+          };
+        });
+
+        const results = await Promise.all(uploadPromises);
+        
+        resultDiv.innerHTML = `<span class="success">✅ 上传成功!</span>\n共上传 ${results.length} 个文件:\n\n` +
+          results.map((r, i) => 
+            `[${i + 1}] ${r.name}\n` +
+            `    文件大小: ${(r.size / 1024).toFixed(2)} KB\n` +
+            `    文件类型: ${r.type}\n` +
+            `    FileID: ${r.fileID}\n`
+          ).join('\n');
+
+        // 自动填充第一个 fileID 到获取 URL 输入框
+        if (results.length > 0) {
+          document.getElementById('file-id').value = results[0].fileID;
+        }
+      } catch (error) {
+        resultDiv.innerHTML = `<span class="error">❌ 上传失败</span>\n${error.message}`;
+      }
+    }
+
+    // 3. 获取临时 URL (云函数方案)
+    async function getTempURL() {
+      const resultDiv = document.getElementById('url-result');
+      const fileID = document.getElementById('file-id').value.trim();
+
+      if (!app) {
+        resultDiv.innerHTML = '<span class="error">❌ 请先初始化 CloudBase</span>';
+        return;
+      }
+
+      if (!fileID) {
+        resultDiv.innerHTML = '<span class="error">❌ 请输入 fileID</span>';
+        return;
+      }
+
+      resultDiv.innerHTML = '⏳ 正在获取临时 URL...';
+
+      try {
+        const result = await app.callFunction({
+          name: 'getFileUrl',
+          data: { fileID }
+        });
+
+        if (result.result.success) {
+          const fileInfo = result.result.fileList[0];
+          resultDiv.innerHTML = `<span class="success">✅ 获取成功!</span>\n\n` +
+            `FileID: ${fileInfo.fileID}\n` +
+            `临时URL: ${fileInfo.tempFileURL}\n` +
+            `状态: ${fileInfo.status === 0 ? '成功' : '失败'}\n` +
+            `有效期: 2小时`;
+
+          // 自动填充 URL 到测试访问输入框
+          document.getElementById('test-url').value = fileInfo.tempFileURL;
+        } else {
+          resultDiv.innerHTML = `<span class="error">❌ 获取失败</span>\n${result.result.message}`;
+        }
+      } catch (error) {
+        resultDiv.innerHTML = `<span class="error">❌ 调用失败</span>\n${error.message}`;
+      }
+    }
+
+    // 4. 测试文件访问
+    async function testFileAccess() {
+      const resultDiv = document.getElementById('access-result');
+      const url = document.getElementById('test-url').value.trim();
+
+      if (!url) {
+        resultDiv.innerHTML = '<span class="error">❌ 请输入文件URL</span>';
+        return;
+      }
+
+      resultDiv.innerHTML = '⏳ 正在测试访问...';
+
+      try {
+        const response = await fetch(url, { method: 'HEAD' });
+        
+        if (response.ok) {
+          const contentType = response.headers.get('content-type');
+          const contentLength = response.headers.get('content-length');
+          
+          resultDiv.innerHTML = `<span class="success">✅ 文件可访问!</span>\n\n` +
+            `状态码: ${response.status}\n` +
+            `内容类型: ${contentType || '未知'}\n` +
+            `文件大小: ${contentLength ? (parseInt(contentLength) / 1024).toFixed(2) + ' KB' : '未知'}\n` +
+            `CORS: 允许跨域访问`;
+
+          // 如果是图片,显示预览
+          if (contentType && contentType.startsWith('image/')) {
+            resultDiv.innerHTML += '\n\n<img src="' + url + '" style="max-width: 100%; margin-top: 10px;" />';
+          }
+        } else {
+          resultDiv.innerHTML = `<span class="error">❌ 访问失败</span>\n状态码: ${response.status}`;
+        }
+      } catch (error) {
+        resultDiv.innerHTML = `<span class="error">❌ 访问失败</span>\n${error.message}`;
+      }
+    }
+
+    // 页面加载时自动初始化
+    window.onload = function() {
+      initCloudBase();
+    };
+  </script>
+</body>
+</html>

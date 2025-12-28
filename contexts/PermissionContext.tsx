@@ -9,6 +9,8 @@ import type { User, DataItem, MenuItem } from '../utils/permissionUtils';
 
 interface PermissionContextValue {
   // 基础数据
+  currentUser: User | null;
+  isAdmin: boolean;
   userPermissions: any;
   rolePermissions: any[];
   loading: boolean;
@@ -69,9 +71,11 @@ export const PermissionProvider: React.FC<PermissionProviderProps> = ({
   children
 }) => {
   const permissions = usePermissions(currentUser);
+  
+  const isAdmin = currentUser?.role === 'admin';
 
   return (
-    <PermissionContext.Provider value={permissions}>
+    <PermissionContext.Provider value={{ ...permissions, currentUser, isAdmin }}>
       {children}
     </PermissionContext.Provider>
   );

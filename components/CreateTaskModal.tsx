@@ -14,6 +14,7 @@ interface CreateTaskModalProps {
   onClose: () => void;
   onSuccess: () => void;
   taskStatuses: string[];
+  taskTypes: string[];  // 🆕 任务类型
 }
 
 // 商机跟进动作类型选项
@@ -43,11 +44,11 @@ const projectPhases: ProjectPhase[] = [
   '售后服务'
 ];
 
-export default function CreateTaskModal({ onClose, onSuccess, taskStatuses }: CreateTaskModalProps) {
+export default function CreateTaskModal({ onClose, onSuccess, taskStatuses, taskTypes }: CreateTaskModalProps) {
   const [formData, setFormData] = useState<CreateTaskDto>({
     name: '',
     level: '个人级',
-    type: '日常工作',
+    type: taskTypes[0] || '日常工作',  // 🆕 使用动态任务类型的第一个作为默认值
     status: '未开始',
     progress: 0,
     owner: '',
@@ -140,7 +141,11 @@ export default function CreateTaskModal({ onClose, onSuccess, taskStatuses }: Cr
   const loadUsers = async () => {
     try {
       const result = await db.collection('users')
-        .where({ approvalStatus: 'approved', isActive: true })
+        .where({ 
+          approvalStatus: 'approved', 
+          isActive: true,
+          deleted: db.command.neq(true) // 🔧 过滤已删除用户
+        })
         .get();
       if (result.data) {
         setUsers(result.data);
@@ -392,7 +397,7 @@ export default function CreateTaskModal({ onClose, onSuccess, taskStatuses }: Cr
       setFormData({
         name: '',
         level: '个人级',
-        type: '日常工作',
+        type: taskTypes[0] || '日常工作',  // 🆕 使用动态任务类型
         status: '未开始',
         progress: 0,
         owner: currentUser._id,
@@ -473,9 +478,9 @@ export default function CreateTaskModal({ onClose, onSuccess, taskStatuses }: Cr
               }}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
-              <option value="日常工作">日常工作</option>
-              <option value="商机跟进">商机跟进</option>
-              <option value="项目任务">项目任务</option>
+              {taskTypes.map((type) => (
+                <option key={type} value={type}>{type}</option>
+              ))}
             </select>
           </div>
 

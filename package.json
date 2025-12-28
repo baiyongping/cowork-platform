@@ -1,7 +1,7 @@
 {
   "name": "jihua-oa-platform",
   "private": true,
-  "version": "3.6.0",
+  "version": "3.7.0",
   "type": "module",
   "description": "际华定制协同办公管理平台",
   "scripts": {
@@ -9,7 +9,8 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "init-issue-types": "node database/init-issue-types.js"
   },
   "dependencies": {
     "@cloudbase/js-sdk": "^2.22.10",

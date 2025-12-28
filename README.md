@@ -2,11 +2,36 @@
 
 > 基于 React + TypeScript + Tailwind CSS + CloudBase 的现代化企业协同办公管理平台
 
-[![Version](https://img.shields.io/badge/version-3.4.0-blue.svg)](https://github.com/your-repo)
+[![Version](https://img.shields.io/badge/version-3.7.0-blue.svg)](https://github.com/your-repo)
 [![React](https://img.shields.io/badge/React-18.2-61dafb.svg)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.2-3178c6.svg)](https://www.typescriptlang.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4.0-38bdf8.svg)](https://tailwindcss.com/)
 [![CloudBase](https://img.shields.io/badge/CloudBase-Latest-00a98f.svg)](https://cloud.tencent.com/product/tcb)
+
+---
+
+## 🎉 v3.7.0 最新更新 (2025-12-28)
+
+### 1. 权限控制完善
+- ✅ 财务参数设置权限修复（引入权限检查）
+- ✅ 新增一级科目按钮权限控制
+- ✅ 编辑/删除按钮权限控制
+- ✅ 修复bbb用户权限问题
+
+### 2. 任务类型动态加载
+- ✅ 从硬编码改为从数据库动态加载
+- ✅ 支持在系统设置中配置任务类型
+- ✅ 管理员可动态调整任务类型
+
+### 3. 员工管理完善
+- ✅ 员工回收站功能实现
+- ✅ 软删除机制（可恢复）
+- ✅ 操作日志记录
+
+### 4. 年度预算数据流优化
+- ✅ 年度预算表从预算执行表读取季度数据
+- ✅ 自动计算季度完成和年度实际
+- ✅ 实时重新计算完成率
 
 ---
 
@@ -409,6 +434,40 @@ ssh root@152.136.183.181 "chown -R nginx:nginx /var/www/jihua-dev && chmod -R 75
 ---
 
 ## 📝 版本历史
+
+### v3.7.0 (2025-12-28) - 权限控制与系统优化版 🔒
+- 🔒 **权限控制完善**
+  - ✅ 财务参数设置权限修复（引入`usePermissionContext`）
+  - ✅ 新增一级科目按钮权限控制（create/edit/delete）
+  - ✅ 编辑/删除按钮权限控制
+  - ✅ 修复bbb用户只有查询权限时仍能新增、删除的问题
+- ⚙️ **任务类型动态加载**
+  - ✅ 从硬编码改为从数据库动态加载
+  - ✅ 支持在系统设置中配置任务类型
+  - ✅ 管理员可动态调整任务类型，无需修改代码
+- 👥 **员工管理完善**
+  - ✅ 员工回收站功能实现
+  - ✅ 软删除机制（可恢复）
+  - ✅ 操作日志记录
+- 📊 **年度预算数据流优化**
+  - ✅ 年度预算表从预算执行表读取季度数据
+  - ✅ 自动计算季度完成（Q1/Q2/Q3/Q4）
+  - ✅ 实时重新计算完成率
+
+### v3.6.0 (2025-12-26) - 人力费用管理版 👥
+- 📦 **新增人力费用预算模块**（集成到预算管理）
+  - ✅ 9项费用管理：工资、社保、公积金、绩效、业绩奖金、餐补、福利、培训、其它
+  - ✅ 年度预算编制（可编辑）
+  - ✅ 月度实际费用跟踪（1-12月）
+  - ✅ 实时自动计算：实际总额、占比
+  - ✅ 年度切换功能（与预算管理年度同步）
+
+### v3.5.0 (2025-12-24) - 交互式公式编辑器版 🧮
+- ✨ **新增交互式公式编辑器**
+  - ✅ 可视化公式构建（点击式操作）
+  - ✅ 支持6种运算符：+、-、×、÷、(、)
+  - ✅ 实时公式验证（括号匹配、语法检查）
+  - ✅ 智能公式计算引擎
 
 ### v3.4.0 (2025-12-24) - 四大功能模块框架搭建版 🏗️
 - 🏗️ **新增四大功能模块框架**

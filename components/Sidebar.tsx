@@ -1,11 +1,11 @@
-import { LayoutDashboard, CheckSquare, TrendingUp, FolderKanban, Target, Settings, LogOut, UserCircle, DollarSign, Calendar, Award, Briefcase, ChevronUp, ChevronDown, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { LayoutDashboard, CheckSquare, TrendingUp, FolderKanban, Target, Settings, LogOut, UserCircle, DollarSign, Calendar, Award, Briefcase, ChevronUp, ChevronDown, ChevronsLeft, ChevronsRight, AlertCircle } from 'lucide-react';
 import { useEffect, useState, useRef } from 'react';
 import { app, db } from '../lib/cloudbase';
 import { usePermissionContext } from '../contexts/PermissionContext';
 import { APP_VERSION } from '../lib/version';
 import { useNotificationStore } from '../lib/notification-store';
 
-type PageType = 'dashboard' | 'tasks' | 'opportunities' | 'projects' | 'goals' | 'budget' | 'meetings' | 'performance' | 'business' | 'settings' | 'account';
+type PageType = 'dashboard' | 'tasks' | 'issues' | 'opportunities' | 'projects' | 'goals' | 'budget' | 'meetings' | 'performance' | 'business' | 'settings' | 'account';
 
 interface SidebarProps {
   currentPage: PageType;
@@ -21,7 +21,7 @@ interface SidebarProps {
 export function Sidebar({ currentPage, onPageChange, userRole, currentUser, onLogout, pendingUserCount = 0, collapsed = false, onToggleCollapse }: SidebarProps) {
   // 从数据库读取的功能模块名称
   const [moduleLabels, setModuleLabels] = useState<string[]>([
-    '工作台', '任务管理', '商机管理', '项目管理', '目标管理', '预算管理', '例会管理', '绩效管理', '业务管理', '个人信息'
+    '工作台', '任务管理', '问题管理', '商机管理', '项目管理', '目标管理', '预算管理', '例会管理', '绩效管理', '业务管理', '个人信息'
   ]);
 
   // 从数据库读取的系统名称和Logo
@@ -130,13 +130,14 @@ export function Sidebar({ currentPage, onPageChange, userRole, currentUser, onLo
   const allMenuItems = [
     { id: 'dashboard', label: moduleLabels[0], icon: LayoutDashboard, requiresPermission: false },
     { id: 'tasks', label: moduleLabels[1], icon: CheckSquare, requiresPermission: true, module: 'tasks' },
-    { id: 'opportunities', label: moduleLabels[2], icon: TrendingUp, requiresPermission: true, module: 'opportunities' },
-    { id: 'projects', label: moduleLabels[3], icon: FolderKanban, requiresPermission: true, module: 'projects' },
-    { id: 'goals', label: moduleLabels[4], icon: Target, requiresPermission: true, module: 'goal' },
-    { id: 'budget', label: moduleLabels[5], icon: DollarSign, requiresPermission: true, module: 'budget' },
-    { id: 'meetings', label: moduleLabels[6], icon: Calendar, requiresPermission: true, module: 'meetings' },
-    { id: 'performance', label: moduleLabels[7], icon: Award, requiresPermission: true, module: 'performance' },
-    { id: 'business', label: moduleLabels[8], icon: Briefcase, requiresPermission: true, module: 'business' },
+    { id: 'issues', label: moduleLabels[2], icon: AlertCircle, requiresPermission: true, module: 'issues' },
+    { id: 'opportunities', label: moduleLabels[3], icon: TrendingUp, requiresPermission: true, module: 'opportunities' },
+    { id: 'projects', label: moduleLabels[4], icon: FolderKanban, requiresPermission: true, module: 'projects' },
+    { id: 'goals', label: moduleLabels[5], icon: Target, requiresPermission: true, module: 'goal' },
+    { id: 'budget', label: moduleLabels[6], icon: DollarSign, requiresPermission: true, module: 'budget' },
+    { id: 'meetings', label: moduleLabels[7], icon: Calendar, requiresPermission: true, module: 'meetings' },
+    { id: 'performance', label: moduleLabels[8], icon: Award, requiresPermission: true, module: 'performance' },
+    { id: 'business', label: moduleLabels[9], icon: Briefcase, requiresPermission: true, module: 'business' },
     // 已删除: 个人信息菜单项(功能转移到底部个人信息显示区域)
   ] as const;
 

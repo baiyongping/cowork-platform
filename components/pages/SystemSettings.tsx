@@ -138,6 +138,13 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
         strategy: { view: true, create: true, edit: false, delete: false, export: false },
         execution: { view: true, create: true, edit: false, delete: false, export: false }
       },
+      budget: {
+        annual: { view: true, create: false, edit: false, delete: false, export: false },
+        asset: { view: true, create: true, edit: false, delete: false, export: false },
+        execution: { view: true, create: false, edit: false, delete: false, export: false },
+        parameters: { view: false, create: false, edit: false, delete: false, export: false },
+        hr: { view: true, create: false, edit: false, delete: false, export: false }
+      },
       settings: {
         userApproval: { view: true, create: false, edit: false, delete: false, export: false },
         employees: { view: true, create: false, edit: false, delete: false, export: false },
@@ -903,10 +910,10 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
       // 加载所有类型设置
       const result = await db.collection('type_settings').get();
       
-      // 默认值配置（字符串数组格式）
+      // 默认值配置(字符串数组格式)
       const defaults: Record<string, string[]> = {
         moduleNames: ['工作台', '任务管理', '商机管理', '项目管理', '目标管理'],
-        task: ['日常工作', '商机跟进', '项目任务'],
+        task: ['日常工作', '商机跟进', '项目任务', '采购任务'],  // 🆕 添加采购任务
         taskStatus: ['未开始', '进行中', '已完成', '延期', '取消', '暂停'],
         opportunity: ['跟进线索', '方案咨询', '商务谈判'],
         action: ['拜访客户', '联络客户感情', '了解年度采购计划', '提交公司资质和案例', '样衣展示和试穿', '提交定制方案和报价', '提交投标文件', '价格谈判', '合同条款确认', '其它'],
@@ -1069,9 +1076,9 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
       
     } catch (error) {
       console.error('加载类型设置失败:', error);
-      // 出错时使用默认值，但不保存到数据库
+      // 出错时使用默认值,但不保存到数据库
       const defaults: Record<string, string[]> = {
-        task: ['日常工作', '商机跟进', '项目任务'],
+        task: ['日常工作', '商机跟进', '项目任务', '采购任务'],  // 🆕 添加采购任务
         taskStatus: ['未开始', '进行中', '已完成', '延期', '取消', '暂停'],
         opportunity: ['跟进线索', '方案咨询', '商务谈判'],
         action: ['拜访客户', '联络客户感情', '了解年度采购计划', '提交公司资质和案例', '样衣展示和试穿', '提交定制方案和报价', '提交投标文件', '价格谈判', '合同条款确认', '其它'],
@@ -3611,6 +3618,8 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                         opportunities: '商机管理',
                         projects: '项目管理',
                         goal: '目标管理',
+                        issues: '问题管理',
+                        budget: '预算管理',
                         settings: '系统设置'
                       }).map(([key, label]) => {
                         // 目标管理有子模块
@@ -3634,6 +3643,54 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                               {/* 目标管理子模块 */}
                               {Object.entries(subModules).map(([subKey, subLabel]) => {
                                 const perms = role.permissions?.goal?.[subKey] || {};
+                                return (
+                                  <tr key={`${key}-${subKey}`}>
+                                    <td className="px-4 py-2 text-sm text-gray-900 pl-8">
+                                      └ {subLabel}
+                                    </td>
+                                    <td className="px-4 py-2 text-center">
+                                      {perms.view ? <CheckCircle className="w-5 h-5 text-green-500 mx-auto" /> : <XCircle className="w-5 h-5 text-gray-300 mx-auto" />}
+                                    </td>
+                                    <td className="px-4 py-2 text-center">
+                                      {perms.create ? <CheckCircle className="w-5 h-5 text-green-500 mx-auto" /> : <XCircle className="w-5 h-5 text-gray-300 mx-auto" />}
+                                    </td>
+                                    <td className="px-4 py-2 text-center">
+                                      {perms.edit ? <CheckCircle className="w-5 h-5 text-green-500 mx-auto" /> : <XCircle className="w-5 h-5 text-gray-300 mx-auto" />}
+                                    </td>
+                                    <td className="px-4 py-2 text-center">
+                                      {perms.delete ? <CheckCircle className="w-5 h-5 text-green-500 mx-auto" /> : <XCircle className="w-5 h-5 text-gray-300 mx-auto" />}
+                                    </td>
+                                    <td className="px-4 py-2 text-center">
+                                      {perms.export ? <CheckCircle className="w-5 h-5 text-green-500 mx-auto" /> : <XCircle className="w-5 h-5 text-gray-300 mx-auto" />}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </React.Fragment>
+                          );
+                        }
+                        
+                        // 预算管理有子模块，需要特殊处理
+                        if (key === 'budget') {
+                          const subModules = {
+                            annual: '年度预算表',
+                            asset: '资产/采购预算',
+                            execution: '预算执行管理',
+                            parameters: '预算参数设置',
+                            hr: '人力费用管理'
+                          };
+                          
+                          return (
+                            <React.Fragment key={key}>
+                              {/* 预算管理主模块标题 */}
+                              <tr className="bg-purple-50">
+                                <td colSpan={6} className="px-4 py-2 text-sm font-semibold text-gray-700">
+                                  {label}
+                                </td>
+                              </tr>
+                              {/* 预算管理子模块 */}
+                              {Object.entries(subModules).map(([subKey, subLabel]) => {
+                                const perms = role.permissions?.budget?.[subKey] || {};
                                 return (
                                   <tr key={`${key}-${subKey}`}>
                                     <td className="px-4 py-2 text-sm text-gray-900 pl-8">
@@ -4979,6 +5036,8 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                           opportunities: '商机管理',
                           projects: '项目管理',
                           goal: '目标管理',
+                          issues: '问题管理',
+                          budget: '预算管理',
                           settings: '系统设置'
                         }).map(([key, label]) => {
                           // 目标管理有子模块，需要特殊处理
@@ -5001,6 +5060,106 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                                   </td>
                                 </tr>
                                 {/* 目标管理子模块 */}
+                                {Object.entries(subModules).map(([subKey, subLabel]) => (
+                                  <tr key={`${key}-${subKey}`}>
+                                    <td className="px-4 py-3 text-sm text-gray-900 pl-8">
+                                      └ {subLabel}
+                                    </td>
+                                    <td className="px-4 py-3 text-center">
+                                      <input
+                                        type="checkbox"
+                                        checked={roleForm.permissions[key]?.[subKey]?.view || false}
+                                        onChange={(e) => {
+                                          const newPermissions = { ...roleForm.permissions };
+                                          if (!newPermissions[key]) newPermissions[key] = {};
+                                          if (!newPermissions[key][subKey]) newPermissions[key][subKey] = {};
+                                          newPermissions[key][subKey].view = e.target.checked;
+                                          setRoleForm({ ...roleForm, permissions: newPermissions });
+                                        }}
+                                        className="w-4 h-4 text-blue-600 rounded"
+                                      />
+                                    </td>
+                                    <td className="px-4 py-3 text-center">
+                                      <input
+                                        type="checkbox"
+                                        checked={roleForm.permissions[key]?.[subKey]?.create || false}
+                                        onChange={(e) => {
+                                          const newPermissions = { ...roleForm.permissions };
+                                          if (!newPermissions[key]) newPermissions[key] = {};
+                                          if (!newPermissions[key][subKey]) newPermissions[key][subKey] = {};
+                                          newPermissions[key][subKey].create = e.target.checked;
+                                          setRoleForm({ ...roleForm, permissions: newPermissions });
+                                        }}
+                                        className="w-4 h-4 text-blue-600 rounded"
+                                      />
+                                    </td>
+                                    <td className="px-4 py-3 text-center">
+                                      <input
+                                        type="checkbox"
+                                        checked={roleForm.permissions[key]?.[subKey]?.edit || false}
+                                        onChange={(e) => {
+                                          const newPermissions = { ...roleForm.permissions };
+                                          if (!newPermissions[key]) newPermissions[key] = {};
+                                          if (!newPermissions[key][subKey]) newPermissions[key][subKey] = {};
+                                          newPermissions[key][subKey].edit = e.target.checked;
+                                          setRoleForm({ ...roleForm, permissions: newPermissions });
+                                        }}
+                                        className="w-4 h-4 text-blue-600 rounded"
+                                      />
+                                    </td>
+                                    <td className="px-4 py-3 text-center">
+                                      <input
+                                        type="checkbox"
+                                        checked={roleForm.permissions[key]?.[subKey]?.delete || false}
+                                        onChange={(e) => {
+                                          const newPermissions = { ...roleForm.permissions };
+                                          if (!newPermissions[key]) newPermissions[key] = {};
+                                          if (!newPermissions[key][subKey]) newPermissions[key][subKey] = {};
+                                          newPermissions[key][subKey].delete = e.target.checked;
+                                          setRoleForm({ ...roleForm, permissions: newPermissions });
+                                        }}
+                                        className="w-4 h-4 text-blue-600 rounded"
+                                      />
+                                    </td>
+                                    <td className="px-4 py-3 text-center">
+                                      <input
+                                        type="checkbox"
+                                        checked={roleForm.permissions[key]?.[subKey]?.export || false}
+                                        onChange={(e) => {
+                                          const newPermissions = { ...roleForm.permissions };
+                                          if (!newPermissions[key]) newPermissions[key] = {};
+                                          if (!newPermissions[key][subKey]) newPermissions[key][subKey] = {};
+                                          newPermissions[key][subKey].export = e.target.checked;
+                                          setRoleForm({ ...roleForm, permissions: newPermissions });
+                                        }}
+                                        className="w-4 h-4 text-blue-600 rounded"
+                                      />
+                                    </td>
+                                  </tr>
+                                ))}
+                              </React.Fragment>
+                            );
+                          }
+                          
+                          // 预算管理有子模块，需要特殊处理
+                          if (key === 'budget') {
+                            const subModules = {
+                              annual: '年度预算表',
+                              asset: '资产/采购预算',
+                              execution: '预算执行管理',
+                              parameters: '预算参数设置',
+                              hr: '人力费用管理'
+                            };
+                            
+                            return (
+                              <React.Fragment key={key}>
+                                {/* 预算管理主模块标题 */}
+                                <tr className="bg-gray-50">
+                                  <td colSpan={6} className="px-4 py-2 text-sm font-semibold text-gray-700">
+                                    {label}
+                                  </td>
+                                </tr>
+                                {/* 预算管理子模块 */}
                                 {Object.entries(subModules).map(([subKey, subLabel]) => (
                                   <tr key={`${key}-${subKey}`}>
                                     <td className="px-4 py-3 text-sm text-gray-900 pl-8">
@@ -5346,6 +5505,8 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                           opportunities: '商机管理',
                           projects: '项目管理',
                           goal: '目标管理',
+                          issues: '问题管理',
+                          budget: '预算管理',
                           settings: '系统设置'
                         }).map(([key, label]) => {
                           // 目标管理有子模块，需要特殊处理
@@ -5368,6 +5529,106 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                                   </td>
                                 </tr>
                                 {/* 目标管理子模块 */}
+                                {Object.entries(subModules).map(([subKey, subLabel]) => (
+                                  <tr key={`${key}-${subKey}`}>
+                                    <td className="px-4 py-3 text-sm text-gray-900 pl-8">
+                                      └ {subLabel}
+                                    </td>
+                                    <td className="px-4 py-3 text-center">
+                                      <input
+                                        type="checkbox"
+                                        checked={roleForm.permissions[key]?.[subKey]?.view || false}
+                                        onChange={(e) => {
+                                          const newPermissions = { ...roleForm.permissions };
+                                          if (!newPermissions[key]) newPermissions[key] = {};
+                                          if (!newPermissions[key][subKey]) newPermissions[key][subKey] = {};
+                                          newPermissions[key][subKey].view = e.target.checked;
+                                          setRoleForm({ ...roleForm, permissions: newPermissions });
+                                        }}
+                                        className="w-4 h-4 text-blue-600 rounded"
+                                      />
+                                    </td>
+                                    <td className="px-4 py-3 text-center">
+                                      <input
+                                        type="checkbox"
+                                        checked={roleForm.permissions[key]?.[subKey]?.create || false}
+                                        onChange={(e) => {
+                                          const newPermissions = { ...roleForm.permissions };
+                                          if (!newPermissions[key]) newPermissions[key] = {};
+                                          if (!newPermissions[key][subKey]) newPermissions[key][subKey] = {};
+                                          newPermissions[key][subKey].create = e.target.checked;
+                                          setRoleForm({ ...roleForm, permissions: newPermissions });
+                                        }}
+                                        className="w-4 h-4 text-blue-600 rounded"
+                                      />
+                                    </td>
+                                    <td className="px-4 py-3 text-center">
+                                      <input
+                                        type="checkbox"
+                                        checked={roleForm.permissions[key]?.[subKey]?.edit || false}
+                                        onChange={(e) => {
+                                          const newPermissions = { ...roleForm.permissions };
+                                          if (!newPermissions[key]) newPermissions[key] = {};
+                                          if (!newPermissions[key][subKey]) newPermissions[key][subKey] = {};
+                                          newPermissions[key][subKey].edit = e.target.checked;
+                                          setRoleForm({ ...roleForm, permissions: newPermissions });
+                                        }}
+                                        className="w-4 h-4 text-blue-600 rounded"
+                                      />
+                                    </td>
+                                    <td className="px-4 py-3 text-center">
+                                      <input
+                                        type="checkbox"
+                                        checked={roleForm.permissions[key]?.[subKey]?.delete || false}
+                                        onChange={(e) => {
+                                          const newPermissions = { ...roleForm.permissions };
+                                          if (!newPermissions[key]) newPermissions[key] = {};
+                                          if (!newPermissions[key][subKey]) newPermissions[key][subKey] = {};
+                                          newPermissions[key][subKey].delete = e.target.checked;
+                                          setRoleForm({ ...roleForm, permissions: newPermissions });
+                                        }}
+                                        className="w-4 h-4 text-blue-600 rounded"
+                                      />
+                                    </td>
+                                    <td className="px-4 py-3 text-center">
+                                      <input
+                                        type="checkbox"
+                                        checked={roleForm.permissions[key]?.[subKey]?.export || false}
+                                        onChange={(e) => {
+                                          const newPermissions = { ...roleForm.permissions };
+                                          if (!newPermissions[key]) newPermissions[key] = {};
+                                          if (!newPermissions[key][subKey]) newPermissions[key][subKey] = {};
+                                          newPermissions[key][subKey].export = e.target.checked;
+                                          setRoleForm({ ...roleForm, permissions: newPermissions });
+                                        }}
+                                        className="w-4 h-4 text-blue-600 rounded"
+                                      />
+                                    </td>
+                                  </tr>
+                                ))}
+                              </React.Fragment>
+                            );
+                          }
+                          
+                          // 预算管理有子模块，需要特殊处理
+                          if (key === 'budget') {
+                            const subModules = {
+                              annual: '年度预算表',
+                              asset: '资产/采购预算',
+                              execution: '预算执行管理',
+                              parameters: '预算参数设置',
+                              hr: '人力费用管理'
+                            };
+                            
+                            return (
+                              <React.Fragment key={key}>
+                                {/* 预算管理主模块标题 */}
+                                <tr className="bg-gray-50">
+                                  <td colSpan={6} className="px-4 py-2 text-sm font-semibold text-gray-700">
+                                    {label}
+                                  </td>
+                                </tr>
+                                {/* 预算管理子模块 */}
                                 {Object.entries(subModules).map(([subKey, subLabel]) => (
                                   <tr key={`${key}-${subKey}`}>
                                     <td className="px-4 py-3 text-sm text-gray-900 pl-8">
@@ -5704,7 +5965,6 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
             setShowEmployeeDetail(false);
             setSelectedEmployee(null);
           }}
-          rolePermissions={rolePermissions}
           onSuccess={async () => {
             // console.log('🔄 [员工详情] 保存成功,准备刷新数据...'); // 已禁用保存成功提示
             console.log('  - 当前员工ID:', selectedEmployee._id);

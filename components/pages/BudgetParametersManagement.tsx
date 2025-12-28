@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, ChevronDown, ChevronRight, Lock, Star, Edit, Trash2, Save, X, ChevronUp, ChevronDown as MoveDown, Copy } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { db } from '../../lib/cloudbase';
+import { usePermissionContext } from '../../contexts/PermissionContext';
 
 interface BudgetAccount {
   _id?: string;
@@ -10,7 +11,7 @@ interface BudgetAccount {
   name: string;
   year: number;
   order: number;
-  type?: 'income' | 'summary' | 'expense';
+  type?: 'income' | 'summary' | 'expense' | 'percentage';
   total: number;
   totalUnit: string;
   isSystemParam: boolean;
@@ -28,6 +29,8 @@ interface BudgetAccount {
     type: 'account' | 'operator';
     value: string;
   }>;
+  // ✅ 新增：计算值（用于百分率科目）
+  calculatedValue?: number;
 }
 
 interface BudgetParametersManagementProps {
@@ -35,6 +38,12 @@ interface BudgetParametersManagementProps {
 }
 
 export const BudgetParametersManagement: React.FC<BudgetParametersManagementProps> = ({ year }) => {
+  // ✅ 引入权限检查
+  const { checkPermission, permissionLoading } = usePermissionContext();
+  
+  // 添加 Tab 状态
+  const [activeTab, setActiveTab] = useState<'profit-loss' | 'payroll'>('profit-loss');
+  
   const [accounts, setAccounts] = useState<BudgetAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -50,7 +59,7 @@ export const BudgetParametersManagement: React.FC<BudgetParametersManagementProp
   const [deletingSubAccount, setDeletingSubAccount] = useState<any>(null);
   const [newAccountForm, setNewAccountForm] = useState({
     name: '',
-    type: 'expense' as 'income' | 'summary' | 'expense',
+    type: 'expense' as 'income' | 'summary' | 'expense' | 'percentage',
     totalUnit: '万元',
     isSystemParam: false
   });
@@ -66,32 +75,48 @@ export const BudgetParametersManagement: React.FC<BudgetParametersManagementProp
   });
   const [editAccountForm, setEditAccountForm] = useState({
     name: '',
-    type: 'expense' as 'income' | 'summary' | 'expense',
+    type: 'expense' as 'income' | 'summary' | 'expense' | 'percentage',
     totalUnit: '万元',
     isSystemParam: false
   });
   const [showCopyDialog, setShowCopyDialog] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
+  
+  // ✅ 新增：汇总科目公式编辑对话框状态
+  const [showFormulaDialog, setShowFormulaDialog] = useState(false);
+  const [editingFormulaAccount, setEditingFormulaAccount] = useState<BudgetAccount | null>(null);
+  const [formulaInput, setFormulaInput] = useState<Array<{type: 'account' | 'operator' | 'number', value: string}>>([]);
 
-  // 加载预算科目数据
+  // 加载预算科目数据 - 根据当前Tab加载不同的数据
   useEffect(() => {
     loadAccounts();
-  }, [year]);
+  }, [year, activeTab]);
 
   const loadAccounts = async () => {
     try {
       setLoading(true);
       
-      // 全局数据查询 - 不限制用户
-      const result = await db.collection('budget_accounts')
+      // 根据Tab类型查询不同的科目
+      // 损益参数使用原来的 budget_accounts 集合
+      // 薪酬核算参数使用 payroll_accounts 集合
+      const collectionName = activeTab === 'profit-loss' ? 'budget_accounts' : 'payroll_accounts';
+      
+      const result = await db.collection(collectionName)
         .where({
           year: year
         })
         .orderBy('order', 'asc')
-        .limit(1000) // 设置合理的查询上限
+        .limit(1000)
         .get();
 
-      setAccounts(result.data || []);
+      let loadedAccounts = result.data || [];
+      
+      // ✅ 如果是损益参数,计算利润率
+      if (activeTab === 'profit-loss') {
+        loadedAccounts = calculateProfitMargin(loadedAccounts);
+      }
+
+      setAccounts(loadedAccounts);
     } catch (error: any) {
       console.error('加载预算科目失败:', error);
       toast.error('加载预算科目失败');
@@ -100,9 +125,55 @@ export const BudgetParametersManagement: React.FC<BudgetParametersManagementProp
     }
   };
 
+  // ✅ 计算科目总额（递归计算所有子科目金额）
+  const calculateAccountTotal = (account: BudgetAccount): number => {
+    if (!account.children || account.children.length === 0) {
+      return account.total || 0;
+    }
+    const childrenTotal = account.children.reduce((sum, child) => sum + (child.amount || 0), 0);
+    return childrenTotal;
+  };
+
+  // ✅ 计算利润率
+  const calculateProfitMargin = (accountsList: BudgetAccount[]): BudgetAccount[] => {
+    // 找到营业收入和营业成本
+    const revenueAccount = accountsList.find(acc => acc.name === '营业收入');
+    const costAccount = accountsList.find(acc => acc.name === '营业成本');
+    
+    if (!revenueAccount || !costAccount) {
+      return accountsList;
+    }
+    
+    const revenue = calculateAccountTotal(revenueAccount);
+    const cost = calculateAccountTotal(costAccount);
+    
+    // 利润率 = (营业收入 - 营业成本) / 营业成本 × 100%
+    let profitMargin = 0;
+    if (cost !== 0) {
+      profitMargin = ((revenue - cost) / cost) * 100;
+    }
+    
+    // 更新利润率科目的计算值
+    return accountsList.map(acc => {
+      if (acc.name === '利润率' && acc.type === 'percentage') {
+        return {
+          ...acc,
+          calculatedValue: profitMargin,
+          total: profitMargin
+        };
+      }
+      return acc;
+    });
+  };
+
   // 生成新的科目ID
   const generateAccountId = () => {
     return `primary_${Date.now()}`;
+  };
+
+  // 获取当前使用的集合名称
+  const getCollectionName = () => {
+    return activeTab === 'profit-loss' ? 'budget_accounts' : 'payroll_accounts';
   };
 
   // 新增一级科目
@@ -126,7 +197,7 @@ export const BudgetParametersManagement: React.FC<BudgetParametersManagementProp
         children: []
       };
 
-      await db.collection('budget_accounts').add(newAccount);
+      await db.collection(getCollectionName()).add(newAccount);
 
       setShowAddDialog(false);
       setNewAccountForm({
@@ -165,7 +236,7 @@ export const BudgetParametersManagement: React.FC<BudgetParametersManagementProp
 
     try {
       // 更新数据库
-      await db.collection('budget_accounts')
+      await db.collection(getCollectionName())
         .where({
           _id: editingAccount._id
         })
@@ -221,7 +292,7 @@ export const BudgetParametersManagement: React.FC<BudgetParametersManagementProp
       console.log('🟢 开始调用数据库删除方法...');
       
       // 使用 doc(_id).remove() 方法删除
-      const result = await db.collection('budget_accounts')
+      const result = await db.collection(getCollectionName())
         .doc(deletingAccount._id)
         .remove();
 
@@ -247,11 +318,11 @@ export const BudgetParametersManagement: React.FC<BudgetParametersManagementProp
       const prevAccount = accounts[index - 1];
       
       // 交换 order 值
-      await db.collection('budget_accounts')
+      await db.collection(getCollectionName())
         .where({ _id: account._id })
         .update({ order: prevAccount.order });
 
-      await db.collection('budget_accounts')
+      await db.collection(getCollectionName())
         .where({ _id: prevAccount._id })
         .update({ order: account.order });
 
@@ -271,11 +342,11 @@ export const BudgetParametersManagement: React.FC<BudgetParametersManagementProp
       const nextAccount = accounts[index + 1];
       
       // 交换 order 值
-      await db.collection('budget_accounts')
+      await db.collection(getCollectionName())
         .where({ _id: account._id })
         .update({ order: nextAccount.order });
 
-      await db.collection('budget_accounts')
+      await db.collection(getCollectionName())
         .where({ _id: nextAccount._id })
         .update({ order: account.order });
 
@@ -302,6 +373,12 @@ export const BudgetParametersManagement: React.FC<BudgetParametersManagementProp
 
   // 打开新增二级科目对话框
   const handleOpenAddSubAccount = (parentAccount: BudgetAccount) => {
+    // 汇总类和百分率科目不能添加子科目
+    if (parentAccount.type === 'summary' || parentAccount.type === 'percentage') {
+      toast.error('汇总类和百分率科目不能设立子科目');
+      return;
+    }
+    
     setCurrentParentAccount(parentAccount);
     setNewSubAccountForm({
       name: '',
@@ -329,11 +406,22 @@ export const BudgetParametersManagement: React.FC<BudgetParametersManagementProp
         return;
       }
 
-      const parentAccount = await db.collection('budget_accounts')
+      const parentAccount = await db.collection(getCollectionName())
         .doc(currentParentAccount._id)
         .get();
 
-      const parentData = parentAccount.data as any;
+      // 🐛 修复：.doc().get() 返回的 data 可能是数组格式，需要取第一个元素
+      const parentData = (Array.isArray(parentAccount.data) ? parentAccount.data[0] : parentAccount.data) as any;
+      
+      console.log('📊 [添加二级科目] parentAccount.data 类型:', Array.isArray(parentAccount.data) ? '数组' : '对象');
+      console.log('📊 [添加二级科目] parentData:', parentData);
+      console.log('📊 [添加二级科目] 当前 children 数量:', parentData?.children?.length || 0);
+      
+      if (!parentData) {
+        toast.error('未找到父科目数据');
+        return;
+      }
+      
       const children = (parentData?.children || []) as any[];
       const newSubAccount = {
         id: `sub_${Date.now()}`,
@@ -342,8 +430,11 @@ export const BudgetParametersManagement: React.FC<BudgetParametersManagementProp
         isSystemParam: newSubAccountForm.isSystemParam,
         order: children.length
       };
+      
+      console.log('📊 [添加二级科目] 新二级科目:', newSubAccount);
+      console.log('📊 [添加二级科目] 更新后 children 数量:', children.length + 1);
 
-      await db.collection('budget_accounts')
+      await db.collection(getCollectionName())
         .doc(currentParentAccount._id)
         .update({
           children: [...children, newSubAccount]
@@ -386,11 +477,18 @@ export const BudgetParametersManagement: React.FC<BudgetParametersManagementProp
         return;
       }
 
-      const parentAccount = await db.collection('budget_accounts')
+      const parentAccount = await db.collection(getCollectionName())
         .doc(currentParentAccount._id)
         .get();
 
-      const parentData = parentAccount.data as any;
+      // 🐛 修复：.doc().get() 返回的 data 可能是数组格式，需要取第一个元素
+      const parentData = (Array.isArray(parentAccount.data) ? parentAccount.data[0] : parentAccount.data) as any;
+      
+      if (!parentData) {
+        toast.error('未找到父科目数据');
+        return;
+      }
+      
       const children = parentData?.children || [];
       const updatedChildren = children.map((child: any) =>
         child.id === editingSubAccount.id
@@ -403,7 +501,7 @@ export const BudgetParametersManagement: React.FC<BudgetParametersManagementProp
           : child
       );
 
-      await db.collection('budget_accounts')
+      await db.collection(getCollectionName())
         .doc(currentParentAccount._id)
         .update({
           children: updatedChildren
@@ -437,15 +535,22 @@ export const BudgetParametersManagement: React.FC<BudgetParametersManagementProp
         return;
       }
 
-      const parentAccount = await db.collection('budget_accounts')
+      const parentAccount = await db.collection(getCollectionName())
         .doc(currentParentAccount._id)
         .get();
 
-      const parentData = parentAccount.data as any;
+      // 🐛 修复：.doc().get() 返回的 data 可能是数组格式，需要取第一个元素
+      const parentData = (Array.isArray(parentAccount.data) ? parentAccount.data[0] : parentAccount.data) as any;
+      
+      if (!parentData) {
+        toast.error('未找到父科目数据');
+        return;
+      }
+      
       const children = parentData?.children || [];
       const updatedChildren = children.filter((child: any) => child.id !== deletingSubAccount.id);
 
-      await db.collection('budget_accounts')
+      await db.collection(getCollectionName())
         .doc(currentParentAccount._id)
         .update({
           children: updatedChildren
@@ -472,13 +577,31 @@ export const BudgetParametersManagement: React.FC<BudgetParametersManagementProp
         return;
       }
 
-      const parent = await db.collection('budget_accounts')
+      const parent = await db.collection(getCollectionName())
         .doc(parentAccount._id)
         .get();
 
-      const parentData = parent.data as any;
+      // 🐛 修复：.doc().get() 返回的 data 可能是数组格式，需要取第一个元素
+      const parentData = (Array.isArray(parent.data) ? parent.data[0] : parent.data) as any;
+      
+      if (!parentData) {
+        toast.error('未找到父科目数据');
+        return;
+      }
+      
       const children = [...(parentData?.children || [])];
+      
+      if (index <= 0 || index >= children.length) {
+        toast.error('无法上移');
+        return;
+      }
+      
       const prevChild = children[index - 1];
+      
+      if (!prevChild || prevChild.order === undefined) {
+        toast.error('上一个科目数据异常');
+        return;
+      }
 
       // 交换 order 值
       children[index] = { ...children[index], order: prevChild.order };
@@ -487,7 +610,7 @@ export const BudgetParametersManagement: React.FC<BudgetParametersManagementProp
       // 重新排序
       children.sort((a, b) => a.order - b.order);
 
-      await db.collection('budget_accounts')
+      await db.collection(getCollectionName())
         .doc(parentAccount._id)
         .update({ children });
 
@@ -508,13 +631,31 @@ export const BudgetParametersManagement: React.FC<BudgetParametersManagementProp
         return;
       }
 
-      const parent = await db.collection('budget_accounts')
+      const parent = await db.collection(getCollectionName())
         .doc(parentAccount._id)
         .get();
 
-      const parentData = parent.data as any;
+      // 🐛 修复：.doc().get() 返回的 data 可能是数组格式，需要取第一个元素
+      const parentData = (Array.isArray(parent.data) ? parent.data[0] : parent.data) as any;
+      
+      if (!parentData) {
+        toast.error('未找到父科目数据');
+        return;
+      }
+      
       const children = [...(parentData?.children || [])];
+      
+      if (index < 0 || index >= children.length - 1) {
+        toast.error('无法下移');
+        return;
+      }
+      
       const nextChild = children[index + 1];
+      
+      if (!nextChild || nextChild.order === undefined) {
+        toast.error('下一个科目数据异常');
+        return;
+      }
 
       // 交换 order 值
       children[index] = { ...children[index], order: nextChild.order };
@@ -523,7 +664,7 @@ export const BudgetParametersManagement: React.FC<BudgetParametersManagementProp
       // 重新排序
       children.sort((a, b) => a.order - b.order);
 
-      await db.collection('budget_accounts')
+      await db.collection(getCollectionName())
         .doc(parentAccount._id)
         .update({ children });
 
@@ -546,7 +687,7 @@ export const BudgetParametersManagement: React.FC<BudgetParametersManagementProp
       const previousYear = year - 1;
 
       // 查询上一年度的所有科目
-      const previousYearAccounts = await db.collection('budget_accounts')
+      const previousYearAccounts = await db.collection(getCollectionName())
         .where({
           year: previousYear
         })
@@ -561,7 +702,7 @@ export const BudgetParametersManagement: React.FC<BudgetParametersManagementProp
       }
 
       // 删除当前年度的所有科目
-      const currentYearAccounts = await db.collection('budget_accounts')
+      const currentYearAccounts = await db.collection(getCollectionName())
         .where({
           year: year
         })
@@ -570,7 +711,7 @@ export const BudgetParametersManagement: React.FC<BudgetParametersManagementProp
 
       // 批量删除当前年度科目
       for (const account of currentYearAccounts.data) {
-        await db.collection('budget_accounts')
+        await db.collection(getCollectionName())
           .doc(account._id)
           .remove();
       }
@@ -591,7 +732,7 @@ export const BudgetParametersManagement: React.FC<BudgetParametersManagementProp
 
       // 批量插入新科目
       for (const account of newAccounts) {
-        await db.collection('budget_accounts').add(account);
+        await db.collection(getCollectionName()).add(account);
       }
 
       toast.success(`成功复制${previousYear}年度的${newAccounts.length}个科目到${year}年度`);
@@ -603,6 +744,286 @@ export const BudgetParametersManagement: React.FC<BudgetParametersManagementProp
     } finally {
       setIsCopying(false);
     }
+  };
+
+  // ==================== 汇总科目公式编辑功能 ====================
+
+  // 打开公式编辑对话框
+  const handleOpenFormulaDialog = (account: BudgetAccount) => {
+    setEditingFormulaAccount(account);
+    setFormulaInput(account.formula || []);
+    setShowFormulaDialog(true);
+  };
+
+  // 点击科目按钮，追加到公式
+  const handleAppendAccount = (accountName: string) => {
+    setFormulaInput(prev => [...prev, { type: 'account', value: accountName }]);
+  };
+
+  // 点击运算符按钮，追加到公式
+  const handleAppendOperator = (operator: string) => {
+    setFormulaInput(prev => [...prev, { type: 'operator', value: operator }]);
+  };
+
+  // 点击数字按钮，追加到公式
+  const handleAppendNumber = (number: string) => {
+    setFormulaInput(prev => {
+      const lastItem = prev[prev.length - 1];
+      // 如果最后一项是数字，则合并
+      if (lastItem && lastItem.type === 'number') {
+        return [
+          ...prev.slice(0, -1),
+          { type: 'number', value: lastItem.value + number }
+        ];
+      }
+      // 否则新增一个数字项
+      return [...prev, { type: 'number', value: number }];
+    });
+  };
+
+  // 清空公式
+  const handleClearFormula = () => {
+    setFormulaInput([]);
+  };
+
+  // 退格删除
+  const handleBackspace = () => {
+    setFormulaInput(prev => prev.slice(0, -1));
+  };
+
+  // 循环依赖检测算法
+  const detectCircularDependency = (
+    targetAccountId: string,
+    formula: Array<{type: string, value: string}>,
+    allAccounts: BudgetAccount[]
+  ): boolean => {
+    const visited = new Set<string>();
+    const path = new Set<string>(); // 记录当前路径
+    
+    const dfs = (currentId: string, newFormula?: Array<{type: string, value: string}>): boolean => {
+      // 如果在当前路径中已经访问过，说明形成循环
+      if (path.has(currentId)) {
+        return true;
+      }
+      
+      // 如果已经完全访问过（在之前的路径中），无需重复检查
+      if (visited.has(currentId)) {
+        return false;
+      }
+      
+      path.add(currentId);
+      visited.add(currentId);
+      
+      // 查找当前科目
+      const currentAccount = allAccounts.find(acc => acc.id === currentId);
+      if (!currentAccount) {
+        path.delete(currentId);
+        return false;
+      }
+      
+      // 使用新公式（如果是正在编辑的科目）或现有公式
+      const formulaToCheck = (currentId === targetAccountId && newFormula) 
+        ? newFormula 
+        : currentAccount.formula;
+      
+      if (!formulaToCheck) {
+        path.delete(currentId);
+        return false;
+      }
+      
+      // 遍历公式中引用的科目
+      for (const item of formulaToCheck) {
+        if (item.type === 'account') {
+          const referencedAccount = allAccounts.find(acc => acc.name === item.value);
+          if (referencedAccount) {
+            // 如果引用了自己，直接返回循环
+            if (referencedAccount.id === currentId) {
+              path.delete(currentId);
+              return true;
+            }
+            // 递归检查引用的科目
+            if (dfs(referencedAccount.id)) {
+              path.delete(currentId);
+              return true;
+            }
+          }
+        }
+      }
+      
+      path.delete(currentId);
+      return false;
+    };
+    
+    // 从目标科目开始检查，使用新公式
+    return dfs(targetAccountId, formula);
+  };
+
+  // 保存公式
+  const handleSaveFormula = async () => {
+    if (!editingFormulaAccount) return;
+
+    // 检查循环依赖
+    if (detectCircularDependency(editingFormulaAccount.id, formulaInput, accounts)) {
+      toast.error('检测到循环依赖，无法保存！请检查公式中的科目引用。');
+      return;
+    }
+
+    try {
+      await db.collection(getCollectionName())
+        .where({ _id: editingFormulaAccount._id })
+        .update({ formula: formulaInput });
+
+      toast.success('公式保存成功');
+      setShowFormulaDialog(false);
+      setEditingFormulaAccount(null);
+      setFormulaInput([]);
+      loadAccounts();
+    } catch (error) {
+      console.error('保存公式失败:', error);
+      toast.error('保存公式失败');
+    }
+  };
+
+  // 渲染公式编辑对话框
+  const renderFormulaDialog = () => {
+    if (!showFormulaDialog || !editingFormulaAccount) return null;
+
+    // 获取所有一级科目（排除当前编辑的科目）
+    const availableAccounts = accounts.filter(acc => acc.id !== editingFormulaAccount.id);
+
+    // 运算符列表
+    const operators = ['+', '-', '×', '÷', '(', ')'];
+
+    // 数字按钮
+    const numbers = ['7', '8', '9', '4', '5', '6', '1', '2', '3', '0', '.'];
+
+    // 格式化显示公式
+    const formatFormula = () => {
+      return formulaInput.map(item => {
+        if (item.type === 'account') {
+          return `【${item.value}】`;
+        }
+        return item.value;
+      }).join(' ');
+    };
+
+    return (
+      <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl overflow-hidden animate-in fade-in duration-200 flex flex-col" style={{ height: '80vh' }}>
+          {/* 标题栏 */}
+          <div className="bg-gradient-to-r from-purple-500 to-purple-600 px-6 py-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-xl font-semibold text-white">
+                编辑公式：{editingFormulaAccount.name}
+              </h3>
+              <button
+                onClick={() => {
+                  setShowFormulaDialog(false);
+                  setEditingFormulaAccount(null);
+                  setFormulaInput([]);
+                }}
+                className="text-white/80 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          {/* 上半部分：公式输入框 */}
+          <div className="p-6 bg-gray-50 border-b border-gray-200">
+            <div className="bg-white border-2 border-gray-300 rounded-lg p-4 min-h-[80px] font-mono text-lg">
+              {formulaInput.length === 0 ? (
+                <span className="text-gray-400">点击下方按钮构建公式...</span>
+              ) : (
+                formatFormula()
+              )}
+            </div>
+          </div>
+
+          {/* 下半部分：左右分区 */}
+          <div className="flex-1 flex overflow-hidden">
+            {/* 左侧：运算符和清空/退格 */}
+            <div className="w-1/3 p-4 bg-gray-50 border-r border-gray-200 overflow-y-auto">
+              <h4 className="text-sm font-semibold text-gray-700 mb-3">运算符</h4>
+              <div className="grid grid-cols-3 gap-2">
+                {operators.map(op => (
+                  <button
+                    key={op}
+                    onClick={() => handleAppendOperator(op)}
+                    className="px-4 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-bold text-lg"
+                  >
+                    {op}
+                  </button>
+                ))}
+                <button
+                  onClick={handleClearFormula}
+                  className="px-4 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-bold text-sm"
+                >
+                  清空
+                </button>
+                <button
+                  onClick={handleBackspace}
+                  className="px-4 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-bold text-sm col-span-2"
+                >
+                  退格 ⌫
+                </button>
+              </div>
+            </div>
+
+            {/* 右侧：科目列表和数字 */}
+            <div className="w-2/3 p-4 overflow-y-auto">
+              {/* 科目列表 */}
+              <h4 className="text-sm font-semibold text-gray-700 mb-3">一级科目</h4>
+              <div className="space-y-2 mb-6 max-h-[40%] overflow-y-auto">
+                {availableAccounts.map(acc => (
+                  <button
+                    key={acc.id}
+                    onClick={() => handleAppendAccount(acc.name)}
+                    className="w-full px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-left text-sm font-medium"
+                  >
+                    {acc.name}
+                  </button>
+                ))}
+              </div>
+
+              {/* 数字按钮 */}
+              <h4 className="text-sm font-semibold text-gray-700 mb-3">数字</h4>
+              <div className="grid grid-cols-3 gap-2">
+                {numbers.map(num => (
+                  <button
+                    key={num}
+                    onClick={() => handleAppendNumber(num)}
+                    className="px-4 py-3 bg-gray-200 text-gray-900 rounded-lg hover:bg-gray-300 transition-colors font-bold text-lg"
+                  >
+                    {num}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* 底部按钮 */}
+          <div className="bg-gray-50 px-6 py-4 flex justify-end gap-3 border-t border-gray-200">
+            <button
+              onClick={() => {
+                setShowFormulaDialog(false);
+                setEditingFormulaAccount(null);
+                setFormulaInput([]);
+              }}
+              className="px-5 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+            >
+              取消
+            </button>
+            <button
+              onClick={handleSaveFormula}
+              className="px-5 py-2.5 text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors font-medium shadow-sm hover:shadow"
+            >
+              保存公式
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   // 渲染复制年度科目确认对话框
@@ -744,12 +1165,20 @@ export const BudgetParametersManagement: React.FC<BudgetParametersManagementProp
                 </label>
                 <select
                   value={newAccountForm.type}
-                  onChange={(e) => setNewAccountForm({ ...newAccountForm, type: e.target.value as any })}
+                  onChange={(e) => {
+                    const newType = e.target.value as any;
+                    setNewAccountForm({ 
+                      ...newAccountForm, 
+                      type: newType,
+                      totalUnit: newType === 'percentage' ? '%' : newAccountForm.totalUnit
+                    });
+                  }}
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 >
                   <option value="income">收入类</option>
                   <option value="expense">费用类</option>
                   <option value="summary">汇总类</option>
+                  <option value="percentage">百分率</option>
                 </select>
               </div>
 
@@ -817,6 +1246,10 @@ export const BudgetParametersManagement: React.FC<BudgetParametersManagementProp
                 <li className="flex items-start">
                   <span className="mr-2">•</span>
                   <span><strong>汇总类</strong>：需要通过公式计算的科目（如净利润）</span>
+                </li>
+                <li className="flex items-start">
+                  <span className="mr-2">•</span>
+                  <span><strong>百分率</strong>：以百分比形式计算的指标（如利润率）</span>
                 </li>
               </ul>
             </div>
@@ -890,12 +1323,20 @@ export const BudgetParametersManagement: React.FC<BudgetParametersManagementProp
                 </label>
                 <select
                   value={editAccountForm.type}
-                  onChange={(e) => setEditAccountForm({ ...editAccountForm, type: e.target.value as any })}
+                  onChange={(e) => {
+                    const newType = e.target.value as any;
+                    setEditAccountForm({ 
+                      ...editAccountForm, 
+                      type: newType,
+                      totalUnit: newType === 'percentage' ? '%' : editAccountForm.totalUnit
+                    });
+                  }}
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
                 >
                   <option value="income">收入类</option>
                   <option value="expense">费用类</option>
                   <option value="summary">汇总类</option>
+                  <option value="percentage">百分率</option>
                 </select>
               </div>
 
@@ -1348,6 +1789,7 @@ export const BudgetParametersManagement: React.FC<BudgetParametersManagementProp
                   {deletingAccount.type === 'income' && '收入类'}
                   {deletingAccount.type === 'expense' && '费用类'}
                   {deletingAccount.type === 'summary' && '汇总类'}
+                  {deletingAccount.type === 'percentage' && '百分率'}
                 </span>
               </div>
                 <div className="flex justify-between text-sm">
@@ -1395,13 +1837,15 @@ export const BudgetParametersManagement: React.FC<BudgetParametersManagementProp
     const typeColor = {
       income: 'text-green-600 bg-green-50',
       expense: 'text-red-600 bg-red-50',
-      summary: 'text-blue-600 bg-blue-50'
+      summary: 'text-blue-600 bg-blue-50',
+      percentage: 'text-purple-600 bg-purple-50'
     };
 
     const typeLabel = {
       income: '收入',
       expense: '费用',
-      summary: '汇总'
+      summary: '汇总',
+      percentage: '百分率'
     };
 
     const hasChildren = account.children && account.children.length > 0;
@@ -1446,6 +1890,13 @@ export const BudgetParametersManagement: React.FC<BudgetParametersManagementProp
                 </span>
               )}
 
+              {/* ✅ 百分率科目显示计算值 */}
+              {account.type === 'percentage' && account.calculatedValue !== undefined && (
+                <span className="text-sm font-semibold text-purple-600">
+                  {account.calculatedValue.toFixed(2)}%
+                </span>
+              )}
+
               {/* 单位 */}
               <span className="text-sm text-gray-500">({account.totalUnit})</span>
 
@@ -1487,26 +1938,50 @@ export const BudgetParametersManagement: React.FC<BudgetParametersManagementProp
                 <MoveDown className="w-4 h-4" />
               </button>
               
-              {/* 新增二级科目按钮 */}
-              <button
-                onClick={() => handleOpenAddSubAccount(account)}
-                className="p-1.5 text-purple-600 hover:bg-purple-50 rounded transition-colors"
-                title="新增二级科目"
-              >
-                <Plus className="w-4 h-4" />
-              </button>
+              {/* 新增二级科目按钮 - 仅损益参数显示,薪酬核算参数不显示,汇总类和百分率科目不可添加 */}
+              {activeTab === 'profit-loss' && checkPermission('budget.parameters', 'create') && (
+                <button
+                  onClick={() => handleOpenAddSubAccount(account)}
+                  disabled={account.type === 'summary' || account.type === 'percentage'}
+                  className={`p-1.5 rounded transition-colors ${
+                    account.type === 'summary' || account.type === 'percentage'
+                      ? 'text-gray-300 cursor-not-allowed'
+                      : 'text-purple-600 hover:bg-purple-50'
+                  }`}
+                  title={
+                    account.type === 'summary' || account.type === 'percentage' 
+                      ? '汇总类和百分率科目不能设立子科目' 
+                      : '新增二级科目'
+                  }
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              )}
+
+              {/* 编辑公式按钮 - 汇总类和百分率科目显示 */}
+              {(account.type === 'summary' || account.type === 'percentage') && checkPermission('budget.parameters', 'edit') && (
+                <button
+                  onClick={() => handleOpenFormulaDialog(account)}
+                  className="p-1.5 text-purple-600 hover:bg-purple-50 rounded transition-colors"
+                  title="编辑公式"
+                >
+                  <span className="text-xs font-bold">f(x)</span>
+                </button>
+              )}
 
               {/* 编辑按钮 - 所有科目都可以编辑 */}
-              <button
-                onClick={() => handleOpenEdit(account)}
-                className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                title="编辑科目"
-              >
-                <Edit className="w-4 h-4" />
-              </button>
+              {checkPermission('budget.parameters', 'edit') && (
+                <button
+                  onClick={() => handleOpenEdit(account)}
+                  className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                  title="编辑科目"
+                >
+                  <Edit className="w-4 h-4" />
+                </button>
+              )}
               
               {/* 删除按钮 - 只有非系统项才显示 */}
-              {!account.isSystemParam && (
+              {!account.isSystemParam && checkPermission('budget.parameters', 'delete') && (
                 <button
                   onClick={(e) => {
                     console.log('🔵 删除按钮被点击');
@@ -1584,16 +2059,18 @@ export const BudgetParametersManagement: React.FC<BudgetParametersManagementProp
                     </button>
 
                     {/* 编辑按钮 */}
-                    <button
-                      onClick={() => handleOpenEditSubAccount(account, subAccount)}
-                      className="p-1 text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                      title="编辑"
-                    >
-                      <Edit className="w-3.5 h-3.5" />
-                    </button>
+                    {checkPermission('budget.parameters', 'edit') && (
+                      <button
+                        onClick={() => handleOpenEditSubAccount(account, subAccount)}
+                        className="p-1 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                        title="编辑"
+                      >
+                        <Edit className="w-3.5 h-3.5" />
+                      </button>
+                    )}
 
                     {/* 删除按钮 - 只有非系统项才显示 */}
-                    {!subAccount.isSystemParam && (
+                    {!subAccount.isSystemParam && checkPermission('budget.parameters', 'delete') && (
                       <button
                         onClick={() => handleOpenDeleteSubAccount(account, subAccount)}
                         className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
@@ -1621,53 +2098,87 @@ export const BudgetParametersManagement: React.FC<BudgetParametersManagementProp
   }
 
   return (
-    <div>
-      {/* 顶部操作栏 */}
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h2 className="text-xl font-semibold text-gray-900">预算参数设置</h2>
-          <p className="text-sm text-gray-600 mt-1">
-            {year}年度 • 共 {accounts.length} 个科目
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          {/* 复制上一年度科目按钮 - 仅2026年及以后显示 */}
-          {year >= 2026 && (
-            <button
-              onClick={() => setShowCopyDialog(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
-            >
-              <Copy className="w-4 h-4" />
-              复制上一年度科目
-            </button>
-          )}
-          
-          {/* 新增一级科目按钮 */}
+    <div className="flex flex-col h-full">
+      {/* 固定头部区域 */}
+      <div className="sticky top-0 z-10 bg-white pb-6 border-b border-gray-200 shadow-sm">
+        {/* Tab 切换栏 */}
+        <div className="bg-white rounded-lg shadow-sm p-1 mb-6 inline-flex">
           <button
-            onClick={() => setShowAddDialog(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            onClick={() => setActiveTab('profit-loss')}
+            className={`px-6 py-2 rounded-md font-medium transition-all ${
+              activeTab === 'profit-loss'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
           >
-            <Plus className="w-4 h-4" />
-            新增一级科目
+            损益参数
           </button>
+          <button
+            onClick={() => setActiveTab('payroll')}
+            className={`px-6 py-2 rounded-md font-medium transition-all ${
+              activeTab === 'payroll'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            薪酬核算参数
+          </button>
+        </div>
+
+        {/* 顶部操作栏 */}
+        <div className="flex justify-between items-center">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">
+              {activeTab === 'profit-loss' ? '损益参数设置' : '薪酬核算参数设置'}
+            </h2>
+            <p className="text-sm text-gray-600 mt-1">
+              {year}年度 • 共 {accounts.length} 个科目
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            {/* 复制上一年度科目按钮 - 仅2026年及以后显示 */}
+            {year >= 2026 && (
+              <button
+                onClick={() => setShowCopyDialog(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+              >
+                <Copy className="w-4 h-4" />
+                复制上一年度科目
+              </button>
+            )}
+            
+            {/* 新增一级科目按钮 */}
+            {checkPermission('budget.parameters', 'create') && (
+              <button
+                onClick={() => setShowAddDialog(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                新增一级科目
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* 科目列表 */}
-      <div className="space-y-3">
-        {accounts.length === 0 ? (
-          <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-            <p className="text-gray-500 mb-4">暂无预算科目</p>
-            <button
-              onClick={() => setShowAddDialog(true)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              创建第一个科目
-            </button>
-          </div>
-        ) : (
-          accounts.map((account, index) => renderAccountItem(account, index))
-        )}
+      {/* 可滚动内容区域 */}
+      <div className="flex-1 overflow-y-auto pt-6">
+        {/* 科目列表 */}
+        <div className="space-y-3">
+          {accounts.length === 0 ? (
+            <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+              <p className="text-gray-500 mb-4">暂无预算科目</p>
+              <button
+                onClick={() => setShowAddDialog(true)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                创建第一个科目
+              </button>
+            </div>
+          ) : (
+            accounts.map((account, index) => renderAccountItem(account, index))
+          )}
+        </div>
       </div>
 
       {/* 新增科目对话框 */}
@@ -1690,6 +2201,9 @@ export const BudgetParametersManagement: React.FC<BudgetParametersManagementProp
 
       {/* 复制上一年度科目确认对话框 */}
       {renderCopyDialog()}
+
+      {/* 公式编辑对话框 */}
+      {renderFormulaDialog()}
     </div>
   );
 };

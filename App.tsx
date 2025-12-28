@@ -13,6 +13,7 @@ import { PerformanceManagement } from './components/pages/PerformanceManagement'
 import { BusinessManagement } from './components/pages/BusinessManagement';
 import { SystemSettings } from './components/pages/SystemSettings';
 import { AccountSettings } from './components/pages/AccountSettings';
+import IssueManagementPage from './components/IssueManagementPage';
 import { LoginPage } from './components/LoginPage';
 import { WechatBindModal } from './components/WechatBindModal';
 import { MessageCenter } from './components/MessageCenter';
@@ -27,7 +28,7 @@ const devLog = (...args: any[]) => {
   if (isDev) console.log(...args);
 };
 
-type PageType = 'dashboard' | 'tasks' | 'opportunities' | 'projects' | 'goals' | 'budget' | 'meetings' | 'performance' | 'business' | 'settings' | 'account';
+type PageType = 'dashboard' | 'tasks' | 'issues' | 'opportunities' | 'projects' | 'goals' | 'budget' | 'meetings' | 'performance' | 'business' | 'settings' | 'account';
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState<PageType>('dashboard');
@@ -50,15 +51,43 @@ export default function App() {
     setOpenItemId(itemId);
   };
 
-  // 🎨 监听页面变化，自动收起/展开侧边栏
+  // 🎨 智能侧边栏控制：检测页面内容宽度，自动决定是否收起
   useEffect(() => {
-    if (currentPage === 'budget') {
-      // 进入预算管理页面，自动收起侧边栏
-      setSidebarCollapsed(true);
-    } else {
-      // 离开预算管理页面，自动展开侧边栏
-      setSidebarCollapsed(false);
-    }
+    // 延迟检测，确保页面内容已渲染
+    const checkContentWidth = () => {
+      setTimeout(() => {
+        // 查找所有可能需要横向滚动的容器
+        const scrollContainers = document.querySelectorAll('.overflow-x-auto');
+        let needsCollapse = false;
+
+        scrollContainers.forEach((container) => {
+          const element = container as HTMLElement;
+          // 检查是否真的需要滚动(内容宽度 > 容器宽度)
+          if (element.scrollWidth > element.clientWidth) {
+            needsCollapse = true;
+          }
+        });
+
+        // 根据检测结果自动调整侧边栏状态
+        if (needsCollapse) {
+          console.log('🔍 检测到横向滚动，收起侧边栏');
+          setSidebarCollapsed(true);
+        } else {
+          console.log('🔍 无需横向滚动，展开侧边栏');
+          setSidebarCollapsed(false);
+        }
+      }, 300); // 增加延迟时间，确保内容完全渲染
+    };
+
+    // 页面切换时检测
+    checkContentWidth();
+
+    // 监听窗口大小变化
+    window.addEventListener('resize', checkContentWidth);
+
+    return () => {
+      window.removeEventListener('resize', checkContentWidth);
+    };
   }, [currentPage]);
 
   // 🎯 步骤1: 确保 CloudBase 认证完成
@@ -256,6 +285,8 @@ export default function App() {
             setOpenItemId(undefined);  // 🔧 打开后清除ID
           }}
         />;
+      case 'issues':
+        return <IssueManagementPage />;
       case 'opportunities':
         return <OpportunityManagement 
           userRole={currentUser?.role} 
@@ -336,7 +367,7 @@ export default function App() {
         {/* 主内容区 */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* 页面内容 */}
-          <main className="flex-1 overflow-auto">
+          <main className="flex-1 overflow-auto main-content-container">
             {renderPage()}
           </main>
         </div>

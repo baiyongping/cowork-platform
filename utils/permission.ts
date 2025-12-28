@@ -206,7 +206,7 @@ export function checkFunctionPermission(
  * 获取默认权限配置
  */
 function getDefaultPermissions(role: string): FunctionPermission[] {
-  const modules = ['task', 'opportunity', 'project', 'goal', 'account'];
+  const modules = ['tasks', 'opportunities', 'projects', 'goal', 'account', 'issues'];
   
   if (role === 'admin') {
     // 管理员：所有权限
@@ -255,8 +255,13 @@ export async function buildQueryConditions(
   currentUserRole: string,
   db: any
 ): Promise<any> {
+  console.log('🔍 [buildQueryConditions] 开始构建查询条件');
+  console.log('  - currentUserId:', currentUserId);
+  console.log('  - currentUserRole:', currentUserRole);
+  
   // 管理员可以查看所有数据
   if (currentUserRole === 'admin') {
+    console.log('✅ [buildQueryConditions] 检测到admin角色,返回空查询条件（查看所有数据）');
     return {};
   }
 
@@ -265,17 +270,26 @@ export async function buildQueryConditions(
   const currentUser = currentUserResult.data?.[0];
   const isDepartmentLeader = currentUser?.isDepartmentLeader || false;
   
+  console.log('  - isDepartmentLeader:', isDepartmentLeader);
+  
   // 获取用户的下级
   const subordinates = await getAllSubordinates(currentUserId, db);
+  console.log('  - subordinates count:', subordinates.length);
   
   // 获取用户的部门
   const departments = await getUserDepartments(currentUserId, db);
+  console.log('  - departments:', departments);
 
   // 构建查询条件
   const conditions: any[] = [
     { owner: currentUserId }, // 自己创建的
-    { collaborators: currentUserId } // 作为协作人的
+    { createdBy: currentUserId }, // 创建者字段(兼容不同模块)
+    { collaborators: currentUserId }, // 作为协作人的(任务、商机、项目)
   ];
+  
+  // 🔧 问题管理模块：添加 solvers 条件(如果存在)
+  // 使用独立条件，避免强制要求 solvers 字段
+  conditions.push({ solvers: currentUserId });
 
   // 上级的数据：可以看到所有下级的数据（无条件）
   if (subordinates.length > 0) {
@@ -295,7 +309,10 @@ export async function buildQueryConditions(
     conditions.push({ owner: { $in: deptUserIds } });
   }
 
-  return { $or: conditions };
+  const queryConditions = { $or: conditions };
+  console.log('🎯 [buildQueryConditions] 最终查询条件:', JSON.stringify(queryConditions, null, 2));
+
+  return queryConditions;
 }
 
 /**
@@ -327,3 +344,49 @@ class PermissionCache {
 }
 
 export const permissionCache = new PermissionCache();
+
+/**
+ * 检查问题管理的权限（专用）
+ * @param currentUserId 当前用户ID
+ * @param issue 问题对象
+ * @returns 权限对象
+ * 
+ * 权限规则说明：
+ * 1. 当发起人和解决人是同一人时，权限采用并集方式
+ * 2. isOwner = true 时，拥有编辑问题详情的权限
+ * 3. isSolver = true 时，拥有编辑解决方式和解决结果的权限
+ * 4. 当两个角色重合时，同时拥有两种权限
+ */
+export function checkIssuePermission(currentUserId: string, issue: any) {
+  const isOwner = currentUserId === issue.owner?._id || currentUserId === issue.owner;
+  const isSolver = issue.solvers?.some((s: any) => 
+    (typeof s === 'string' ? s : s._id) === currentUserId
+  );
+  
+  // ✅ 权限并集：当发起人和解决人是同一人时，拥有两种权限
+  const canEditDetails = isOwner; // 发起人可以编辑问题详情
+  const canEditSolution = isSolver; // 解决人可以编辑解决方式和解决结果
+  
+  return {
+    // 是否可以查看
+    canView: true, // 所有有权限的人都可以查看
+    
+    // 是否可以编辑问题详情
+    // ✅ 发起人可以编辑，即使同时是解决人也拥有此权限
+    canEditDetails,
+    
+    // 是否可以编辑解决方式和解决结果
+    // ✅ 解决人可以编辑，即使同时是发起人也拥有此权限
+    canEditSolution,
+    
+    // 是否可以编辑答复与过程（所有有查询权限的人都可以）
+    canComment: true,
+    
+    // 是否可以删除（只有管理员）
+    canDelete: false, // 在组件中单独判断admin角色
+    
+    // 角色标识
+    isOwner,
+    isSolver
+  };
+}
