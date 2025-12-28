@@ -189,7 +189,11 @@ export default function TaskDetailModal({ task, onClose, onEdit, onDelete }: Tas
   const loadUsers = async () => {
     try {
       const result = await db.collection('users')
-        .where({ approvalStatus: 'approved', isActive: true })
+        .where({ 
+          approvalStatus: 'approved', 
+          isActive: true,
+          deleted: db.command.neq(true) // 🔧 过滤已删除用户
+        })
         .get();
       if (result.data) {
         setAllUsers(result.data);

@@ -1,14 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   DollarSign, TrendingUp, Package, Calendar, Users, Settings, FileText, BarChart3,
   AlertCircle, CheckCircle, Clock, Edit, Save
 } from 'lucide-react';
 import { AssetBudgetManagement } from './AssetBudgetManagement';
 import { HRExpenseManagement } from './HRExpenseManagement';
+import { AnnualBudgetManagement } from './AnnualBudgetManagement';
+import { BudgetExecutionManagement } from './BudgetExecutionManagement';
 import { BudgetParametersManagement } from './BudgetParametersManagement';
 import { toast } from 'react-hot-toast';
+import { usePermissionContext } from '../../contexts/PermissionContext';
 
 const BudgetManagement: React.FC = () => {
+  const { checkPermission, loading: permissionLoading } = usePermissionContext();
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [selectedTab, setSelectedTab] = useState<'execution' | 'annual' | 'asset' | 'cashFlow' | 'labor' | 'parameters' | 'sales'>('annual');
@@ -18,15 +22,26 @@ const BudgetManagement: React.FC = () => {
   const [isSavingLabor, setIsSavingLabor] = useState(false);
   const [laborSaveMethod, setLaborSaveMethod] = useState<(() => void) | null>(null);
 
+  // 年度预算编辑状态
+  const [isAnnualEditMode, setIsAnnualEditMode] = useState(false);
+  const [isSavingAnnual, setIsSavingAnnual] = useState(false);
+  const [annualSaveMethod, setAnnualSaveMethod] = useState<(() => Promise<void>) | null>(null);
+
+  // 预算执行编辑状态
+  const [isExecutionEditMode, setIsExecutionEditMode] = useState(false);
+  const [isSavingExecution, setIsSavingExecution] = useState(false);
+  const [executionSaveMethod, setExecutionSaveMethod] = useState<(() => Promise<void>) | null>(null);
+
   // 年度选择器
   const years = [2025, 2026, 2027, 2028, 2029, 2030];
 
   // Tab配置 - 每个Tab配置独特的颜色主题
-  const tabs = [
+  const allTabs = [
     { 
       id: 'annual', 
       label: '年度预算', 
       icon: Calendar,
+      permissionKey: 'annual',
       colors: {
         border: 'border-green-500',
         text: 'text-green-600',
@@ -39,6 +54,7 @@ const BudgetManagement: React.FC = () => {
       id: 'execution', 
       label: '预算执行', 
       icon: BarChart3,
+      permissionKey: 'execution',
       colors: {
         border: 'border-blue-500',
         text: 'text-blue-600',
@@ -51,6 +67,7 @@ const BudgetManagement: React.FC = () => {
       id: 'asset', 
       label: '资产预算', 
       icon: Package,
+      permissionKey: 'asset',
       colors: {
         border: 'border-purple-500',
         text: 'text-purple-600',
@@ -61,8 +78,9 @@ const BudgetManagement: React.FC = () => {
     },
     { 
       id: 'cashFlow', 
-      label: '现金流预测', 
+      label: '现金流管理', 
       icon: DollarSign,
+      permissionKey: 'execution', // 现金流管理归属于预算执行
       colors: {
         border: 'border-yellow-500',
         text: 'text-yellow-600',
@@ -73,8 +91,9 @@ const BudgetManagement: React.FC = () => {
     },
     { 
       id: 'labor', 
-      label: '人力费用预算', 
+      label: '薪酬预算', 
       icon: Users,
+      permissionKey: 'hr',
       colors: {
         border: 'border-orange-500',
         text: 'text-orange-600',
@@ -87,6 +106,7 @@ const BudgetManagement: React.FC = () => {
       id: 'parameters', 
       label: '预算参数', 
       icon: Settings,
+      permissionKey: 'parameters',
       colors: {
         border: 'border-pink-500',
         text: 'text-pink-600',
@@ -96,6 +116,22 @@ const BudgetManagement: React.FC = () => {
       }
     }
   ];
+
+  // 根据权限过滤可见的tabs
+  const tabs = allTabs.filter(tab => {
+    if (permissionLoading) return true; // 加载中时显示所有tabs
+    return checkPermission(`budget.${tab.permissionKey}`, 'view');
+  });
+
+  // 确保选中的tab有权限访问
+  useEffect(() => {
+    if (!permissionLoading && tabs.length > 0) {
+      const currentTabHasPermission = tabs.some(tab => tab.id === selectedTab);
+      if (!currentTabHasPermission) {
+        setSelectedTab(tabs[0].id as any);
+      }
+    }
+  }, [permissionLoading, selectedTab, tabs]);
 
   // 预算执行 - 指标卡片数据
   const executionMetrics = [
@@ -343,49 +379,135 @@ const BudgetManagement: React.FC = () => {
 
         {/* Tab内容 */}
         <div className="p-6">
-          {selectedTab === 'execution' && renderExecutionView()}
-          {selectedTab === 'annual' && (
-            <div className="bg-gradient-to-r from-cyan-50 to-cyan-50 rounded-lg p-6 border-l-4 border-l-cyan-500">
-              {renderPlaceholderView('年度预算编制', '创建和管理企业年度预算计划')}
-            </div>
-          )}
-          {selectedTab === 'asset' && <AssetBudgetManagement year={selectedYear} />}
-          {selectedTab === 'cashFlow' && (
-            <div className="bg-gradient-to-r from-teal-50 to-teal-50 rounded-lg p-6 border-l-4 border-l-teal-500">
-              {renderPlaceholderView('现金流预测', '预测和监控企业现金流状况')}
-            </div>
-          )}
-          {selectedTab === 'labor' && (
+          {selectedTab === 'execution' && (
             <div>
               {/* 编辑/保存按钮 */}
-              <div className="flex justify-end mb-4">
-                {!isLaborEditMode ? (
-                  <button
-                    onClick={() => setIsLaborEditMode(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    <Edit className="w-4 h-4" />
+              {checkPermission('budget.execution', 'edit') && (
+                <div className="flex justify-end mb-4">
+                  {!isExecutionEditMode ? (
+                    <button
+                      onClick={() => setIsExecutionEditMode(true)}
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      <Edit className="w-4 h-4" />
+                      编辑预算执行
+                    </button>
+                  ) : (
+                    <button
+                      onClick={async () => {
+                        if (executionSaveMethod) {
+                          setIsSavingExecution(true);
+                          await executionSaveMethod();
+                          setIsSavingExecution(false);
+                          setIsExecutionEditMode(false);
+                          toast.success('保存成功');
+                        }
+                      }}
+                      disabled={isSavingExecution}
+                      className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Save className="w-4 h-4" />
+                      {isSavingExecution ? '保存中...' : '保存'}
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* 预算执行组件 */}
+              <BudgetExecutionManagement
+                selectedYear={selectedYear}
+                isEditMode={isExecutionEditMode}
+                onEditModeChange={setIsExecutionEditMode}
+                onSavingChange={setIsSavingExecution}
+                onSaveMethodReady={(method) => setExecutionSaveMethod(() => method)}
+              />
+            </div>
+          )}
+          {selectedTab === 'annual' && (
+            <div>
+              {/* 编辑/保存按钮 */}
+              {checkPermission('budget.annual', 'edit') && (
+                <div className="flex justify-end mb-4">
+                  {!isAnnualEditMode ? (
+                    <button
+                      onClick={() => setIsAnnualEditMode(true)}
+                      className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                    >
+                      <Edit className="w-4 h-4" />
                     编辑预算
                   </button>
                 ) : (
                   <button
                     onClick={async () => {
-                      if (laborSaveMethod) {
-                        setIsSavingLabor(true);
-                        await laborSaveMethod();
-                        setIsSavingLabor(false);
-                        setIsLaborEditMode(false);
+                      if (annualSaveMethod) {
+                        setIsSavingAnnual(true);
+                        await annualSaveMethod();
+                        setIsSavingAnnual(false);
+                        setIsAnnualEditMode(false);
                         toast.success('保存成功');
                       }
                     }}
-                    disabled={isSavingLabor}
+                    disabled={isSavingAnnual}
                     className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Save className="w-4 h-4" />
-                    {isSavingLabor ? '保存中...' : '保存'}
+                    {isSavingAnnual ? '保存中...' : '保存'}
                   </button>
                 )}
               </div>
+              )}
+
+              {/* 年度预算组件 */}
+              <AnnualBudgetManagement
+                selectedYear={selectedYear}
+                isEditMode={isAnnualEditMode}
+                onEditModeChange={setIsAnnualEditMode}
+                onSavingChange={setIsSavingAnnual}
+                onSaveMethodReady={(method) => setAnnualSaveMethod(() => method)}
+              />
+            </div>
+          )}
+          {selectedTab === 'asset' && <AssetBudgetManagement year={selectedYear} />}
+          {selectedTab === 'cashFlow' && (
+            <div className="bg-gradient-to-r from-teal-50 to-teal-50 rounded-lg p-6 border-l-4 border-l-teal-500">
+              {renderPlaceholderView('现金流管理', '预测和监控企业现金流状况')}
+            </div>
+          )}
+          {selectedTab === 'labor' && (
+            <div>
+              {/* 编辑/保存按钮 */}
+              {checkPermission('budget.hr', 'edit') && (
+                <div className="flex justify-end mb-4">
+                  {!isLaborEditMode ? (
+                    <button
+                      onClick={() => setIsLaborEditMode(true)}
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      <Edit className="w-4 h-4" />
+                      编辑预算
+                    </button>
+                  ) : (
+                    <button
+                      onClick={async () => {
+                        if (laborSaveMethod) {
+                          try {
+                            await laborSaveMethod();
+                            toast.success('保存成功');
+                          } catch (error) {
+                            console.error('❌ 保存失败:', error);
+                            // toast.error 已经在 saveMethod 内部调用过了
+                          }
+                        }
+                      }}
+                      disabled={isSavingLabor}
+                      className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Save className="w-4 h-4" />
+                      {isSavingLabor ? '保存中...' : '保存'}
+                    </button>
+                  )}
+                </div>
+              )}
               
               {/* 人力费用管理组件 */}
               <HRExpenseManagement 

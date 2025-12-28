@@ -254,7 +254,9 @@ export function Dashboard({ userRole, currentUser, onLogout }: DashboardProps) {
         }).orderBy('endDate', 'asc').limit(10).get(),
         
         // 用户信息（用于显示负责人姓名）
-        db.collection('users').get(),
+        db.collection('users').where({
+          deleted: db.command.neq(true)
+        }).get(),
         
         // 我的所有未完成任务（用于重点关注计算）
         db.collection('tasks').where({

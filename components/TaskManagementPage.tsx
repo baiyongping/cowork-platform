@@ -23,6 +23,7 @@ export default function TaskManagementPage({ openTaskId, onTaskOpened }: TaskMan
   const [timeFilter, setTimeFilter] = useState<'all' | 'thisWeek' | 'thisMonth' | 'nextWeek' | 'nextMonth'>('all');
   const [searchKeyword, setSearchKeyword] = useState('');
   const [taskStatuses, setTaskStatuses] = useState<string[]>([]);
+  const [taskTypes, setTaskTypes] = useState<string[]>([]);  // 🆕 任务类型状态
   
   // 使用新权限系统
   const { checkPermission } = usePermissionContext();
@@ -46,6 +47,7 @@ export default function TaskManagementPage({ openTaskId, onTaskOpened }: TaskMan
   useEffect(() => {
     loadCurrentUser();
     loadTaskStatuses();
+    loadTaskTypes();  // 🆕 加载任务类型
     loadTasks();
   }, []);
   
@@ -91,6 +93,28 @@ export default function TaskManagementPage({ openTaskId, onTaskOpened }: TaskMan
     } catch (error) {
       console.error('加载任务状态配置失败:', error);
       setTaskStatuses(['未开始', '进行中', '已完成', '延期', '取消', '暂停']);
+    }
+  };
+
+  // 🆕 加载任务类型配置
+  const loadTaskTypes = async () => {
+    try {
+      const result = await db.collection('type_settings')
+        .where({ type: 'taskType' })
+        .get();
+      
+      if (result.data && result.data.length > 0) {
+        const typeConfig = result.data[0];
+        const typeValues = (typeConfig.values || [])
+          .filter((item: any) => item.enabled !== false)
+          .map((item: any) => typeof item === 'string' ? item : item.value);
+        setTaskTypes(typeValues.length > 0 ? typeValues : ['日常工作', '商机跟进', '项目任务', '采购任务']);
+      } else {
+        setTaskTypes(['日常工作', '商机跟进', '项目任务', '采购任务']);
+      }
+    } catch (error) {
+      console.error('加载任务类型配置失败:', error);
+      setTaskTypes(['日常工作', '商机跟进', '项目任务', '采购任务']);
     }
   };
 
@@ -840,6 +864,7 @@ export default function TaskManagementPage({ openTaskId, onTaskOpened }: TaskMan
           onClose={() => setShowCreateModal(false)}
           onSuccess={handleTaskSuccess}
           taskStatuses={taskStatuses}
+          taskTypes={taskTypes}
         />
       )}
 
@@ -860,6 +885,7 @@ export default function TaskManagementPage({ openTaskId, onTaskOpened }: TaskMan
           onClose={handleCloseEdit}
           onSuccess={handleTaskSuccess}
           taskStatuses={taskStatuses}
+          taskTypes={taskTypes}
         />
       )}
 

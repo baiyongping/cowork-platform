@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Edit2, Save, Trash2, User, UserCircle2, Briefcase, Shield, Calendar, Users, Building2 } from 'lucide-react';
+import { X, Edit2, Save, Trash2, User, UserCircle2, Briefcase, Shield, Calendar, Users, Building2, AlertTriangle } from 'lucide-react';
 import { db } from '../lib/cloudbase';
 import app from '../lib/cloudbase';
 import Drawer from './Drawer';
@@ -48,6 +48,7 @@ export default function EmployeeDetailModal({
 }: EmployeeDetailModalProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [showHandoverConfirm, setShowHandoverConfirm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false); // 🆕 删除确认对话框
   const [editForm, setEditForm] = useState({
     name: '',
     phone: '',
@@ -243,6 +244,43 @@ export default function EmployeeDetailModal({
 
   const supervisorName = allEmployees.find(e => e._id === editForm.supervisorId)?.name || '-';
 
+  // 🆕 放入回收站处理函数
+  const handleMoveToTrash = async () => {
+    try {
+      // 更新用户记录，标记为已删除
+      await db.collection('users').doc(employee._id).update({
+        deleted: true,
+        deletedAt: new Date(),
+        updatedAt: new Date()
+      });
+
+      // 记录操作日志
+      await db.collection('operation_logs').add({
+        userId: employee._id,
+        module: '员工管理',
+        action: '放入回收站',
+        content: `将员工 ${employee.name}(${employee.username}) 放入回收站`,
+        ipAddress: 'unknown',
+        createdAt: new Date()
+      });
+
+      // 提示成功
+      alert('已成功放入回收站');
+      
+      // 关闭删除确认对话框
+      setShowDeleteConfirm(false);
+      
+      // 关闭详情对话框并刷新列表
+      if (onSuccess) {
+        onSuccess();
+      }
+      onClose();
+    } catch (error) {
+      console.error('放入回收站失败:', error);
+      alert('放入回收站失败: ' + (error as any).message);
+    }
+  };
+
   return (
     <>
       {/* 侧边抽屉式详情 */}
@@ -280,12 +318,7 @@ export default function EmployeeDetailModal({
                 编辑
               </button>
               <button
-                onClick={() => {
-                  if (confirm('确定要将此员工放入回收站吗?')) {
-                    // TODO: 实现放入回收站逻辑
-                    alert('放入回收站功能待实现');
-                  }
-                }}
+                onClick={() => setShowDeleteConfirm(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors shadow-sm"
               >
                 <Trash2 className="w-4 h-4" />
@@ -576,6 +609,50 @@ export default function EmployeeDetailModal({
               </button>
               <button
                 onClick={() => setShowHandoverConfirm(false)}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🆕 放入回收站确认弹窗 */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
+                <AlertTriangle className="w-6 h-6 text-orange-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">确认放入回收站</h3>
+            </div>
+            
+            <div className="mb-6 space-y-3">
+              <p className="text-gray-600">
+                确定要将员工 <span className="font-semibold text-gray-900">{employee.name}</span> 放入回收站吗?
+              </p>
+              
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 space-y-2">
+                <p className="text-sm text-orange-800 font-medium">⚠️ 注意事项:</p>
+                <ul className="list-disc list-inside text-sm text-orange-700 space-y-1">
+                  <li>该员工将被标记为已删除状态</li>
+                  <li>在回收站中可以恢复该员工</li>
+                  <li>如需彻底删除,请在回收站中操作</li>
+                </ul>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleMoveToTrash}
+                className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+              >
+                确认放入回收站
+              </button>
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
                 className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 取消

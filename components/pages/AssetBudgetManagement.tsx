@@ -330,8 +330,8 @@ export function AssetBudgetManagement({ year }: AssetBudgetManagementProps) {
 
   // 保存预算
   const handleSave = async () => {
-    // 验证必填字段
-    if (!formData.name || !formData.department || !formData.contactPerson || !formData.purchaseManager || !formData.completionDate) {
+    // 验证必填字段 - 修复: 使用新字段 deliveryDate 替代旧字段 completionDate
+    if (!formData.name || !formData.department || !formData.contactPerson || !formData.purchaseManager || !formData.deliveryDate) {
       toast.error('请填写所有必填字段');
       return;
     }

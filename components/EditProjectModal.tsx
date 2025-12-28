@@ -354,7 +354,9 @@ export default function EditProjectModal({ project, onClose, onSuccess }: EditPr
   const loadUsers = async () => {
     try {
       const result = await db.collection('users').get();
-      setUsers(result.data || []);
+      // 🔧 过滤掉已删除的用户
+      const activeUsers = (result.data || []).filter((user: any) => user.deleted !== true);
+      setUsers(activeUsers);
     } catch (error) {
       console.error('加载用户列表失败:', error);
     }
