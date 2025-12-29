@@ -89,16 +89,23 @@ export function getUserPermissions(user: User, rolePermissions: RolePermission[]
 
   const permissions: any = {};
   
-  console.log('[权限] 开始计算用户权限:', {
-    username: user.username,
-    role: user.role,
-    roles: user.roles,
-    rolePermissionsCount: rolePermissions.length
-  });
+  // 🔇 静默模式:仅在开发环境下输出调试日志
+  const DEBUG = false; // 设置为 true 启用调试日志
+  
+  if (DEBUG) {
+    console.log('[权限] 开始计算用户权限:', {
+      username: user.username,
+      role: user.role,
+      roles: user.roles,
+      rolePermissionsCount: rolePermissions.length
+    });
+  }
 
   // 方式1(新): 通过 user.roles 数组查找权限 (优先使用)
   if (user.roles && Array.isArray(user.roles) && user.roles.length > 0) {
-    console.log('[权限] 使用 user.roles 数组匹配权限:', user.roles);
+    if (DEBUG) {
+      console.log('[权限] 使用 user.roles 数组匹配权限:', user.roles);
+    }
     
     // 从 role_permissions 表中查找匹配的角色配置
     // 匹配规则: rolePermission._id 在 user.roles 数组中 或 rolePermission.role 在 user.roles 数组中
@@ -106,11 +113,13 @@ export function getUserPermissions(user: User, rolePermissions: RolePermission[]
       user.roles!.includes(rp._id) || user.roles!.includes(rp.role)
     );
     
-    console.log('[权限] 通过 user.roles 匹配到的角色:', matchedRoles.map(r => ({
-      name: r.name,
-      role: r.role,
-      _id: r._id
-    })));
+    if (DEBUG) {
+      console.log('[权限] 通过 user.roles 匹配到的角色:', matchedRoles.map(r => ({
+        name: r.name,
+        role: r.role,
+        _id: r._id
+      })));
+    }
     
     if (matchedRoles.length > 0) {
       // 合并多个角色的权限 (取并集,只要有一个角色有权限就返回true)
@@ -151,23 +160,31 @@ export function getUserPermissions(user: User, rolePermissions: RolePermission[]
         }
       });
       
-      console.log('[权限] 最终权限:', permissions);
+      if (DEBUG) {
+        console.log('[权限] 最终权限:', permissions);
+      }
       return permissions;
     }
     
-    console.warn('[权限] user.roles 数组不为空,但未匹配到任何角色权限');
+    if (DEBUG) {
+      console.warn('[权限] user.roles 数组不为空,但未匹配到任何角色权限');
+    }
   }
   
   // 方式2(旧): 通过 user.role 字段查找权限 (兼容旧数据)
   if (user.role && user.role !== '') {
-    console.log('[权限] 使用 user.role 字段匹配权限:', user.role);
+    if (DEBUG) {
+      console.log('[权限] 使用 user.role 字段匹配权限:', user.role);
+    }
     const matchedByRole = rolePermissions.filter(rp => rp.role === user.role);
     
-    console.log('[权限] 通过 user.role 匹配到的角色:', matchedByRole.map(r => ({
-      name: r.name,
-      role: r.role,
-      _id: r._id
-    })));
+    if (DEBUG) {
+      console.log('[权限] 通过 user.role 匹配到的角色:', matchedByRole.map(r => ({
+        name: r.name,
+        role: r.role,
+        _id: r._id
+      })));
+    }
     
     if (matchedByRole.length > 0) {
       matchedByRole.forEach(rp => {
@@ -188,21 +205,27 @@ export function getUserPermissions(user: User, rolePermissions: RolePermission[]
         }
       });
 
-      console.log('[权限] 最终权限:', permissions);
+      if (DEBUG) {
+        console.log('[权限] 最终权限:', permissions);
+      }
       return permissions;
     }
     
     // v2.2.0: 检测到使用了废弃的'user'角色
     if (user.role === 'user') {
-      console.error('[权限] ⚠️ 检测到用户使用废弃的"user"角色,该角色已被删除!');
-      console.error('[权限] 💡 解决方法: 请管理员为该用户分配正确的角色(roles数组)');
+      if (DEBUG) {
+        console.error('[权限] ⚠️ 检测到用户使用废弃的"user"角色,该角色已被删除!');
+        console.error('[权限] 💡 解决方法: 请管理员为该用户分配正确的角色(roles数组)');
+      }
       return {};
     }
   }
   
   // 没有任何角色配置
-  console.warn('[权限] ⚠️ 用户没有任何角色配置 (role为空且roles数组为空或不存在)');
-  console.warn('[权限] 💡 解决方法: 请管理员为该用户分配角色');
+  if (DEBUG) {
+    console.warn('[权限] ⚠️ 用户没有任何角色配置 (role为空且roles数组为空或不存在)');
+    console.warn('[权限] 💡 解决方法: 请管理员为该用户分配角色');
+  }
   return permissions;
 }
 

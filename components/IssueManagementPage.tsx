@@ -480,8 +480,49 @@ export default function IssueManagementPage() {
         <IssueDetailModal
           issue={selectedIssue}
           onClose={() => setSelectedIssue(null)}
-          onUpdate={() => {
-            loadIssues();
+          onUpdate={async () => {
+            // 重新加载列表
+            await loadIssues();
+            // 重新查询当前问题的最新数据
+            try {
+              const result = await db.collection('issues').doc(selectedIssue._id).get();
+              if (result.data && Array.isArray(result.data) && result.data.length > 0) {
+                const issueData = result.data[0] as Issue;
+                
+                // 查询关联的用户信息
+                if (issueData.owner && typeof issueData.owner === 'string') {
+                  try {
+                    const ownerResult = await db.collection('users').doc(issueData.owner).get();
+                    if (ownerResult.data && Array.isArray(ownerResult.data) && ownerResult.data.length > 0) {
+                      issueData.owner = ownerResult.data[0] as any;
+                    }
+                  } catch (err) {
+                    console.error('查询发起人信息失败:', err);
+                  }
+                }
+                
+                // 查询问题解决人信息
+                if (issueData.solvers && Array.isArray(issueData.solvers) && issueData.solvers.length > 0) {
+                  try {
+                    const solverIds = issueData.solvers.filter(s => typeof s === 'string') as string[];
+                    if (solverIds.length > 0) {
+                      const solversResult = await db.collection('users')
+                        .where({ _id: db.command.in(solverIds) })
+                        .get();
+                      if (solversResult.data && Array.isArray(solversResult.data)) {
+                        issueData.solvers = solversResult.data as any;
+                      }
+                    }
+                  } catch (err) {
+                    console.error('查询问题解决人信息失败:', err);
+                  }
+                }
+                
+                setSelectedIssue(issueData);
+              }
+            } catch (error) {
+              console.error('刷新问题详情失败:', error);
+            }
           }}
           onEdit={() => {
             setEditingIssue(selectedIssue);

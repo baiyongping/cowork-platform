@@ -24,6 +24,10 @@ function IssueDetailModal({ issue, onClose, onUpdate, onEdit }: IssueDetailModal
   const [issueType, setIssueType] = useState<IssueType | null>(issue.type);
   const [error, setError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  
+  // 解决方式和解决结果的选项
+  const [solutionOptions, setSolutionOptions] = useState<string[]>([]);
+  const [resultOptions, setResultOptions] = useState<string[]>([]);
 
   // 获取当前用户ID - 支持 _id 和 userId 两种字段
   const getCurrentUserId = () => {
@@ -43,6 +47,8 @@ function IssueDetailModal({ issue, onClose, onUpdate, onEdit }: IssueDetailModal
     if (issue.type) {
       loadIssueType();
     }
+    loadSolutionOptions();
+    loadResultOptions();
   }, [issue.type]); // Only reload when type changes
 
   useEffect(() => {
@@ -64,6 +70,50 @@ function IssueDetailModal({ issue, onClose, onUpdate, onEdit }: IssueDetailModal
     } catch (error) {
       console.error('加载问题类型失败:', error);
       setError('加载问题类型失败,请刷新重试');
+    }
+  };
+
+  // 加载解决方式选项
+  const loadSolutionOptions = async () => {
+    try {
+      const result = await db.collection('type_settings')
+        .where({ type: 'issueSolution' })
+        .get();
+      
+      if (result.data && result.data.length > 0) {
+        const config = result.data[0];
+        const values = (config.values || [])
+          .filter((item: any) => item.enabled !== false)
+          .map((item: any) => typeof item === 'string' ? item : item.value);
+        setSolutionOptions(values.length > 0 ? values : ['现场解决', '电话解决', '会议解决', '其他']);
+      } else {
+        setSolutionOptions(['现场解决', '电话解决', '会议解决', '其他']);
+      }
+    } catch (error) {
+      console.error('加载解决方式配置失败:', error);
+      setSolutionOptions(['现场解决', '电话解决', '会议解决', '其他']);
+    }
+  };
+
+  // 加载解决结果选项
+  const loadResultOptions = async () => {
+    try {
+      const result = await db.collection('type_settings')
+        .where({ type: 'issueResult' })
+        .get();
+      
+      if (result.data && result.data.length > 0) {
+        const config = result.data[0];
+        const values = (config.values || [])
+          .filter((item: any) => item.enabled !== false)
+          .map((item: any) => typeof item === 'string' ? item : item.value);
+        setResultOptions(values.length > 0 ? values : ['未确定', '已解决', '无法解决', '暂缓解决', '取消']);
+      } else {
+        setResultOptions(['未确定', '已解决', '无法解决', '暂缓解决', '取消']);
+      }
+    } catch (error) {
+      console.error('加载解决结果配置失败:', error);
+      setResultOptions(['未确定', '已解决', '无法解决', '暂缓解决', '取消']);
     }
   };
 
@@ -155,6 +205,42 @@ function IssueDetailModal({ issue, onClose, onUpdate, onEdit }: IssueDetailModal
     }
   };
 
+  // 更新解决方式
+  const handleUpdateSolution = async (newSolution: string) => {
+    try {
+      await db.collection('issues').doc(issue._id).update({
+        solution: newSolution,
+        updatedAt: new Date().toISOString()
+      });
+      onUpdate();
+    } catch (error) {
+      console.error('更新解决方式失败:', error);
+      setError('更新解决方式失败，请重试');
+    }
+  };
+
+  // 更新解决结果
+  const handleUpdateResult = async (newResult: string) => {
+    try {
+      await db.collection('issues').doc(issue._id).update({
+        result: newResult,
+        updatedAt: new Date().toISOString()
+      });
+      onUpdate();
+    } catch (error) {
+      console.error('更新解决结果失败:', error);
+      setError('更新解决结果失败，请重试');
+    }
+  };
+
+  // 检查当前用户是否是解决人
+  const isSolver = issue.solvers && issue.solvers.some(solver => {
+    if (typeof solver === 'string') {
+      return solver === userId;
+    }
+    return solver._id === userId;
+  });
+
   if (!canView) {
     return (
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
@@ -184,7 +270,7 @@ function IssueDetailModal({ issue, onClose, onUpdate, onEdit }: IssueDetailModal
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="text-xl font-bold text-gray-900 truncate">
-              {issue.name}
+              {issue.name === 'Invalid Date' || !issue.name ? '未命名问题' : issue.name}
             </h3>
             <div className="flex items-center gap-2 mt-1">
               <span className={`px-2 py-1 text-xs rounded-full font-medium ${
@@ -315,7 +401,9 @@ function IssueDetailModal({ issue, onClose, onUpdate, onEdit }: IssueDetailModal
                 发起人
               </label>
               <div className="px-3 py-1.5 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-full inline-flex">
-                <span className="text-sm font-medium text-gray-900">{issue.owner.name || '未知用户'}</span>
+                <span className="text-sm font-medium text-gray-900">
+                  {issue.owner && typeof issue.owner === 'object' ? issue.owner.name : '未知用户'}
+                </span>
               </div>
             </div>
 
@@ -344,21 +432,56 @@ function IssueDetailModal({ issue, onClose, onUpdate, onEdit }: IssueDetailModal
             {/* 解决方式 */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">解决方式</label>
-              <span className="px-3 py-1 bg-green-50 text-green-700 rounded-full font-medium">
-                {issue.solution || '未设置'}
-              </span>
+              {isSolver ? (
+                <select
+                  value={issue.solution || ''}
+                  onChange={(e) => handleUpdateSolution(e.target.value)}
+                  className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-900 hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors cursor-pointer"
+                >
+                  <option value="">未设置</option>
+                  {solutionOptions.map(option => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </select>
+              ) : (
+                <span className="px-3 py-1 bg-green-50 text-green-700 rounded-full font-medium">
+                  {issue.solution || '未设置'}
+                </span>
+              )}
             </div>
 
             {/* 解决结果 */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">解决结果</label>
-              <span className={`px-3 py-1 rounded-full font-medium ${
-                issue.result === '已解决' ? 'bg-green-50 text-green-700' :
-                !issue.result ? 'bg-gray-50 text-gray-700' :
-                'bg-red-50 text-red-700'
-              }`}>
-                {issue.result || '未确定'}
-              </span>
+              {isSolver ? (
+                <select
+                  value={issue.result || ''}
+                  onChange={(e) => handleUpdateResult(e.target.value)}
+                  className={`px-3 py-1.5 border rounded-lg text-sm font-medium transition-colors cursor-pointer focus:outline-none focus:ring-2 ${
+                    issue.result === '已解决' 
+                      ? 'bg-green-50 text-green-700 border-green-300 hover:border-green-400 focus:ring-green-500' 
+                      : issue.result === '暂缓解决'
+                      ? 'bg-yellow-50 text-yellow-700 border-yellow-300 hover:border-yellow-400 focus:ring-yellow-500'
+                      : issue.result === '无法解决'
+                      ? 'bg-red-50 text-red-700 border-red-300 hover:border-red-400 focus:ring-red-500'
+                      : 'bg-gray-50 text-gray-700 border-gray-300 hover:border-gray-400 focus:ring-gray-500'
+                  }`}
+                >
+                  <option value="">未确定</option>
+                  {resultOptions.map(option => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </select>
+              ) : (
+                <span className={`px-3 py-1 rounded-full font-medium ${
+                  issue.result === '已解决' ? 'bg-green-50 text-green-700' :
+                  issue.result === '暂缓解决' ? 'bg-yellow-50 text-yellow-700' :
+                  issue.result === '无法解决' ? 'bg-red-50 text-red-700' :
+                  'bg-gray-50 text-gray-700'
+                }`}>
+                  {issue.result || '未确定'}
+                </span>
+              )}
             </div>
 
             {/* 公开性 */}

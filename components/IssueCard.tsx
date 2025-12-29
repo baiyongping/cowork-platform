@@ -33,7 +33,9 @@ export default function IssueCard({ issue, onView }: IssueCardProps) {
       {/* 问题名称 */}
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
-          <span className="font-medium text-gray-900">{issue.name}</span>
+          <span className="font-medium text-gray-900">
+            {issue.name === 'Invalid Date' || !issue.name ? '未命名问题' : issue.name}
+          </span>
           {isOverdue && (
             <span className="px-2 py-0.5 text-xs font-medium text-red-700 bg-red-50 rounded-full flex items-center gap-1">
               <AlertCircle className="w-3 h-3" />

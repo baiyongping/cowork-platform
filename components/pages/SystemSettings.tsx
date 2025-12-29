@@ -3618,7 +3618,10 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                         opportunities: '商机管理',
                         projects: '项目管理',
                         goal: '目标管理',
+<<<<<<< HEAD
                         issues: '问题管理',
+=======
+>>>>>>> 5372b260f97be4d365db3bfd71fb049296341309
                         budget: '预算管理',
                         settings: '系统设置'
                       }).map(([key, label]) => {
@@ -5036,7 +5039,10 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                           opportunities: '商机管理',
                           projects: '项目管理',
                           goal: '目标管理',
+<<<<<<< HEAD
                           issues: '问题管理',
+=======
+>>>>>>> 5372b260f97be4d365db3bfd71fb049296341309
                           budget: '预算管理',
                           settings: '系统设置'
                         }).map(([key, label]) => {
@@ -5505,7 +5511,10 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                           opportunities: '商机管理',
                           projects: '项目管理',
                           goal: '目标管理',
+<<<<<<< HEAD
                           issues: '问题管理',
+=======
+>>>>>>> 5372b260f97be4d365db3bfd71fb049296341309
                           budget: '预算管理',
                           settings: '系统设置'
                         }).map(([key, label]) => {

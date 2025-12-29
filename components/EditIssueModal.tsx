@@ -428,11 +428,9 @@ export default function EditIssueModal({
                     className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent ${!permission.canEditSolution ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                   >
                     <option value="">请选择解决方式</option>
-                    <option value="自己解决">自己解决</option>
-                    <option value="协同解决">协同解决</option>
-                    <option value="他人解决">他人解决</option>
-                    <option value="部门解决">部门解决</option>
-                    <option value="外部解决">外部解决</option>
+                    <option value="现在解决">现在解决</option>
+                    <option value="会议研讨解决">会议研讨解决</option>
+                    <option value="转交他人解决">转交他人解决</option>
                   </select>
                 </div>
 
@@ -445,11 +443,11 @@ export default function EditIssueModal({
                     className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent ${!permission.canEditSolution ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                   >
                     <option value="">请选择解决结果</option>
+                    <option value="未确定">未确定</option>
                     <option value="已解决">已解决</option>
-                    <option value="部分解决">部分解决</option>
-                    <option value="未解决">未解决</option>
-                    <option value="待确认">待确认</option>
-                    <option value="无需解决">无需解决</option>
+                    <option value="无法解决">无法解决</option>
+                    <option value="暂缓解决">暂缓解决</option>
+                    <option value="取消">取消</option>
                   </select>
                 </div>
               </div>

@@ -4,6 +4,8 @@ export type IssueStatus = '待接收' | '处理中' | '已处理' | '待确认' 
 export type IssueResult = '未确定' | '已解决' | '无法解决' | '暂缓解决' | '取消';
 export type IssuePriority = '非常重要' | '一般重要';
 export type IssueUrgency = '及时解决' | '近期解决';
+
+// 解决方式类型
 export type IssueSolution = '现在解决' | '会议研讨解决' | '转交他人解决';
 
 // 附件信息
