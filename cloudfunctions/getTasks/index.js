@@ -29,10 +29,19 @@ exports.main = async (event, context) => {
     // 2. 查询用户的任务
     const tasksRes = await db.collection('tasks')
       .where({
-        isDeleted: false,
+        // 🔧 修复查询条件: isDeleted 为 false 或不存在
         $or: [
-          { owner: userId },
-          { collaborators: userId }
+          { isDeleted: false },
+          { isDeleted: _.exists(false) }
+        ],
+        // 用户权限: owner 或 collaborators
+        $and: [
+          {
+            $or: [
+              { owner: userId },
+              { collaborators: userId }
+            ]
+          }
         ]
       })
       .orderBy('createdAt', 'desc')

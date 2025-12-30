@@ -1,4 +1,4 @@
-import { db, auth, ensureAuth } from './cloudbase';
+import { db, auth, ensureAuth, app } from './cloudbase';
 import { sendVerificationCodeSms } from './sms-service';
 
 // 密码加密密钥（与初始化脚本保持一致）
@@ -7,6 +7,10 @@ const SECRET_KEY = 'jihua-oa-platform-secret-key-2025';
 // 确保CloudBase已认证（调用 cloudbase.ts 中的认证函数）
 async function ensureCloudBaseAuth() {
   try {
+    // ✅ 关键修复：注册时需要清除退出标记，允许重新认证
+    const { clearLogoutFlag } = await import('./cloudbase');
+    clearLogoutFlag();
+    
     await ensureAuth();
     console.log('✓ CloudBase 认证已完成');
   } catch (error) {
@@ -17,22 +21,26 @@ async function ensureCloudBaseAuth() {
 
 // SHA-256密码哈希函数（与初始化脚本保持一致）
 async function hashPassword(password: string): Promise<string> {
-  // 优先使用 crypto.subtle（HTTPS 或 localhost）
-  if (crypto && crypto.subtle) {
-    try {
-      const encoder = new TextEncoder();
-      const data = encoder.encode(password + SECRET_KEY);
-      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-    } catch (error) {
-      console.error('❌ crypto.subtle 加密失败，回退到 JS 实现:', error);
+  // 🔒 强制使用云函数加密，确保前后端算法完全一致
+  console.log('🔐 使用云函数加密密码...');
+  
+  // 确保 CloudBase 已完成认证
+  await ensureAuth();
+  
+  const result = await app.callFunction({
+    name: 'user-management',
+    data: {
+      action: 'hashPassword',
+      password: password
     }
+  });
+  
+  if (!result.result || !result.result.success) {
+    throw new Error('密码加密失败');
   }
   
-  // ❌ 纯 JS SHA-256 实现有问题，导致登录失败
-  // 解决方案：强制使用 HTTPS 或 localhost，或者使用已验证的外部库
-  throw new Error('请使用 HTTPS 访问系统，或在 localhost 环境下运行');
+  console.log('✅ 密码加密成功:', result.result.hash.substring(0, 8) + '...');
+  return result.result.hash;
 }
 
 
@@ -50,14 +58,20 @@ export interface UserData {
 export interface LoginResult {
   success: boolean;
   message: string;
+  userId?: string; // 添加 userId 字段支持
   user?: {
     userId: string;
     username: string;
     name: string;
     email: string;
     role: string;
+    roles?: string[]; // 添加 roles 数组支持
+    departments?: string[]; // 添加 departments 数组支持
     department: string;
     avatar: string;
+    position?: string; // 添加职务
+    supervisorId?: string; // 添加上级ID
+    status?: string; // 添加状态
   };
   token?: string;
 }
@@ -73,6 +87,10 @@ export async function sendVerificationCode(phone: string): Promise<{ success: bo
       return { success: false, message: '手机号格式不正确' };
     }
 
+    // ✅ 关键修复：发送验证码时清除退出标记，允许重新认证
+    const { clearLogoutFlag } = await import('./cloudbase');
+    clearLogoutFlag();
+    
     // 确保CloudBase已认证
     await ensureCloudBaseAuth();
 
@@ -113,7 +131,7 @@ export async function sendVerificationCode(phone: string): Promise<{ success: bo
       return { 
         success: true, 
         message: `验证码已生成: ${code}`,
-        code // 返回验证码供前端使用
+        verificationCode: code // 返回验证码供前端使用
       };
     }
     
@@ -234,7 +252,7 @@ export async function register(userData: UserData): Promise<LoginResult> {
       return { success: false, message: '查询失败，请稍后重试' };
     }
     if (existingUser.data && existingUser.data.length > 0) {
-      return { success: false, message: '用户名已存在' };
+      return { success: false, message: '用户名已被使用，请更换其他用户名' };
     }
 
     // 检查手机号是否已存在
@@ -309,13 +327,9 @@ export async function register(userData: UserData): Promise<LoginResult> {
  */
 export async function login(username: string, password: string): Promise<LoginResult> {
   try {
-    // 🎯 确保CloudBase已认证，并验证登录状态
-    await ensureCloudBaseAuth();
-    
-    const loginState = await auth.getLoginState();
-    if (!loginState || !loginState.user?.uid) {
-      return { success: false, message: '系统认证失败，请刷新页面重试' };
-    }
+    // ✅ 修复：登录时不需要检查认证状态，这是用户登录前的操作
+    // 🔧 确保CloudBase SDK已初始化即可
+    await ensureAuth();
     
     if (!username || !password) {
       return { success: false, message: '用户名和密码不能为空' };

@@ -366,8 +366,11 @@ export function AccountSettings({ currentUser, onUserUpdate, onNavigate }: Accou
         // 重置表单
         setPhoneForm({ newPhone: '', verificationCode: '' });
         
-        // 返回基本信息页面
-        setActiveTab('info');
+        // 关闭弹窗
+        setEditingField(null);
+        
+        // 重新加载用户信息
+        await loadUserInfoFromDB();
       } else {
         toast.error(result.message);
       }
@@ -1056,97 +1059,104 @@ export function AccountSettings({ currentUser, onUserUpdate, onNavigate }: Accou
         </div>
       )}
 
-      {/* 修改手机号 */}
-      {activeTab === 'phone' && (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="bg-gradient-to-r from-purple-50 to-pink-50 px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900">修改手机号</h3>
-            <p className="text-sm text-gray-600 mt-1">更换您的账户绑定手机号</p>
-          </div>
-          
-          <div className="p-6">
-            <div className="mb-6 p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-white shadow-sm flex items-center justify-center">
-                  <Phone className="w-6 h-6 text-gray-700" />
-                </div>
-                <div>
-                  <span className="text-sm text-gray-600">当前手机号</span>
-                  <p className="text-lg font-semibold text-gray-900">{userInfo.username || '未设置'}</p>
-                </div>
-              </div>
+      {/* 修改手机号弹窗 */}
+      {editingField === 'phone-change' && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="bg-gradient-to-r from-purple-50 to-pink-50 px-6 py-4 border-b border-gray-200 sticky top-0">
+              <h3 className="text-lg font-semibold text-gray-900">修改手机号</h3>
+              <p className="text-sm text-gray-600 mt-1">更换您的账户绑定手机号</p>
             </div>
-
-            <form onSubmit={handlePhoneSubmit} className="space-y-5">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">新手机号 *</label>
-                <input
-                  type="tel"
-                  value={phoneForm.newPhone}
-                  onChange={(e) => setPhoneForm({ ...phoneForm, newPhone: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                  placeholder="请输入新手机号"
-                  maxLength={11}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">验证码 *</label>
-                <div className="flex gap-3">
-                  <input
-                    type="text"
-                    value={phoneForm.verificationCode}
-                    onChange={(e) => setPhoneForm({ ...phoneForm, verificationCode: e.target.value })}
-                    className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                    placeholder="请输入6位验证码"
-                    maxLength={6}
-                  />
-                  <button
-                    type="button"
-                    onClick={handleSendPhoneCode}
-                    disabled={phoneSendingCode || phoneCountdown > 0}
-                    className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:from-purple-700 hover:to-pink-700 disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed transition-all shadow-sm whitespace-nowrap font-medium"
-                  >
-                    <Send className="w-4 h-4" />
-                    {phoneCountdown > 0 ? `${phoneCountdown}秒` : '发送验证码'}
-                  </button>
+            
+            <div className="p-6">
+              <div className="mb-6 p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-full bg-white shadow-sm flex items-center justify-center">
+                    <Phone className="w-6 h-6 text-gray-700" />
+                  </div>
+                  <div>
+                    <span className="text-sm text-gray-600">当前手机号</span>
+                    <p className="text-lg font-semibold text-gray-900">{userInfo.username || '未设置'}</p>
+                  </div>
                 </div>
-                <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
-                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                  </svg>
-                  验证码将发送到新手机号
-                </p>
               </div>
 
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  disabled={phoneSubmitting}
-                  className="flex items-center justify-center gap-2 w-full px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:from-purple-700 hover:to-pink-700 disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed transition-all shadow-md font-medium"
-                >
-                  <Save className="w-5 h-5" />
-                  {phoneSubmitting ? '提交中...' : '确认修改'}
-                </button>
-              </div>
-            </form>
-          </div>
-
-          <div className="px-6 pb-6">
-            <div className="p-4 bg-gradient-to-r from-orange-50 to-red-50 rounded-lg border border-orange-100">
-              <div className="flex items-start gap-3">
-                <div className="w-5 h-5 rounded-full bg-orange-600 flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                  </svg>
-                </div>
+              <form onSubmit={handlePhoneSubmit} className="space-y-5">
                 <div>
-                  <p className="text-sm font-medium text-orange-900">安全提示</p>
-                  <p className="text-sm text-orange-700 mt-1">
-                    手机号作为账户的唯一标识，修改后请妥善保管
+                  <label className="block text-sm font-medium text-gray-700 mb-2">新手机号 *</label>
+                  <input
+                    type="tel"
+                    value={phoneForm.newPhone}
+                    onChange={(e) => setPhoneForm({ ...phoneForm, newPhone: e.target.value })}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                    placeholder="请输入新手机号"
+                    maxLength={11}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">验证码 *</label>
+                  <div className="flex gap-3">
+                    <input
+                      type="text"
+                      value={phoneForm.verificationCode}
+                      onChange={(e) => setPhoneForm({ ...phoneForm, verificationCode: e.target.value })}
+                      className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                      placeholder="请输入6位验证码"
+                      maxLength={6}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleSendPhoneCode}
+                      disabled={phoneSendingCode || phoneCountdown > 0}
+                      className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:from-purple-700 hover:to-pink-700 disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed transition-all shadow-sm whitespace-nowrap font-medium"
+                    >
+                      <Send className="w-4 h-4" />
+                      {phoneCountdown > 0 ? `${phoneCountdown}秒` : '发送验证码'}
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
+                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
+                    验证码将发送到新手机号
                   </p>
                 </div>
-              </div>
+
+                <div className="p-4 bg-gradient-to-r from-orange-50 to-red-50 rounded-lg border border-orange-100">
+                  <div className="flex items-start gap-3">
+                    <div className="w-5 h-5 rounded-full bg-orange-600 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-orange-900">安全提示</p>
+                      <p className="text-sm text-orange-700 mt-1">
+                        手机号作为账户的唯一标识，修改后请妥善保管
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingField(null)}
+                    className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                  >
+                    取消
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={phoneSubmitting}
+                    className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed transition-all shadow-sm font-medium"
+                  >
+                    <Save className="w-5 h-5" />
+                    {phoneSubmitting ? '提交中...' : '确认修改'}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>

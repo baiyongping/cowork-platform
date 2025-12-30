@@ -205,11 +205,6 @@ async function getTeamTasksForDashboard(user, tasks) {
         return true;
       }
 
-      // D-009: 公司级任务
-      if (task.level === '公司级') {
-        return true;
-      }
-
       // 自己相关的任务（创建人、责任人、协同人）
       if (task.creatorId === user._id || 
           task.ownerId === user._id ||

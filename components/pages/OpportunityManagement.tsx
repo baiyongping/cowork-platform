@@ -6,6 +6,7 @@ import OpportunityDetailModal from '../OpportunityDetailModal';
 import OpportunityRecycleBin from '../OpportunityRecycleBin';
 import { buildQueryConditions } from '../../utils/permission';
 import { usePermissionContext } from '../../contexts/PermissionContext';
+import { showAlert, showSuccess, showError } from '../../lib/dialog-utils';
 import type { 
   Opportunity, 
   OpportunityStage, 
@@ -369,7 +370,7 @@ export function OpportunityManagement({ userRole, currentUserId, openOpportunity
       }
     } catch (error) {
       console.error('更新商机阶段失败:', error);
-      alert('更新失败，请重试');
+      showError('更新失败，请重试');
     } finally {
       setLoading(false);
     }
@@ -961,7 +962,6 @@ export function OpportunityManagement({ userRole, currentUserId, openOpportunity
           opportunity={selectedOpportunity}
           onClose={handleCloseDetail}
           onSuccess={handleOpportunitySuccess}
-          userPermissions={userPermissions}
         />
       )}
 

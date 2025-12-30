@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { app, db } from '@/lib/cloudbase';
 import { MESSAGE_TYPE_CONFIG, type Message } from './message/types';
 import { useNotificationStore } from '@/lib/notification-store';
+import { showConfirm } from '@/utils/ui-feedback';
 
 type PageType = 'dashboard' | 'tasks' | 'opportunities' | 'projects' | 'goals' | 'settings' | 'account';
 
@@ -155,7 +156,7 @@ export const MessageCenter: React.FC<MessageCenterProps> = ({ onClose, onNavigat
 
   // 删除单条消息
   const handleDelete = async (messageId: string) => {
-    if (!confirm('确定要删除这条消息吗？')) return;
+    if (!showConfirm('确定要删除这条消息吗？')) return;
     
     try {
       // 🔧 获取当前用户ID
@@ -192,7 +193,7 @@ export const MessageCenter: React.FC<MessageCenterProps> = ({ onClose, onNavigat
   // 批量删除消息
   const handleBatchDelete = async () => {
     if (selectedMessages.size === 0) return;
-    if (!confirm(`确定要删除选中的 ${selectedMessages.size} 条消息吗？`)) return;
+    if (!showConfirm(`确定要删除选中的 ${selectedMessages.size} 条消息吗？`)) return;
     
     try {
       // 🔧 获取当前用户ID

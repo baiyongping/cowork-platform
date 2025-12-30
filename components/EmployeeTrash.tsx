@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Trash2, RefreshCw, X, AlertTriangle } from 'lucide-react';
 import { db } from '../lib/cloudbase';
+import { ConfirmDialog } from './ConfirmDialog';
 
 interface EmployeeTrashProps {
   onClose: () => void;
@@ -13,6 +14,14 @@ export function EmployeeTrash({ onClose, onSuccess }: EmployeeTrashProps) {
   const [showRestoreConfirm, setShowRestoreConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
+  const [confirmLoading, setConfirmLoading] = useState(false);
+  
+  // 通知对话框状态
+  const [notificationDialog, setNotificationDialog] = useState({
+    show: false,
+    title: '',
+    message: ''
+  });
 
   useEffect(() => {
     loadDeletedEmployees();
@@ -31,7 +40,11 @@ export function EmployeeTrash({ onClose, onSuccess }: EmployeeTrashProps) {
       setDeletedEmployees(result.data || []);
     } catch (error) {
       console.error('加载回收站员工失败:', error);
-      alert('加载失败，请刷新重试');
+      setNotificationDialog({
+        show: true,
+        title: '加载失败',
+        message: '加载失败，请刷新重试'
+      });
     } finally {
       setLoading(false);
     }
@@ -40,6 +53,7 @@ export function EmployeeTrash({ onClose, onSuccess }: EmployeeTrashProps) {
   const handleRestore = async () => {
     if (!selectedEmployee) return;
     
+    setConfirmLoading(true);
     try {
       await db.collection('users').doc(selectedEmployee._id).update({
         deleted: false,
@@ -56,20 +70,31 @@ export function EmployeeTrash({ onClose, onSuccess }: EmployeeTrashProps) {
         createdAt: new Date()
       });
 
-      alert('恢复成功');
       setShowRestoreConfirm(false);
       setSelectedEmployee(null);
+      setNotificationDialog({
+        show: true,
+        title: '恢复成功',
+        message: `员工 ${selectedEmployee.name} 已成功恢复`
+      });
       loadDeletedEmployees();
       onSuccess();
     } catch (error) {
       console.error('恢复员工失败:', error);
-      alert('恢复失败: ' + (error as any).message);
+      setNotificationDialog({
+        show: true,
+        title: '恢复失败',
+        message: '恢复失败: ' + (error as any).message
+      });
+    } finally {
+      setConfirmLoading(false);
     }
   };
 
   const handlePermanentDelete = async () => {
     if (!selectedEmployee) return;
     
+    setConfirmLoading(true);
     try {
       // 永久删除用户记录
       await db.collection('users').doc(selectedEmployee._id).remove();
@@ -84,14 +109,24 @@ export function EmployeeTrash({ onClose, onSuccess }: EmployeeTrashProps) {
         createdAt: new Date()
       });
 
-      alert('已永久删除');
       setShowDeleteConfirm(false);
       setSelectedEmployee(null);
+      setNotificationDialog({
+        show: true,
+        title: '删除成功',
+        message: `员工 ${selectedEmployee.name} 已永久删除`
+      });
       loadDeletedEmployees();
       onSuccess();
     } catch (error) {
       console.error('永久删除员工失败:', error);
-      alert('删除失败: ' + (error as any).message);
+      setNotificationDialog({
+        show: true,
+        title: '删除失败',
+        message: '删除失败: ' + (error as any).message
+      });
+    } finally {
+      setConfirmLoading(false);
     }
   };
 
@@ -218,76 +253,53 @@ export function EmployeeTrash({ onClose, onSuccess }: EmployeeTrashProps) {
         </div>
       </div>
 
-      {/* 恢复确认模态框 */}
-      {showRestoreConfirm && selectedEmployee && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
-                <RefreshCw className="w-5 h-5 text-green-600" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900">确认恢复</h3>
-            </div>
-            <p className="text-gray-600 mb-6">
-              确定要恢复员工 <span className="font-semibold">{selectedEmployee.name}</span> 吗？
-              恢复后该员工将重新出现在员工列表中。
-            </p>
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => {
-                  setShowRestoreConfirm(false);
-                  setSelectedEmployee(null);
-                }}
-                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                取消
-              </button>
-              <button
-                onClick={handleRestore}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-              >
-                确认恢复
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* 恢复确认对话框 */}
+      <ConfirmDialog
+        show={showRestoreConfirm}
+        title="确认恢复"
+        message={selectedEmployee ? `确定要恢复员工 ${selectedEmployee.name} 吗？\n恢复后该员工将重新出现在员工列表中。` : ''}
+        confirmText="确认恢复"
+        cancelText="取消"
+        loading={confirmLoading}
+        confirmButtonClass="bg-green-600 hover:bg-green-700"
+        onConfirm={handleRestore}
+        onCancel={() => {
+          setShowRestoreConfirm(false);
+          setSelectedEmployee(null);
+        }}
+      />
 
-      {/* 永久删除确认模态框 */}
-      {showDeleteConfirm && selectedEmployee && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
-                <AlertTriangle className="w-5 h-5 text-red-600" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900">确认永久删除</h3>
-            </div>
-            <p className="text-gray-600 mb-6">
-              <span className="font-semibold text-red-600">警告：</span>
-              确定要永久删除员工 <span className="font-semibold">{selectedEmployee.name}</span> 吗？
-              此操作将无法撤销！
-            </p>
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => {
-                  setShowDeleteConfirm(false);
-                  setSelectedEmployee(null);
-                }}
-                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                取消
-              </button>
-              <button
-                onClick={handlePermanentDelete}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-              >
-                永久删除
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* 永久删除确认对话框 */}
+      <ConfirmDialog
+        show={showDeleteConfirm}
+        title="确认永久删除"
+        message={selectedEmployee ? `⚠️ 警告：确定要永久删除员工 ${selectedEmployee.name} 吗？\n此操作将无法撤销！` : ''}
+        confirmText="永久删除"
+        cancelText="取消"
+        loading={confirmLoading}
+        confirmButtonClass="bg-red-600 hover:bg-red-700"
+        onConfirm={handlePermanentDelete}
+        onCancel={() => {
+          setShowDeleteConfirm(false);
+          setSelectedEmployee(null);
+        }}
+      />
+
+      {/* 通知对话框 */}
+      <ConfirmDialog
+        show={notificationDialog.show}
+        title={notificationDialog.title}
+        message={notificationDialog.message}
+        confirmText="确定"
+        cancelText=""
+        confirmButtonClass="bg-blue-600 hover:bg-blue-700"
+        onConfirm={() => {
+          setNotificationDialog({ show: false, title: '', message: '' });
+        }}
+        onCancel={() => {
+          setNotificationDialog({ show: false, title: '', message: '' });
+        }}
+      />
     </div>
   );
 }

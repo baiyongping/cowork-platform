@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Package } from 'lucide-react';
 import type { OpportunityRequirement } from '../types/opportunity';
 import { db } from '../lib/cloudbase';
+import { showError } from '../utils/ui-feedback';
 
 interface OpportunityRequirementsProps {
   opportunityId: string;
@@ -94,7 +95,7 @@ export default function OpportunityRequirements({
         });
       } catch (error) {
         console.error('更新商机需求失败:', error);
-        alert('保存失败，请重试');
+        showError('保存失败，请重试');
         return;
       }
     }
@@ -119,7 +120,7 @@ export default function OpportunityRequirements({
         });
       } catch (error) {
         console.error('删除商机需求失败:', error);
-        alert('删除失败，请重试');
+        showError('删除失败，请重试');
         return;
       }
     }

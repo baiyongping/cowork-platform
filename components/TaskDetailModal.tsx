@@ -1,16 +1,36 @@
 import { X, User, Calendar, Clock, Target, CheckCircle, AlertCircle, Pause, Ban, FileText, MessageSquare, Trash2, Briefcase, Users, Edit2 } from 'lucide-react';
-import { Task, TaskStatus, getStatusColor, getStatusText } from '../types/task';
+import { Task, TaskStatus, ProjectTaskStatus, PlanType, getStatusColor, getStatusText } from '../types/task';
 import { useState, useEffect } from 'react';
 import { app, db } from '../lib/cloudbase';
 import { usePermissionContext } from '../contexts/PermissionContext';
 import { UserAvatar } from './UserAvatar';
 import Drawer from './Drawer';
+import { showError } from '../utils/ui-feedback';
+
+// 扩展 Task 类型以支持关联查询后的对象
+interface TaskWithPopulatedFields extends Omit<Task, 'owner' | 'collaborators'> {
+  owner: {
+    _id: string;
+    name: string;
+    username?: string;
+    avatar?: string;
+    department?: string;
+  };
+  collaborators?: Array<{
+    _id: string;
+    name: string;
+    username?: string;
+    avatar?: string;
+    department?: string;
+  }>;
+}
 
 interface TaskDetailModalProps {
-  task: Task;
+  task: TaskWithPopulatedFields;
   onClose: () => void;
   onEdit: () => void;
   onDelete?: () => void;
+  onSave?: () => void; // 新增：任务保存后的回调
 }
 
 interface Comment {
@@ -36,7 +56,9 @@ interface Reply {
   createdAt: Date;
 }
 
-export default function TaskDetailModal({ task, onClose, onEdit, onDelete }: TaskDetailModalProps) {
+export default function TaskDetailModal({ task, onClose, onEdit, onDelete, onSave }: TaskDetailModalProps) {
+  // 类型守卫：确保 task.status 是有效的 TaskStatus 或 ProjectTaskStatus
+  const safeTaskStatus = (task.status as TaskStatus | ProjectTaskStatus);
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [loading, setLoading] = useState(false);
@@ -57,7 +79,7 @@ export default function TaskDetailModal({ task, onClose, onEdit, onDelete }: Tas
   const [selectedMeasure, setSelectedMeasure] = useState<{ id: string; content: string } | null>(null);
   const [selectedTeamTask, setSelectedTeamTask] = useState<{ id: string; name: string } | null>(null);
   const [selectedCollaborators, setSelectedCollaborators] = useState<string[]>([]); // 已选择的协同人ID列表
-  const [planType, setPlanType] = useState(task.planType || '本周计划'); // 计划类型
+  const [planType, setPlanType] = useState<PlanType>(task.planType || '本周计划'); // 计划类型
   
   // 使用新权限系统
   const { checkPermission } = usePermissionContext();
@@ -69,15 +91,13 @@ export default function TaskDetailModal({ task, onClose, onEdit, onDelete }: Tas
     loadRelatedMeasure();
     loadRelatedTeamTask();
     loadUsers(); // 新增：加载用户列表
-    loadQuarterlyMeasures(); // 新增：加载季度举措列表
-    loadTeamMonthlyTasks(); // 新增：加载团队月度任务列表
     
     // 初始化编辑表单
     const initialPlanType = task.planType || (task.level === '个人级' ? '本周计划' : '本月计划');
     
     setEditForm({
       name: task.name || '',
-      status: task.status || '未开始',
+      status: safeTaskStatus || '未开始',
       progress: task.progress || 0,
       level: task.level || '个人级',
       type: task.type || '日常工作',
@@ -85,8 +105,8 @@ export default function TaskDetailModal({ task, onClose, onEdit, onDelete }: Tas
       description: task.description || '',
       startDate: task.startDate ? new Date(task.startDate).toISOString().split('T')[0] : '',
       endDate: task.endDate ? new Date(task.endDate).toISOString().split('T')[0] : '',
-      owner: task.owner._id || '', // 新增：负责人ID
-      collaborators: task.collaborators?.map((c: any) => c._id) || [], // 新增：协同人ID列表
+      owner: task.owner._id, // 修复：使用 task.owner._id
+      collaborators: task.collaborators?.map((c) => c._id) || [], // 修复：映射为ID数组
       isPublic: task.isPublic !== undefined ? task.isPublic : true, // 新增：可见性设置
       relatedMeasure: task.relatedMeasure || '', // 新增：关联季度举措
       relatedTeamTask: task.relatedTeamTask || '', // 新增:关联团队月度任务
@@ -97,9 +117,17 @@ export default function TaskDetailModal({ task, onClose, onEdit, onDelete }: Tas
     
     // 初始化协同人选择状态
     if (task.collaborators && task.collaborators.length > 0) {
-      setSelectedCollaborators(task.collaborators.map((c: any) => c._id));
+      setSelectedCollaborators(task.collaborators.map((c) => c._id));
     }
   }, [task._id]);
+  
+  // 独立的 useEffect: 在 currentUser 加载完成后再加载依赖用户信息的数据
+  useEffect(() => {
+    if (currentUser?.id) {
+      loadQuarterlyMeasures(); // 加载季度举措列表
+      loadTeamMonthlyTasks(); // 加载团队月度任务列表
+    }
+  }, [currentUser?.id]);
 
   const loadCurrentUser = async () => {
     try {
@@ -461,7 +489,7 @@ export default function TaskDetailModal({ task, onClose, onEdit, onDelete }: Tas
       
       // 通知协同人
       if (task.collaborators) {
-        task.collaborators.forEach((c: any) => {
+        task.collaborators.forEach((c) => {
           if (c._id !== currentUser._id) {
             receiversSet.add(c._id);
           }
@@ -490,7 +518,7 @@ export default function TaskDetailModal({ task, onClose, onEdit, onDelete }: Tas
       await loadComments();
     } catch (error: any) {
       console.error('添加评论失败:', error);
-      alert('添加评论失败: ' + error.message);
+      showError('添加评论失败: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -531,13 +559,13 @@ export default function TaskDetailModal({ task, onClose, onEdit, onDelete }: Tas
       await loadComments();
     } catch (error: any) {
       console.error('添加回复失败:', error);
-      alert('添加回复失败: ' + error.message);
+      showError('添加回复失败: ' + error.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const getStatusIcon = (status: TaskStatus) => {
+  const getStatusIcon = (status: TaskStatus | ProjectTaskStatus) => {
     switch (status) {
       case '未开始':
         return <Clock className="w-5 h-5" />;
@@ -551,6 +579,12 @@ export default function TaskDetailModal({ task, onClose, onEdit, onDelete }: Tas
         return <Ban className="w-5 h-5" />;
       case '暂停':
         return <Pause className="w-5 h-5" />;
+      case '准备期':
+        return <Target className="w-5 h-5" />;
+      case '制造期':
+        return <Target className="w-5 h-5" />;
+      case '交付期':
+        return <Target className="w-5 h-5" />;
       default:
         return <Clock className="w-5 h-5" />;
     }
@@ -565,7 +599,7 @@ export default function TaskDetailModal({ task, onClose, onEdit, onDelete }: Tas
     // 重置表单
     setEditForm({
       name: task.name || '',
-      status: task.status || '未开始',
+      status: safeTaskStatus || '未开始',
       progress: task.progress || 0,
       level: task.level || '个人级',
       type: task.type || '日常工作',
@@ -584,15 +618,21 @@ export default function TaskDetailModal({ task, onClose, onEdit, onDelete }: Tas
         updatedAt: new Date()
       });
       
+      console.log('✅ [任务详情] 保存成功,刷新任务数据');
+      
+      // 退出编辑模式
       setIsEditing(false);
-      // 调用父组件的刷新回调
-      if (onEdit) {
-        onEdit();
+      
+      // 🔧 调用父组件的刷新回调,重新加载任务数据
+      if (onSave) {
+        onSave();
       }
-      onClose(); // 关闭抽屉
+      
+      // ⚠️ 不要调用 onEdit() - 那是打开外部编辑模态框的
+      // ⚠️ 不要调用 onClose() - 保持详情页打开以查看更新结果
     } catch (error) {
-      console.error('保存失败:', error);
-      alert('保存失败,请重试');
+      console.error('❌ [任务详情] 保存失败:', error);
+      showError('保存失败,请重试');
     } finally {
       setLoading(false);
     }
@@ -617,16 +657,16 @@ export default function TaskDetailModal({ task, onClose, onEdit, onDelete }: Tas
         onClose={onClose}
         title={
           <div className="flex items-center gap-3">
-            <div className={`p-2 rounded-lg ${getStatusColor(task.status)} bg-opacity-20`}>
-              {getStatusIcon(task.status)}
+            <div className={`p-2 rounded-lg ${getStatusColor(safeTaskStatus)} bg-opacity-20`}>
+              {getStatusIcon(safeTaskStatus)}
             </div>
             <div className="flex-1 min-w-0">
               <h3 className="text-xl font-bold text-gray-900 truncate">
                 {task.name}
               </h3>
               <div className="flex items-center gap-2 mt-1">
-                <span className={`px-2 py-1 text-xs rounded-full font-medium ${getStatusColor(task.status)}`}>
-                  {getStatusText(task.status)}
+                <span className={`px-2 py-1 text-xs rounded-full font-medium ${getStatusColor(safeTaskStatus)}`}>
+                  {getStatusText(safeTaskStatus)}
                 </span>
                 <span className="text-xs text-gray-500">进度: {task.progress}%</span>
               </div>
@@ -759,7 +799,7 @@ export default function TaskDetailModal({ task, onClose, onEdit, onDelete }: Tas
                       <select
                         value={planType}
                         onChange={(e) => {
-                          const newPlanType = e.target.value;
+                          const newPlanType = e.target.value as PlanType;
                           setPlanType(newPlanType);
                           setEditForm({ ...editForm, planType: newPlanType });
                           
@@ -1077,9 +1117,9 @@ export default function TaskDetailModal({ task, onClose, onEdit, onDelete }: Tas
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <div className="bg-gray-50 rounded-lg p-4">
                   <div className="text-sm text-gray-600 mb-1">任务状态</div>
-                  <div className={`flex items-center gap-2 ${getStatusColor(task.status)}`}>
-                    {getStatusIcon(task.status)}
-                    <span className="font-medium">{getStatusText(task.status)}</span>
+                  <div className={`flex items-center gap-2 ${getStatusColor(safeTaskStatus)}`}>
+                    {getStatusIcon(safeTaskStatus)}
+                    <span className="font-medium">{getStatusText(safeTaskStatus)}</span>
                 {/* 延期标识 */}
                 {task.status === '延期' && task.overdueCount && task.overdueCount > 0 && (
                   <div className="flex items-center gap-0.5 ml-2">
@@ -1494,22 +1534,4 @@ export default function TaskDetailModal({ task, onClose, onEdit, onDelete }: Tas
   );
 }
 
-// 获取状态图标辅助函数
-function getStatusIcon(status: TaskStatus) {
-  switch (status) {
-    case '未开始':
-      return <Clock className="w-5 h-5 text-gray-600" />;
-    case '进行中':
-      return <Target className="w-5 h-5 text-blue-600" />;
-    case '已完成':
-      return <CheckCircle className="w-5 h-5 text-green-600" />;
-    case '延期':
-      return <AlertCircle className="w-5 h-5 text-red-600" />;
-    case '暂停':
-      return <Pause className="w-5 h-5 text-yellow-600" />;
-    case '取消':
-      return <Ban className="w-5 h-5 text-gray-600" />;
-    default:
-      return <Clock className="w-5 h-5 text-gray-600" />;
-  }
-}
+

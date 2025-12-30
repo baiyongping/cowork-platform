@@ -9,10 +9,29 @@ import TaskRecycleBin from './TaskRecycleBin';
 import { buildQueryConditions, checkDataPermission, canView, canEdit, canDelete } from '../utils/permission';
 import { usePermissionContext } from '../contexts/PermissionContext';
 import { formatUserName } from '../utils/userHelpers'; // 🆕 导入工具函数
+import { showAlert, showError } from '../lib/dialog-utils';
 
 interface TaskManagementPageProps {
   openTaskId?: string;  // 🔧 要打开的任务ID
   onTaskOpened?: () => void;  // 🔧 打开后的回调
+}
+
+// 扩展 Task 类型以支持关联查询后的对象
+interface TaskWithPopulatedFields extends Omit<Task, 'owner' | 'collaborators'> {
+  owner: {
+    _id: string;
+    name: string;
+    username?: string;
+    avatar?: string;
+    department?: string;
+  };
+  collaborators?: Array<{
+    _id: string;
+    name: string;
+    username?: string;
+    avatar?: string;
+    department?: string;
+  }>;
 }
 
 export default function TaskManagementPage({ openTaskId, onTaskOpened }: TaskManagementPageProps) {
@@ -34,7 +53,7 @@ export default function TaskManagementPage({ openTaskId, onTaskOpened }: TaskMan
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showRecycleBin, setShowRecycleBin] = useState(false);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [selectedTask, setSelectedTask] = useState<TaskWithPopulatedFields | null>(null);
 
   // 统计数据
   const [statistics, setStatistics] = useState({
@@ -266,15 +285,87 @@ export default function TaskManagementPage({ openTaskId, onTaskOpened }: TaskMan
           })
         );
 
-        // 组装任务数据
-        const tasksWithUsers = result.data.map((task: any) => ({
-          ...task,
-          owner: usersMap.get(task.owner) || { _id: task.owner, name: '未知用户', username: '' },
-          collaborators: task.collaborators?.map((cid: string) => 
-            usersMap.get(cid) || { _id: cid, name: '未知用户', username: '' }
-          ) || []
-        }));
+        // 🔧 查询关联的项目和商机名称
+        const projectIds = new Set<string>();
+        const opportunityIds = new Set<string>();
+        
+        result.data.forEach((task: any) => {
+          if (task.relatedTo) {
+            if (task.type === '项目任务') {
+              projectIds.add(task.relatedTo);
+            } else if (task.type === '商机跟进') {
+              opportunityIds.add(task.relatedTo);
+            }
+          }
+        });
+        
+        // 查询项目名称
+        const projectsMap = new Map();
+        if (projectIds.size > 0) {
+          await Promise.all(
+            Array.from(projectIds).map(async (projectId) => {
+              try {
+                const projectResult = await db.collection('projects').doc(projectId).get();
+                if (projectResult.data && projectResult.data.length > 0) {
+                  projectsMap.set(projectId, projectResult.data[0].name);
+                }
+              } catch (error) {
+                console.error('查询项目失败:', projectId, error);
+              }
+            })
+          );
+        }
+        
+        // 查询商机名称
+        const opportunitiesMap = new Map();
+        if (opportunityIds.size > 0) {
+          await Promise.all(
+            Array.from(opportunityIds).map(async (opportunityId) => {
+              try {
+                const oppResult = await db.collection('opportunities').doc(opportunityId).get();
+                if (oppResult.data && oppResult.data.length > 0) {
+                  opportunitiesMap.set(opportunityId, oppResult.data[0].name);
+                }
+              } catch (error) {
+                console.error('查询商机失败:', opportunityId, error);
+              }
+            })
+          );
+        }
 
+        // 组装任务数据
+        const tasksWithUsers = result.data.map((task: any) => {
+          const taskData: any = {
+            ...task,
+            owner: usersMap.get(task.owner) || { _id: task.owner, name: '未知用户', username: '' },
+            collaborators: task.collaborators?.map((cid: string) => 
+              usersMap.get(cid) || { _id: cid, name: '未知用户', username: '' }
+            ) || []
+          };
+          
+          // 🔧 添加关联名称
+          if (task.relatedTo) {
+            if (task.type === '项目任务') {
+              taskData.relatedName = projectsMap.get(task.relatedTo);
+            } else if (task.type === '商机跟进') {
+              taskData.relatedName = opportunitiesMap.get(task.relatedTo);
+            }
+          }
+          
+          return taskData;
+        });
+
+        console.log('✅ [loadTasks] 成功加载任务:', {
+          count: tasksWithUsers.length,
+          tasks: tasksWithUsers.map((t: any) => ({
+            _id: t._id,
+            name: t.name,
+            startDate: t.startDate,
+            endDate: t.endDate,
+            isDeleted: t.isDeleted
+          }))
+        });
+        
         setTasks(tasksWithUsers);
       } else {
         setTasks([]);
@@ -288,30 +379,44 @@ export default function TaskManagementPage({ openTaskId, onTaskOpened }: TaskMan
 
   // 🔧 自动打开指定的任务详情
   useEffect(() => {
-    console.log('🔧 [TaskManagement] 检查自动打开:', { openTaskId, tasksCount: tasks.length });
-    if (openTaskId && tasks.length > 0) {
+    console.log('🔧 [TaskManagement] 检查自动打开:', { 
+      openTaskId, 
+      tasksCount: tasks.length,
+      loading,
+      showDetailModal 
+    });
+    
+    // ⚠️ 关键修复：必须等待任务加载完成，且未显示详情弹窗
+    if (openTaskId && tasks.length > 0 && !loading && !showDetailModal) {
       const taskToOpen = tasks.find(t => t._id === openTaskId);
-      console.log('🔧 [TaskManagement] 找到任务:', taskToOpen);
+      console.log('🔧 [TaskManagement] 查找任务:', { openTaskId, taskToOpen });
+      
       if (taskToOpen) {
-        setSelectedTask(taskToOpen);
-        setShowDetailModal(true);
-        onTaskOpened?.();  // 通知父组件已打开
-        console.log('✅ [TaskManagement] 已打开任务详情');
+        console.log('✅ [TaskManagement] 找到任务，准备打开详情');
+        // 使用 handleViewDetail 异步加载任务详情（会填充用户信息）
+        handleViewDetail(taskToOpen);
+        
+        // 🔧 延迟通知父组件（确保弹窗已完全打开）
+        setTimeout(() => {
+          onTaskOpened?.();  // 通知父组件已打开
+          console.log('✅ [TaskManagement] 已打开任务详情并通知父组件');
+        }, 100);
       } else {
-        console.warn('⚠️ [TaskManagement] 未找到任务:', openTaskId);
+        console.warn('⚠️ [TaskManagement] 未找到任务:', openTaskId, 'taskIds:', tasks.map(t => t._id));
       }
     }
-  }, [openTaskId, tasks]);
+  }, [openTaskId, tasks, loading, showDetailModal, onTaskOpened]);
 
   const calculateStatistics = () => {
     const now = new Date();
     const currentYear = now.getFullYear();
     
-    // 筛选本年度的任务（截止日期在本年度），排除回收站任务
+    // 🔧 修改统计逻辑：按开始日期筛选本年度的任务，而不是结束日期
+    // 这样可以统计跨年度的任务（如2025年开始，2026年结束的任务）
     const thisYearTasks = tasks.filter(t => {
       if (t.isDeleted) return false; // 排除回收站任务
-      const endDate = new Date(t.endDate);
-      return endDate.getFullYear() === currentYear;
+      const startDate = new Date(t.startDate);
+      return startDate.getFullYear() === currentYear;
     });
     
     const total = thisYearTasks.length;
@@ -383,6 +488,26 @@ export default function TaskManagementPage({ openTaskId, onTaskOpened }: TaskMan
   };
 
   const filteredTasks = tasks.filter(task => {
+    // 🔧 排除回收站任务
+    if (task.isDeleted) return false;
+    
+    // 🔧 修改筛选逻辑：显示开始日期在本年度的任务，而不是结束日期
+    // 这样可以显示跨年度的任务（如2025年开始，2026年结束的任务）
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const startDate = new Date(task.startDate);
+    const startYear = startDate.getFullYear();
+    
+    console.log('🔧 [筛选任务]', {
+      name: task.name,
+      startDate: task.startDate,
+      startYear,
+      currentYear,
+      shouldShow: startYear === currentYear
+    });
+    
+    if (startYear !== currentYear) return false;
+    
     // 级别筛选
     if (filter !== 'all' && task.level !== filter) return false;
     
@@ -394,14 +519,13 @@ export default function TaskManagementPage({ openTaskId, onTaskOpened }: TaskMan
       const keyword = searchKeyword.toLowerCase();
       return (
         task.name.toLowerCase().includes(keyword) ||
-        task.owner.name.toLowerCase().includes(keyword)
+        (task.ownerName && task.ownerName.toLowerCase().includes(keyword))
       );
     }
     
     // 时间筛选
     if (timeFilter !== 'all') {
       const endDate = new Date(task.endDate);
-      const now = new Date();
       
       if (timeFilter === 'thisWeek') {
         const weekFromNow = new Date();
@@ -433,15 +557,55 @@ export default function TaskManagementPage({ openTaskId, onTaskOpened }: TaskMan
     return true;
   });
 
-  const handleViewDetail = (task: Task) => {
-    setSelectedTask(task);
-    setShowDetailModal(true);
+  const handleViewDetail = async (task: Task) => {
+    try {
+      // 查询用户信息以填充 owner 和 collaborators
+      const userCollection = db.collection('users');
+      
+      // 查询负责人信息
+      const ownerDoc = await userCollection.doc(task.owner).get();
+      const ownerData = ownerDoc.data as any;
+      
+      // 查询协同人信息
+      let collaboratorsData: any[] = [];
+      if (task.collaborators && task.collaborators.length > 0) {
+        const collaboratorsRes = await userCollection.where({
+          _id: db.command.in(task.collaborators)
+        }).get();
+        collaboratorsData = collaboratorsRes.data;
+      }
+      
+      // 转换为 TaskWithPopulatedFields
+      const populatedTask: TaskWithPopulatedFields = {
+        ...task,
+        owner: {
+          _id: ownerData._id,
+          name: ownerData.name,
+          username: ownerData.username,
+          avatar: ownerData.avatar,
+          department: ownerData.department,
+        },
+        collaborators: collaboratorsData.map((collab: any) => ({
+          _id: collab._id,
+          name: collab.name,
+          username: collab.username,
+          avatar: collab.avatar,
+          department: collab.department,
+        })),
+      };
+      
+      setSelectedTask(populatedTask);
+      setShowDetailModal(true);
+    } catch (error) {
+      console.error('加载任务详情失败:', error);
+      await showError('加载任务详情失败');
+    }
   };
 
-  const handleEditFromDetail = () => {
+  const handleEditFromDetail = async () => {
     // 检查是否是已完成任务
     if (selectedTask && selectedTask.status === '已完成') {
-      alert('已完成的任务不可编辑');
+      await showAlert('已完成的任务不可编辑', 'warning');
       return;
     }
     setShowDetailModal(false);
@@ -471,6 +635,29 @@ export default function TaskManagementPage({ openTaskId, onTaskOpened }: TaskMan
     }
   };
 
+  // 🔧 新增：任务在详情页内编辑保存后的回调
+  const handleTaskSaveInDetail = async () => {
+    console.log('🔧 [TaskManagement] 任务在详情页内保存,重新加载任务');
+    
+    if (!selectedTask) return;
+    
+    try {
+      // 🔧 重新从数据库获取更新后的任务
+      const res = await db.collection('tasks').doc(selectedTask._id).get();
+      const updatedTask = res.data[0];
+      
+      if (updatedTask) {
+        console.log('✅ [TaskManagement] 获取到更新后的任务数据');
+        setSelectedTask(updatedTask);
+      }
+      
+      // 🔧 重新加载任务列表
+      await loadTasks();
+    } catch (error) {
+      console.error('❌ [TaskManagement] 刷新任务失败:', error);
+    }
+  };
+
   const handleDeleteTask = async () => {
     if (!selectedTask) return;
     
@@ -496,7 +683,7 @@ export default function TaskManagementPage({ openTaskId, onTaskOpened }: TaskMan
       await loadTasks();
     } catch (error) {
       console.error('移入回收站失败:', error);
-      alert('移入回收站失败，请重试');
+      await showError('移入回收站失败，请重试');
     } finally {
       setLoading(false);
     }
@@ -526,7 +713,7 @@ export default function TaskManagementPage({ openTaskId, onTaskOpened }: TaskMan
 
       // 发送状态变更通知
       const task = tasks.find(t => t._id === taskId);
-      if (task && task.owner !== currentUser._id) {
+      if (task && task.owner !== currentUserId) {
         try {
           await app.callFunction({
             name: 'task-message',
@@ -548,7 +735,7 @@ export default function TaskManagementPage({ openTaskId, onTaskOpened }: TaskMan
       await loadTasks();
     } catch (error) {
       console.error('更新任务状态失败:', error);
-      alert('更新失败，请重试');
+      await showError('更新失败，请重试');
     } finally {
       setLoading(false);
     }
@@ -743,15 +930,15 @@ export default function TaskManagementPage({ openTaskId, onTaskOpened }: TaskMan
                   return (
                   <tr 
                     key={task._id} 
-                    className={`transition-colors ${
+                    className={`transition-colors cursor-pointer ${
                       isCompleted 
                         ? 'bg-green-50 hover:bg-green-100 opacity-75' 
                         : isCancelled
                         ? 'bg-red-50 hover:bg-red-100 opacity-75'
-                        : 'hover:bg-gray-50 cursor-pointer'
+                        : 'hover:bg-gray-50'
                     }`}
-                    onClick={() => !isCompleted && !isCancelled && handleViewDetail(task)}
-                    title={isCompleted ? '已完成任务不可编辑' : isCancelled ? '已取消任务不可编辑' : '点击查看详情'}
+                    onClick={() => handleViewDetail(task)}
+                    title={isCompleted ? '点击查看已完成任务详情（不可编辑）' : isCancelled ? '点击查看已取消任务详情（不可编辑）' : '点击查看详情'}
                   >
                     {/* 提醒列 */}
                     <td className="px-6 py-4">
@@ -769,11 +956,12 @@ export default function TaskManagementPage({ openTaskId, onTaskOpened }: TaskMan
                         {task.status === '延期' && task.overdueCount && task.overdueCount > 0 && (
                           <div className="flex items-center gap-0.5">
                             {Array.from({ length: Math.min(task.overdueCount, 5) }).map((_, index) => (
-                              <AlertCircle 
-                                key={index}
-                                className="w-4 h-4 text-red-600 fill-red-100" 
-                                title={`延期 ${task.overdueCount} 次`}
-                              />
+                              <div key={index} className="relative group">
+                                <AlertCircle className="w-4 h-4 text-red-600 fill-red-100" />
+                                <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs rounded py-1 px-2 -top-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap z-10">
+                                  延期 {task.overdueCount} 次
+                                </div>
+                              </div>
                             ))}
                             {task.overdueCount > 5 && (
                               <span className="text-xs text-red-600 font-bold ml-1">
@@ -783,6 +971,15 @@ export default function TaskManagementPage({ openTaskId, onTaskOpened }: TaskMan
                           </div>
                         )}
                       </div>
+                      {/* 显示关联的项目或商机名称 - 使用 ownerName 替代 relatedName */}
+                      {task.ownerName && (task.type === '项目任务' || task.type === '商机跟进') && (
+                        <div className={`text-xs mt-1 flex items-center gap-1 ${
+                          task.type === '项目任务' ? 'text-blue-600' : 'text-purple-600'
+                        }`}>
+                          <span className="opacity-75">{task.type === '项目任务' ? '📋' : '💼'}</span>
+                          <span className="font-medium">负责人: {task.ownerName}</span>
+                        </div>
+                      )}
                       {task.description && (
                         <div className="text-xs text-gray-500 mt-1 line-clamp-1">
                           {task.description}
@@ -801,7 +998,7 @@ export default function TaskManagementPage({ openTaskId, onTaskOpened }: TaskMan
                       <span className="text-sm text-gray-900">{task.type}</span>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="text-sm text-gray-900">{formatUserName(task.owner)}</div>
+                      <div className="text-sm text-gray-900">{task.ownerName || '-'}</div>
                       {task.team && (
                         <div className="text-xs text-gray-500">{task.team}</div>
                       )}
@@ -875,13 +1072,18 @@ export default function TaskManagementPage({ openTaskId, onTaskOpened }: TaskMan
           onClose={handleCloseDetail}
           onEdit={handleEditFromDetail}
           onDelete={handleDeleteTask}
+          onSave={handleTaskSaveInDetail}
         />
       )}
 
       {/* 编辑任务模态框 */}
       {showEditModal && selectedTask && (
         <EditTaskModal
-          task={selectedTask}
+          task={{
+            ...selectedTask,
+            owner: selectedTask.owner._id,
+            collaborators: selectedTask.collaborators?.map(c => c._id) || []
+          }}
           onClose={handleCloseEdit}
           onSuccess={handleTaskSuccess}
           taskStatuses={taskStatuses}

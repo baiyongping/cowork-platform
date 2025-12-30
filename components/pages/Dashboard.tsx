@@ -4,6 +4,8 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import { OpportunityFunnel } from '../OpportunityFunnel';
 import { db } from '../../lib/cloudbase';
 import { useNotificationStore } from '../../lib/notification-store';
+import TaskDetailModal from '../TaskDetailModal';
+import ProjectDetailModal from '../ProjectDetailModal';
 
 interface DashboardProps {
   userRole: 'admin' | 'employee';
@@ -52,13 +54,13 @@ interface DashboardData {
   followingOpportunities: {
     total: number;
     totalAmount: number;
-    growth: string;
+    growth: string | number;  // 支持字符串或数字
   };
   
   ongoingProjects: {
     total: number;
     deliveredThisMonth: number;
-    growth: string;
+    growth: string | number;  // 支持字符串或数字
   };
   
   orderUndertaking: {
@@ -88,6 +90,10 @@ interface DashboardData {
     endDate: string;
     progress: number;
     owner: { name: string };
+    status: string;           // 任务状态
+    description?: string;     // 任务描述（可选）
+    level: string;            // 任务级别
+    team?: string;            // 所属团队（可选）
   }>;
   
   // 重点关注列表
@@ -104,6 +110,19 @@ export function Dashboard({ userRole, currentUser, onLogout }: DashboardProps) {
   
   // 🔔 使用消息通知 store
   const { unreadCount, setShowNotification } = useNotificationStore();
+  
+  // 🔧 详情弹窗状态
+  const [selectedTask, setSelectedTask] = useState<any | null>(null);
+  const [selectedProject, setSelectedProject] = useState<any | null>(null);
+  
+  // 🔧 调试：监听状态变化
+  useEffect(() => {
+    console.log('🔧 selectedTask 变化:', selectedTask);
+  }, [selectedTask]);
+  
+  useEffect(() => {
+    console.log('🔧 selectedProject 变化:', selectedProject);
+  }, [selectedProject]);
 
   // 加载工作台数据
   useEffect(() => {
@@ -608,6 +627,45 @@ export function Dashboard({ userRole, currentUser, onLogout }: DashboardProps) {
       setLoading(false);
     }
   }
+  
+  // 🔧 处理重点关注项点击
+  const handleFocusItemClick = async (item: FocusItem) => {
+    console.log('🔧 点击重点关注项:', item);
+    if (item.type === 'task') {
+      console.log('🔧 查询任务详情:', item.id);
+      try {
+        const res = await db.collection('tasks').doc(item.id).get();
+        if (res.data && res.data.length > 0) {
+          console.log('🔧 找到任务数据:', res.data[0]);
+          setSelectedTask(res.data[0]);
+        } else {
+          console.error('🔧 未找到任务:', item.id);
+        }
+      } catch (err) {
+        console.error('🔧 查询任务失败:', err);
+      }
+    } else if (item.type === 'project') {
+      console.log('🔧 查询项目详情:', item.id);
+      try {
+        const res = await db.collection('projects').doc(item.id).get();
+        if (res.data && res.data.length > 0) {
+          console.log('🔧 找到项目数据:', res.data[0]);
+          setSelectedProject(res.data[0]);
+        } else {
+          console.error('🔧 未找到项目:', item.id);
+        }
+      } catch (err) {
+        console.error('🔧 查询项目失败:', err);
+      }
+    }
+  };
+  
+  // 🔧 关闭详情弹窗并刷新数据
+  const handleCloseDetailModal = () => {
+    setSelectedTask(null);
+    setSelectedProject(null);
+    loadDashboardData(); // 刷新工作台数据
+  };
 
   // 计算环比增长
   function calculateGrowth(current: number, last: number): string {
@@ -699,10 +757,11 @@ export function Dashboard({ userRole, currentUser, onLogout }: DashboardProps) {
               {dashboardData.focusItems.map((item) => (
                 <div
                   key={`${item.type}-${item.id}`}
-                  className={`flex items-center justify-between p-4 rounded-lg border-l-4 ${
+                  onClick={() => handleFocusItemClick(item)}
+                  className={`flex items-center justify-between p-4 rounded-lg border-l-4 cursor-pointer transition-all hover:shadow-md ${
                     item.alertType === 'overdue'
-                      ? 'bg-red-50 border-red-500'
-                      : 'bg-yellow-50 border-yellow-500'
+                      ? 'bg-red-50 border-red-500 hover:bg-red-100'
+                      : 'bg-yellow-50 border-yellow-500 hover:bg-yellow-100'
                   }`}
                 >
                   <div className="flex items-center gap-4 flex-1">
@@ -903,7 +962,7 @@ export function Dashboard({ userRole, currentUser, onLogout }: DashboardProps) {
             <div className="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center">
               <TrendingUp className="w-6 h-6 text-green-600" />
             </div>
-            {parseFloat(dashboardData.followingOpportunities.growth) >= 0 ? (
+            {parseFloat(String(dashboardData.followingOpportunities.growth)) >= 0 ? (
               <div className="flex items-center gap-1 text-sm text-green-600">
                 <TrendingUp className="w-4 h-4" />
                 <span>{dashboardData.followingOpportunities.growth}</span>
@@ -911,7 +970,7 @@ export function Dashboard({ userRole, currentUser, onLogout }: DashboardProps) {
             ) : (
               <div className="flex items-center gap-1 text-sm text-red-600">
                 <TrendingDown className="w-4 h-4" />
-                <span>{Math.abs(parseFloat(dashboardData.followingOpportunities.growth) || 0)}</span>
+                <span>{Math.abs(parseFloat(String(dashboardData.followingOpportunities.growth)) || 0)}</span>
               </div>
             )}
           </div>
@@ -928,7 +987,7 @@ export function Dashboard({ userRole, currentUser, onLogout }: DashboardProps) {
             <div className="w-12 h-12 bg-purple-50 rounded-lg flex items-center justify-center">
               <FolderKanban className="w-6 h-6 text-purple-600" />
             </div>
-            {parseFloat(dashboardData.ongoingProjects.growth) >= 0 ? (
+            {parseFloat(String(dashboardData.ongoingProjects.growth)) >= 0 ? (
               <div className="flex items-center gap-1 text-sm text-green-600">
                 <TrendingUp className="w-4 h-4" />
                 <span>{dashboardData.ongoingProjects.growth}</span>
@@ -936,7 +995,7 @@ export function Dashboard({ userRole, currentUser, onLogout }: DashboardProps) {
             ) : (
               <div className="flex items-center gap-1 text-sm text-red-600">
                 <TrendingDown className="w-4 h-4" />
-                <span>{Math.abs(parseFloat(dashboardData.ongoingProjects.growth) || 0)}</span>
+                <span>{Math.abs(parseFloat(String(dashboardData.ongoingProjects.growth)) || 0)}</span>
               </div>
             )}
           </div>
@@ -1124,6 +1183,37 @@ export function Dashboard({ userRole, currentUser, onLogout }: DashboardProps) {
           )}
         </div>
       </div>
+      
+      {/* 🔧 任务详情弹窗 */}
+      {selectedTask && (
+        <>
+          {console.log('🔧 渲染任务详情弹窗, task:', selectedTask)}
+          <TaskDetailModal
+            task={selectedTask}
+            onClose={handleCloseDetailModal}
+            onEdit={() => {
+              // TODO: 实现编辑功能
+              console.log('编辑任务:', selectedTask);
+            }}
+            onDelete={() => {
+              setSelectedTask(null);
+              loadDashboardData();
+            }}
+          />
+        </>
+      )}
+      
+      {/* 🔧 项目详情弹窗 */}
+      {selectedProject && (
+        <>
+          {console.log('🔧 渲染项目详情弹窗, project:', selectedProject)}
+          <ProjectDetailModal
+            project={selectedProject}
+            onClose={handleCloseDetailModal}
+            onSuccess={loadDashboardData}
+          />
+        </>
+      )}
     </div>
   );
 }

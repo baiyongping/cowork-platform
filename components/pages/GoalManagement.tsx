@@ -6,6 +6,7 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { usePermissionContext } from '../../contexts/PermissionContext';
 import { ConfirmDialog } from '../ConfirmDialog';
+import { showAlert, showConfirm, showSuccess, showError, showWarning, toastSuccess } from '../../lib/dialog-utils';
 
 interface GoalManagementProps {
   userRole: 'admin' | 'employee';
@@ -1110,7 +1111,7 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
         console.log('🔧 [GoalManagement] 找到策略:', strategyToOpen);
         setSelectedTab('strategy');  // 切换到策略Tab
         setSelectedStrategy(strategyToOpen);
-        setShowStrategyDetail(true);
+        setShowStrategyDetailModal(true);
         onGoalOpened?.();
         console.log('✅ [GoalManagement] 已打开策略详情');
         return;
@@ -1122,7 +1123,7 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
         console.log('🔧 [GoalManagement] 找到措施:', measureToOpen);
         setSelectedTab('strategy');  // 切换到策略Tab
         setSelectedMeasure(measureToOpen);
-        setShowMeasureDetail(true);
+        setShowMeasureDetailModal(true);
         onGoalOpened?.();
         console.log('✅ [GoalManagement] 已打开措施详情');
         return;
@@ -1136,8 +1137,9 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
             if (goalToOpen) {
               console.log('🔧 [GoalManagement] 找到执行力地图项目:', goalToOpen);
               setSelectedTab('execution');  // 切换到执行力地图Tab
-              setSelectedExecutionGoal(goalToOpen);
-              setShowExecutionDetailModal(true);
+              // 使用措施详情弹窗显示项目信息
+              setSelectedMeasure(measure);
+              setShowMeasureDetailModal(true);
               onGoalOpened?.();
               console.log('✅ [GoalManagement] 已打开执行力地图详情');
               return;
@@ -2056,7 +2058,7 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
           </div>
           <div className="flex items-center gap-3">
             {!isEditingForecast ? (
-              checkPermission('goal.productOrder', 'update') && (
+              checkPermission('goal.productOrder', 'edit') && (
                 <button
                   onClick={() => setIsEditingForecast(true)}
                   className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"

@@ -93,7 +93,7 @@ const ROLE_CONFIGS = {
         operationLogs: { view: true, create: false, edit: false, delete: false, export: true }
       }
     },
-    description: '高管：可查看全公司所有数据，可创建和编辑公司级目标，可管理部门、员工、类型设置，可查看操作日志'
+    description: '高管：可查看全公司所有数据，可创建和编辑团队级目标，可管理部门、员工、类型设置，可查看操作日志'
   }
 };
 

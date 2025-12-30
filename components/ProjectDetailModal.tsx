@@ -7,6 +7,7 @@ import ProjectTaskList from './ProjectTaskList';
 import EditProjectModal from './EditProjectModal';
 import { usePermissionContext } from '../contexts/PermissionContext';
 import Drawer from './Drawer';
+import { showSuccess, showError } from '../utils/ui-feedback';
 
 interface ProjectDetailModalProps {
   project: Project;
@@ -89,7 +90,7 @@ export default function ProjectDetailModal({ project, onClose, onSuccess }: Proj
       onSuccess();
     } catch (error) {
       console.error('移入回收站失败:', error);
-      alert('操作失败，请重试');
+      showError('操作失败，请重试');
     } finally {
       setLoading(false);
     }
@@ -99,13 +100,13 @@ export default function ProjectDetailModal({ project, onClose, onSuccess }: Proj
   const handleRecordRevenue = async () => {
     // 检查是否已计入
     if (currentProject.revenueRecorded) {
-      alert('该项目已计入销售业绩，无法重复计入');
+      showError('该项目已计入销售业绩，无法重复计入');
       return;
     }
 
     // 检查项目总金额
     if (!totalAmount || totalAmount <= 0) {
-      alert('项目总金额为0，无法计入销售业绩');
+      showError('项目总金额为0，无法计入销售业绩');
       return;
     }
 
@@ -210,10 +211,10 @@ export default function ProjectDetailModal({ project, onClose, onSuccess }: Proj
       // 刷新项目数据
       await refreshProject();
 
-      alert(`✅ 成功计入销售业绩！\n\n年份: ${year}年\n季度: ${quarter}\n金额: ${formatAmount(totalAmount)}`);
+      showSuccess(`成功计入销售业绩！年份: ${year}年，季度: ${quarter}，金额: ${formatAmount(totalAmount)}`);
     } catch (error) {
       console.error('计入销售业绩失败:', error);
-      alert(`计入销售业绩失败：${error instanceof Error ? error.message : '未知错误'}\n\n请重试或联系管理员`);
+      showError(`计入销售业绩失败：${error instanceof Error ? error.message : '未知错误'}，请重试或联系管理员`);
     } finally {
       setRecordingRevenue(false);
     }

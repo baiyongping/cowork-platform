@@ -299,7 +299,7 @@ async function addPurchaseBatch(event, userId) {
   const tasks = [
     {
       name: `${batchName}-申请`,
-      level: '公司级',
+      level: '团队级',
       type: '采购任务',
       status: '未开始',
       progress: 0,
@@ -315,7 +315,7 @@ async function addPurchaseBatch(event, userId) {
     },
     {
       name: `${batchName}-执行`,
-      level: '公司级',
+      level: '团队级',
       type: '采购任务',
       status: '未开始',
       progress: 0,
@@ -332,7 +332,7 @@ async function addPurchaseBatch(event, userId) {
     },
     {
       name: `${batchName}-验收`,
-      level: '公司级',
+      level: '团队级',
       type: '采购任务',
       status: '未开始',
       progress: 0,

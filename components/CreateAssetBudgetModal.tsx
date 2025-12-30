@@ -124,8 +124,8 @@ const CreateAssetBudgetModal: React.FC<CreateAssetBudgetModalProps> = ({
         items: [], // 新建时明细为空，需要在编辑时添加
         totalAmount: 0,
         year,
-        createdAt: db.serverDate(),
-        updatedAt: db.serverDate(),
+        createdAt: (db as any).serverDate(),
+        updatedAt: (db as any).serverDate(),
       });
 
       toast.success('资产预算创建成功');

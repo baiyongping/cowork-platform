@@ -3,6 +3,7 @@ import { X, RotateCcw, Trash2, Calendar, DollarSign, Users, Phone, Mail, MapPin,
 import { db } from '../lib/cloudbase';
 import type { Opportunity } from '../types/opportunity';
 import { getOpportunityStageColor, getOpportunityLevelColor } from '../types/opportunity';
+import { showError, showSuccess } from '../utils/ui-feedback';
 
 interface OpportunityRecycleBinDetailProps {
   opportunity: Opportunity;
@@ -76,11 +77,11 @@ export default function OpportunityRecycleBinDetail({ opportunity, onClose, onSu
         await Promise.all(updatePromises);
       }
 
-      alert('商机及关联任务已恢复');
+      showSuccess('商机及关联任务已恢复');
       onSuccess();
     } catch (error) {
       console.error('恢复商机失败:', error);
-      alert('恢复失败，请重试');
+      showError('恢复失败，请重试');
     } finally {
       setLoading(false);
     }
@@ -109,11 +110,11 @@ export default function OpportunityRecycleBinDetail({ opportunity, onClose, onSu
       // 2. 永久删除商机
       await db.collection('opportunities').doc(opportunity._id).remove();
 
-      alert('商机及关联任务已永久删除');
+      showSuccess('商机及关联任务已永久删除');
       onSuccess();
     } catch (error) {
       console.error('永久删除失败:', error);
-      alert('删除失败，请重试');
+      showError('删除失败，请重试');
     } finally {
       setLoading(false);
     }

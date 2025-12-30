@@ -21,7 +21,7 @@ export interface DataItem {
   collaborators?: number[];
   isEditLocked?: boolean;
   team?: string;
-  level?: 'company' | 'team' | 'personal' | '公司级' | '团队级' | '个人级';
+  level?: 'company' | 'team' | 'personal' | '团队级' | '个人级';
 }
 
 export interface RolePermission {

@@ -81,23 +81,22 @@ export async function ensureAuth() {
       const loginState = await auth.getLoginState();
       
       if (!loginState) {
-        // 🔧 如果用户主动退出登录，不再自动匿名登录
-        if (isLoggedOut) {
-          console.log('⚠️ 用户已退出登录，跳过自动匿名登录');
-          return;
-        }
-        
-        // ✅ 修复：自动匿名登录，提供认证上下文
+        // ✅ 修复：始终执行匿名登录，提供认证上下文
+        // 即使之前退出过，页面刷新后也需要重新获取认证上下文
         console.log('🔐 执行匿名登录，提供认证上下文...');
         try {
-          await auth.anonymousAuthProvider().signIn();
+          await auth.signInAnonymously();
           console.log('✅ 匿名登录成功');
+          // 登录成功后清除退出标志
+          isLoggedOut = false;
         } catch (authError: any) {
           console.error('❌ 匿名登录失败:', authError?.message || authError);
           throw authError; // 抛出错误，让外层处理
         }
       } else {
         console.log('✅ 已有登录状态 - 用户UID:', loginState.user?.uid);
+        // 有登录状态时也清除退出标志
+        isLoggedOut = false;
       }
     } catch (error: any) {
       // ⚠️ 外层错误也不抛出，只记录日志

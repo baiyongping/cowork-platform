@@ -1,0 +1,9 @@
+{
+  "name": "migrateData",
+  "version": "1.0.0",
+  "description": "数据迁移云函数 - 从测试环境迁移基础数据到生产环境",
+  "main": "index.js",
+  "dependencies": {
+    "@cloudbase/node-sdk": "^2.10.0"
+  }
+}

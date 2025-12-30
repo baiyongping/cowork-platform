@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Edit2, Trash2, CheckCircle, XCircle, Clock, Lock } from 'lucide-react';
+import { showError, showConfirm } from '../../utils/ui-feedback';
 
 interface PurchaseItem {
   itemName: string;
@@ -120,18 +121,18 @@ const PurchaseBatchDetail: React.FC<Props> = ({ batch, onClose, onUpdate }) => {
         loadTasks();
         onUpdate();
       } else {
-        alert(result.result.message);
+        showError(result.result.message);
       }
     } catch (error) {
       console.error('启动任务失败:', error);
-      alert('启动任务失败');
+      showError('启动任务失败');
     } finally {
       setLoading(false);
     }
   };
 
   const handleCompleteTask = async (taskId: string) => {
-    if (!confirm('确认完成该任务？')) return;
+    if (!showConfirm('确认完成该任务？')) return;
 
     try {
       setLoading(true);
@@ -148,11 +149,11 @@ const PurchaseBatchDetail: React.FC<Props> = ({ batch, onClose, onUpdate }) => {
         loadTasks();
         onUpdate();
       } else {
-        alert(result.result.message);
+        showError(result.result.message);
       }
     } catch (error) {
       console.error('完成任务失败:', error);
-      alert('完成任务失败');
+      showError('完成任务失败');
     } finally {
       setLoading(false);
     }
@@ -181,11 +182,11 @@ const PurchaseBatchDetail: React.FC<Props> = ({ batch, onClose, onUpdate }) => {
         setEditMode(false);
         onUpdate();
       } else {
-        alert(result.result.message);
+        showError(result.result.message);
       }
     } catch (error) {
       console.error('保存失败:', error);
-      alert('保存失败');
+      showError('保存失败');
     } finally {
       setLoading(false);
     }

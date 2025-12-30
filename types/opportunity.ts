@@ -6,7 +6,7 @@
 export type OpportunityStage = string; // 动态从系统设置获取，默认值：'跟进线索' | '方案咨询' | '商务谈判'
 
 // 商机级别
-export type OpportunityLevel = '重要' | '一般' | '潜在';
+export type OpportunityLevel = 'A级' | 'B级' | 'C级';
 
 // 产品类型
 export type ProductType = 
@@ -38,8 +38,15 @@ export interface Opportunity {
   notes?: string; // 备注信息
   isPublic?: boolean; // 是否公开(可选)
   projectId?: string; // 关联项目ID（形成项目后填充）
+  isProjectFormed?: boolean; // 是否已形成项目
+  customerName?: string; // 客户名称（别名，兼容旧字段）
+  contact?: string; // 联系人（别名，兼容旧字段）
   isDeleted?: boolean; // 是否已删除(软删除标记)
   deletedAt?: Date | string; // 删除时间
+  closedAt?: Date | string; // 成交时间
+  isClosed?: boolean; // 是否已成交
+  cancelledAt?: Date | string; // 取消/失败时间
+  isCancelled?: boolean; // 是否已取消/失败
   createdBy: string; // 创建人ID
   createdAt: Date | string; // 创建时间
   updatedAt: Date | string; // 更新时间

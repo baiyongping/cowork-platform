@@ -21,6 +21,7 @@ import { verifyToken } from './lib/auth-service';
 import { ensureAuth, app } from './lib/cloudbase';
 import { PermissionProvider } from './contexts/PermissionContext';
 import { useNotificationStore } from './lib/notification-store';
+import { DialogProvider } from './components/ui/GlobalDialog';
 
 // 开发环境日志工具（生产环境静默）
 const isDev = import.meta.env.DEV;
@@ -107,29 +108,42 @@ export default function App() {
 
   // 🎯 步骤2: 检查本地存储的登录状态（仅在认证完成后执行）
   useEffect(() => {
-    if (!authReady) {
-      console.log('⏳ [App] 等待 CloudBase 认证完成...');
-      return;
-    }
-    
-    console.log('✓ [App] 认证已完成，检查本地登录状态...');
-    const storedToken = localStorage.getItem('auth_token');
-    const storedUser = localStorage.getItem('current_user');
-
-    if (storedToken && storedUser) {
-      const tokenVerification = verifyToken(storedToken);
-      
-      if (tokenVerification.valid) {
-        setCurrentUser(JSON.parse(storedUser));
-        setIsLoggedIn(true);
-      } else {
-        // Token过期，清除本地存储
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('current_user');
+    const checkLoginState = async () => {
+      if (!authReady) {
+        console.log('⏳ [App] 等待 CloudBase 认证完成...');
+        return;
       }
-    }
+      
+      console.log('✓ [App] 认证已完成，检查本地登录状态...');
+      const storedToken = localStorage.getItem('auth_token');
+      const storedUser = localStorage.getItem('current_user');
+
+      if (storedToken && storedUser) {
+        const tokenVerification = verifyToken(storedToken);
+        
+        if (tokenVerification.valid) {
+          // ✅ 关键修复：恢复登录状态前，清除退出标记
+          const user = JSON.parse(storedUser);
+          console.log('✓ [App] Token有效，恢复登录状态:', user.username);
+          
+          // 🔧 清除退出标记，允许访问数据库
+          const { clearLogoutFlag } = await import('./lib/cloudbase');
+          clearLogoutFlag();
+          
+          setCurrentUser(user);
+          setIsLoggedIn(true);
+        } else {
+          // Token过期，清除本地存储
+          console.warn('⚠️ [App] Token已过期');
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('current_user');
+        }
+      }
+      
+      setLoading(false);
+    };
     
-    setLoading(false);
+    checkLoginState();
   }, [authReady]);
 
   // 🎯 步骤3: 加载待审核用户数量和未读消息数
@@ -197,13 +211,19 @@ export default function App() {
     return () => clearInterval(interval);
   }, [isLoggedIn, currentUser, unreadCount, setUnreadCount, playNotificationSound]);
 
-  const handleLogin = (user: any, token: string) => {
+  const handleLogin = async (user: any, token: string) => {
     // 保存用户信息和token到本地存储
     localStorage.setItem('auth_token', token);
     localStorage.setItem('current_user', JSON.stringify(user));
     
     setCurrentUser(user);
     setIsLoggedIn(true);
+    
+    // 🔧 登录成功后，清除退出标记，允许后续访问数据库和加载系统设置
+    sessionStorage.removeItem('has-logged-out'); // 清除登录页面的退出标记
+    const { clearLogoutFlag } = await import('./lib/cloudbase');
+    clearLogoutFlag();
+    console.log('✓ 已清除退出标记，允许访问数据库');
     
     // 检查是否是超级管理员且未绑定微信
     if (user.role === 'admin' && !user.wxOpenId) {
@@ -227,25 +247,27 @@ export default function App() {
       await auth.signOut();
       console.log('✓ CloudBase 已退出登录');
       
-      // 2. 清除认证缓存（关键修复：允许重新初始化）
+      // 2. 清除认证缓存（关键修复：设置退出标记，阻止自动匿名登录）
       resetAuth();
       
-      // 3. 清除本地存储
+      // 3. 设置退出标记（阻止登录页面加载系统设置）
+      sessionStorage.setItem('has-logged-out', 'true');
+      
+      // 4. 清除本地存储
       localStorage.removeItem('auth_token');
       localStorage.removeItem('current_user');
       
-      // 4. 重置状态
+      // 5. 重置状态
       setIsLoggedIn(false);
       setCurrentUser(null);
       setCurrentPage('dashboard');
       
-      // 5. 重新初始化 CloudBase 匿名登录（为下次登录做准备）
-      const { ensureAuth } = await import('./lib/cloudbase');
-      await ensureAuth();
+      // ✅ 修复：不再重新初始化 CloudBase，避免自动匿名登录
       console.log('✓ 退出登录成功，已重置认证状态');
     } catch (error) {
       console.error('❌ 退出登录失败:', error);
       // 即使出错也要清除本地状态
+      sessionStorage.setItem('has-logged-out', 'true');
       localStorage.removeItem('auth_token');
       localStorage.removeItem('current_user');
       setIsLoggedIn(false);
@@ -318,10 +340,7 @@ export default function App() {
           }}
         />;
       case 'budget':
-        return <BudgetManagement 
-          userRole={currentUser?.role} 
-          currentUser={currentUser}
-        />;
+        return <BudgetManagement />;
       case 'meetings':
         return <MeetingManagement 
           userRole={currentUser?.role} 
@@ -351,8 +370,9 @@ export default function App() {
   };
 
   return (
-    <PermissionProvider currentUser={currentUser}>
-      <div className="flex h-screen bg-gray-50">
+    <DialogProvider>
+      <PermissionProvider currentUser={currentUser}>
+        <div className="flex h-screen bg-gray-50">
         <Sidebar 
           currentPage={currentPage} 
           onPageChange={handleNavigate}  // 🔧 使用 handleNavigate 支持传递 itemId
@@ -430,5 +450,6 @@ export default function App() {
         />
       )}
     </PermissionProvider>
+    </DialogProvider>
   );
 }

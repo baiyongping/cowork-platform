@@ -9,11 +9,20 @@ interface TaskRecycleBinProps {
   onRestore: () => void;
 }
 
+// 扩展 Task 类型以支持填充的 owner 对象
+interface TaskWithOwner extends Omit<Task, 'owner'> {
+  owner: {
+    _id: string;
+    name: string;
+    username?: string;
+  };
+}
+
 export default function TaskRecycleBin({ onClose, onRestore }: TaskRecycleBinProps) {
-  const [deletedTasks, setDeletedTasks] = useState<Task[]>([]);
+  const [deletedTasks, setDeletedTasks] = useState<TaskWithOwner[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchKeyword, setSearchKeyword] = useState('');
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [selectedTask, setSelectedTask] = useState<TaskWithOwner | null>(null);
   const [showDetail, setShowDetail] = useState(false);
 
   useEffect(() => {
@@ -76,7 +85,7 @@ export default function TaskRecycleBin({ onClose, onRestore }: TaskRecycleBinPro
     }
   };
 
-  const handleViewDetail = (task: Task) => {
+  const handleViewDetail = (task: TaskWithOwner) => {
     setSelectedTask(task);
     setShowDetail(true);
   };
@@ -199,7 +208,6 @@ export default function TaskRecycleBin({ onClose, onRestore }: TaskRecycleBinPro
                         </td>
                         <td className="px-6 py-4">
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            task.level === '公司级' ? 'bg-red-100 text-red-800' :
                             task.level === '团队级' ? 'bg-yellow-100 text-yellow-800' :
                             'bg-green-100 text-green-800'
                           }`}>

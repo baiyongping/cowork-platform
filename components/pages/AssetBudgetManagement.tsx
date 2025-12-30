@@ -42,6 +42,7 @@ interface BudgetItem {
 // 资产预算接口
 interface AssetBudget {
   _id?: string;
+  _openid?: string;                // CloudBase 系统字段
   name: string;                    // 预算名称
   category: typeof ASSET_CATEGORIES[number];  // 类别
   totalAmount: number;             // 总金额（自动汇总）
@@ -55,6 +56,8 @@ interface AssetBudget {
   createdAt?: Date;
   updatedAt?: Date;
   createdBy?: string;
+  deletedAt?: Date;                // 删除时间
+  deletedBy?: string;              // 删除人
   // 兼容旧字段
   completionDate?: string;         // 旧字段,已废弃,使用 deliveryDate
 }
@@ -263,7 +266,7 @@ export function AssetBudgetManagement({ year }: AssetBudgetManagementProps) {
 
   // 永久删除预算
   const handlePermanentDelete = async (budgetId: string) => {
-    if (!confirm('确定要永久删除此预算吗？此操作不可撤销！')) {
+    if (!window.confirm('确定要永久删除此预算吗？此操作不可撤销！')) {
       return;
     }
 

@@ -3,6 +3,7 @@ import { X, Save } from 'lucide-react';
 import { app, db } from '../lib/cloudbase';
 import type { OpportunityStage, OpportunityLevel } from '../types/opportunity';
 import { UserAvatar } from './UserAvatar';
+import { showError } from '../utils/ui-feedback';
 
 interface CreateOpportunityModalProps {
   onClose: () => void;
@@ -83,7 +84,7 @@ export default function CreateOpportunityModal({ onClose, onSuccess }: CreateOpp
       const userStr = localStorage.getItem('current_user');
       if (!userStr) {
         console.error('localStorage 中没有用户信息，请先登录');
-        alert('无法获取当前用户信息，请刷新页面重新登录');
+        window.alert('无法获取当前用户信息，请刷新页面重新登录');
         return;
       }
 
@@ -97,11 +98,11 @@ export default function CreateOpportunityModal({ onClose, onSuccess }: CreateOpp
         console.log('用户信息加载成功:', loginUser.name, loginUser.userId);
       } else {
         console.error('用户信息结构无效:', loginUser);
-        alert('用户信息格式错误，请重新登录');
+        window.alert('用户信息格式错误，请重新登录');
       }
     } catch (error) {
       console.error('解析用户信息失败:', error);
-      alert('读取用户信息失败，请重新登录');
+      window.alert('读取用户信息失败，请重新登录');
     }
   };
 
@@ -124,7 +125,7 @@ export default function CreateOpportunityModal({ onClose, onSuccess }: CreateOpp
     
     // 二次确认用户信息（注意：用户对象的ID字段是 userId）
     if (!currentUser || !currentUser.userId) {
-      alert('无法获取当前用户信息，请刷新页面后重试');
+      window.alert('无法获取当前用户信息，请刷新页面后重试');
       return;
     }
 
@@ -176,7 +177,7 @@ export default function CreateOpportunityModal({ onClose, onSuccess }: CreateOpp
             data: {
               action: 'create',
               opportunityId: result.id,
-              opportunityName: opportunityData.opportunityName,
+              opportunityName: opportunityData.name,
               customer: opportunityData.customer,
               receiver: opportunityData.owner
             }
@@ -191,7 +192,7 @@ export default function CreateOpportunityModal({ onClose, onSuccess }: CreateOpp
       onClose();
     } catch (error: any) {
       console.error('创建商机失败:', error);
-      alert('创建商机失败: ' + error.message);
+      showError('创建商机失败: ' + error.message);
     } finally {
       setSubmitting(false);
     }

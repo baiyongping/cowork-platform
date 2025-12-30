@@ -3,9 +3,19 @@ import { Task } from '../types/task';
 import { useState } from 'react';
 import { db } from '../lib/cloudbase';
 import { UserAvatar } from './UserAvatar';
+import { showError } from '../utils/ui-feedback';
+
+// 扩展 Task 类型以支持填充的 owner 对象
+interface TaskWithOwner extends Omit<Task, 'owner'> {
+  owner: {
+    _id: string;
+    name: string;
+    username?: string;
+  };
+}
 
 interface TaskRecycleBinDetailProps {
-  task: Task;
+  task: TaskWithOwner;
   onClose: () => void;
   onRestoreSuccess: () => void;
 }
@@ -29,7 +39,7 @@ export default function TaskRecycleBinDetail({ task, onClose, onRestoreSuccess }
       onRestoreSuccess();
     } catch (error) {
       console.error('恢复任务失败:', error);
-      alert('恢复任务失败，请重试');
+      showError('恢复任务失败，请重试');
     } finally {
       setLoading(false);
     }
@@ -62,7 +72,7 @@ export default function TaskRecycleBinDetail({ task, onClose, onRestoreSuccess }
       onRestoreSuccess();
     } catch (error) {
       console.error('永久删除任务失败:', error);
-      alert('永久删除任务失败，请重试');
+      showError('永久删除任务失败，请重试');
     } finally {
       setLoading(false);
     }
@@ -109,7 +119,6 @@ export default function TaskRecycleBinDetail({ task, onClose, onRestoreSuccess }
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">任务级别</label>
                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                  task.level === '公司级' ? 'bg-red-100 text-red-800' :
                   task.level === '团队级' ? 'bg-yellow-100 text-yellow-800' :
                   'bg-green-100 text-green-800'
                 }`}>

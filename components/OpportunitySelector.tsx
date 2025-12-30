@@ -207,8 +207,8 @@ export default function OpportunitySelector({ selectedId, onSelect, onClose }: O
                         </div>
                         <div>级别：
                           <span className={`ml-1 px-2 py-0.5 rounded-full text-xs ${
-                            opp.level === '重点' ? 'bg-red-100 text-red-800' :
-                            opp.level === '一般' ? 'bg-yellow-100 text-yellow-800' :
+                            opp.level === 'A级' ? 'bg-red-100 text-red-800' :
+                            opp.level === 'B级' ? 'bg-blue-100 text-blue-800' :
                             'bg-gray-100 text-gray-800'
                           }`}>
                             {opp.level}

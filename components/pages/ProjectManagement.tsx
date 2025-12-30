@@ -11,6 +11,7 @@ import type {
   ProjectStatistics,
 } from '../../types/project';
 import { getProjectStatusColor, getProjectPhaseColor } from '../../types/project';
+import { showError } from '../../utils/ui-feedback';
 
 interface ProjectManagementProps {
   userRole: 'admin' | 'user';
@@ -335,7 +336,7 @@ export function ProjectManagement({ userRole, currentUserId, openProjectId, onPr
       
       // 检查：如果项目当前状态是"完成"，禁止修改
       if (currentProject?.status === '完成') {
-        alert('⚠️ 项目阶段已完成，不可再变更');
+        showError('项目阶段已完成，不可再变更');
         return;
       }
       
@@ -377,7 +378,7 @@ export function ProjectManagement({ userRole, currentUserId, openProjectId, onPr
       await loadProjects();
     } catch (error) {
       console.error('更新项目状态失败:', error);
-      alert('更新失败，请重试');
+      showError('更新失败，请重试');
     } finally {
       setLoading(false);
     }
@@ -683,7 +684,6 @@ export function ProjectManagement({ userRole, currentUserId, openProjectId, onPr
             setSelectedProject(null);
             loadProjects();
           }}
-          userPermissions={userPermissions}
         />
       )}
     </div>

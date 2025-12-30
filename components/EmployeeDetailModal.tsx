@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { X, Edit2, Save, Trash2, User, UserCircle2, Briefcase, Shield, Calendar, Users, Building2, AlertTriangle } from 'lucide-react';
+import { X, Edit2, Save, Trash2, User, UserCircle2, Briefcase, Shield, Calendar, Users, Building2, AlertTriangle, Key, Copy } from 'lucide-react';
 import { db } from '../lib/cloudbase';
 import app from '../lib/cloudbase';
 import Drawer from './Drawer';
+import { showAlert, showConfirm, showSuccess, showError, toastSuccess, toastError } from '../lib/dialog-utils';
 
 interface Department {
   _id: string;
@@ -35,6 +36,7 @@ interface EmployeeDetailModalProps {
   allDepartments?: Department[];
   allEmployees?: Employee[];
   rolePermissions?: any[]; // 角色权限列表
+  currentUserRole?: string; // 🆕 当前用户角色
 }
 
 export default function EmployeeDetailModal({ 
@@ -44,11 +46,15 @@ export default function EmployeeDetailModal({
   onSuccess,
   allDepartments = [],
   allEmployees = [],
-  rolePermissions = []
+  rolePermissions = [],
+  currentUserRole = '' // 🆕 当前用户角色
 }: EmployeeDetailModalProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [showHandoverConfirm, setShowHandoverConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false); // 🆕 删除确认对话框
+  const [showResetPasswordModal, setShowResetPasswordModal] = useState(false); // 🆕 重置密码弹窗
+  const [newPassword, setNewPassword] = useState(''); // 🆕 新密码
+  const [isResettingPassword, setIsResettingPassword] = useState(false); // 🆕 密码重置中
   const [editForm, setEditForm] = useState({
     name: '',
     phone: '',
@@ -81,7 +87,7 @@ export default function EmployeeDetailModal({
 
   const handleSave = async () => {
     if (!editForm.name.trim()) {
-      alert('请输入姓名');
+      showError('请输入姓名');
       return;
     }
 
@@ -91,7 +97,7 @@ export default function EmployeeDetailModal({
     }
 
     if (editForm.status === '离职' && !editForm.handoverTo) {
-      alert('请选择交接对象');
+      showError('请选择交接对象');
       return;
     }
 
@@ -216,7 +222,7 @@ export default function EmployeeDetailModal({
       onClose();
     } catch (error) {
       console.error('❌ [员工保存] 保存失败:', error);
-      alert('保存失败,请重试');
+      showError('保存失败,请重试');
     }
   };
 
@@ -265,7 +271,7 @@ export default function EmployeeDetailModal({
       });
 
       // 提示成功
-      alert('已成功放入回收站');
+      showSuccess('已成功放入回收站');
       
       // 关闭删除确认对话框
       setShowDeleteConfirm(false);
@@ -277,7 +283,79 @@ export default function EmployeeDetailModal({
       onClose();
     } catch (error) {
       console.error('放入回收站失败:', error);
-      alert('放入回收站失败: ' + (error as any).message);
+      showError('放入回收站失败: ' + (error as any).message);
+    }
+  };
+
+  // 🆕 生成6位随机密码
+  const generatePassword = () => {
+    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let password = '';
+    for (let i = 0; i < 6; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return password;
+  };
+
+  // 🆕 打开重置密码弹窗
+  const handleOpenResetPassword = () => {
+    const password = generatePassword();
+    setNewPassword(password);
+    setShowResetPasswordModal(true);
+  };
+
+  // 🆕 复制密码到剪贴板
+  const handleCopyPassword = async () => {
+    try {
+      await navigator.clipboard.writeText(newPassword);
+      showSuccess('密码已复制到剪贴板');
+    } catch (error) {
+      console.error('复制失败:', error);
+      showError('复制失败，请手动复制');
+    }
+  };
+
+  // 🆕 执行密码重置
+  const handleResetPassword = async () => {
+    if (!newPassword) {
+      showError('密码不能为空');
+      return;
+    }
+
+    setIsResettingPassword(true);
+    try {
+      // 调用云函数重置密码
+      const result = await app.callFunction({
+        name: 'user-management',
+        data: {
+          action: 'resetPassword',
+          userId: employee._id,
+          newPassword: newPassword
+        }
+      });
+
+      if (result.result && result.result.success) {
+        // 记录操作日志
+        await db.collection('operation_logs').add({
+          userId: employee._id,
+          module: '员工管理',
+          action: '重置密码',
+          content: `管理员重置了员工 ${employee.name}(${employee.username}) 的密码`,
+          ipAddress: 'unknown',
+          createdAt: new Date()
+        });
+
+        showSuccess('密码重置成功！请将新密码告知员工。');
+        setShowResetPasswordModal(false);
+        setNewPassword('');
+      } else {
+        throw new Error(result.result?.message || '密码重置失败');
+      }
+    } catch (error) {
+      console.error('密码重置失败:', error);
+      showError('密码重置失败: ' + (error as any).message);
+    } finally {
+      setIsResettingPassword(false);
     }
   };
 
@@ -317,6 +395,15 @@ export default function EmployeeDetailModal({
                 <Edit2 className="w-4 h-4" />
                 编辑
               </button>
+              {currentUserRole === 'admin' && (
+                <button
+                  onClick={handleOpenResetPassword}
+                  className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors shadow-sm"
+                >
+                  <Key className="w-4 h-4" />
+                  重置密码
+                </button>
+              )}
               <button
                 onClick={() => setShowDeleteConfirm(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors shadow-sm"
@@ -654,6 +741,79 @@ export default function EmployeeDetailModal({
               <button
                 onClick={() => setShowDeleteConfirm(false)}
                 className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🆕 重置密码弹窗 */}
+      {showResetPasswordModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+                <Key className="w-6 h-6 text-purple-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">重置密码</h3>
+            </div>
+            
+            <div className="mb-6 space-y-4">
+              <p className="text-gray-600">
+                为员工 <span className="font-semibold text-gray-900">{employee.name}</span> 生成新密码
+              </p>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  新密码
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={newPassword}
+                    readOnly
+                    className="flex-1 px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-900 font-mono text-lg"
+                  />
+                  <button
+                    onClick={handleCopyPassword}
+                    className="p-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                    title="复制密码"
+                  >
+                    <Copy className="w-5 h-5" />
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  点击复制图标将密码复制到剪贴板
+                </p>
+              </div>
+              
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-sm text-blue-800 font-medium">💡 提示:</p>
+                <ul className="list-disc list-inside text-sm text-blue-700 space-y-1 mt-2">
+                  <li>密码已自动生成（6位字符）</li>
+                  <li>请在确认前复制密码并妥善保管</li>
+                  <li>重置后请及时通知员工修改密码</li>
+                </ul>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleResetPassword}
+                disabled={isResettingPassword}
+                className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                {isResettingPassword ? '重置中...' : '确认重置'}
+              </button>
+              <button
+                onClick={() => {
+                  setShowResetPasswordModal(false);
+                  setNewPassword('');
+                }}
+                disabled={isResettingPassword}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:cursor-not-allowed"
               >
                 取消
               </button>

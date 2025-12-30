@@ -80,7 +80,7 @@ async function migrateSchema() {
       status ENUM('进行中', '已完成', '延期', '取消') DEFAULT '进行中',
       ownerId INT NOT NULL,
       team VARCHAR(100) DEFAULT '',
-      level ENUM('公司级', '团队级', '个人级') NOT NULL,
+      level ENUM('团队级', '个人级') NOT NULL,
       description TEXT,
       isEditLocked BOOLEAN DEFAULT FALSE,
       createdBy INT NOT NULL,
@@ -101,7 +101,7 @@ async function migrateSchema() {
       status ENUM('进行中', '已完成', '延期', '取消') DEFAULT '进行中',
       ownerId INT NOT NULL,
       team VARCHAR(100) DEFAULT '',
-      level ENUM('公司级', '团队级', '个人级') NOT NULL,
+      level ENUM('团队级', '个人级') NOT NULL,
       description TEXT,
       isEditLocked BOOLEAN DEFAULT FALSE,
       createdBy INT NOT NULL,
@@ -120,7 +120,7 @@ async function migrateSchema() {
       endDate DATE NOT NULL,
       ownerId INT NOT NULL,
       team VARCHAR(100) DEFAULT '',
-      level ENUM('公司级', '团队级', '个人级') NOT NULL,
+      level ENUM('团队级', '个人级') NOT NULL,
       description TEXT,
       expectedResult TEXT,
       actualResult TEXT,
@@ -142,7 +142,7 @@ async function migrateSchema() {
       endDate DATE NOT NULL,
       ownerId INT NOT NULL,
       team VARCHAR(100) DEFAULT '',
-      level ENUM('公司级', '团队级', '个人级') NOT NULL,
+      level ENUM('团队级', '个人级') NOT NULL,
       relatedStrategyId INT,
       description TEXT,
       isEditLocked BOOLEAN DEFAULT FALSE,
@@ -218,7 +218,7 @@ async function seedRoles() {
         },
         profile: {view: true, create: false, edit: true, delete: false, export: false}
       },
-      description: '高管：可查看全公司所有数据，可创建和编辑公司级目标'
+      description: '高管：可查看全公司所有数据，可创建和编辑团队级目标'
     },
     {
       roleId: 'admin',

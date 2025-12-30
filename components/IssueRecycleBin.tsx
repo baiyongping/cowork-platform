@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, RefreshCw, Trash2, Search, Calendar, User } from 'lucide-react';
 import { db } from '../lib/cloudbase';
 import { Issue } from '../types/issue';
+import { showError, showConfirm } from '../utils/ui-feedback';
 
 interface IssueRecycleBinProps {
   onClose: () => void;
@@ -39,7 +40,7 @@ export default function IssueRecycleBin({ onClose, onRestore }: IssueRecycleBinP
   };
 
   const handleRestore = async (issue: Issue) => {
-    if (!confirm(`确定要恢复问题"${issue.name}"吗?`)) {
+    if (!showConfirm(`确定要恢复问题"${issue.name}"吗?`)) {
       return;
     }
 
@@ -56,12 +57,12 @@ export default function IssueRecycleBin({ onClose, onRestore }: IssueRecycleBinP
       onRestore();
     } catch (error) {
       console.error('恢复问题失败:', error);
-      alert('恢复问题失败，请稍后重试');
+      showError('恢复问题失败，请稍后重试');
     }
   };
 
   const handlePermanentDelete = async (issue: Issue) => {
-    if (!confirm(`确定要永久删除问题"${issue.name}"吗？此操作不可恢复！`)) {
+    if (!showConfirm(`确定要永久删除问题"${issue.name}"吗？此操作不可恢复！`)) {
       return;
     }
 
@@ -74,7 +75,7 @@ export default function IssueRecycleBin({ onClose, onRestore }: IssueRecycleBinP
       loadDeletedIssues();
     } catch (error) {
       console.error('永久删除问题失败:', error);
-      alert('永久删除问题失败，请稍后重试');
+      showError('永久删除问题失败，请稍后重试');
     }
   };
 

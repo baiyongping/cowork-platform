@@ -1,5 +1,5 @@
 {
-  "envId": "parasaga-5g6ibiua4b9422eb",
+  "envId": "cowork-9gg9oocb516be5fb",
   "framework": {
     "name": "react",
     "plugins": {
@@ -12,22 +12,104 @@
       }
     }
   },
+  "storage": {
+    "bucket": "636f-cowork-9gg9oocb516be5fb-1301818329",
+    "domain": "https://636f-cowork-9gg9oocb516be5fb-1301818329.tcb.qcloud.la",
+    "paths": {
+      "avatars": "avatars",
+      "attachments": "attachments",
+      "logos": "logos",
+      "documents": "documents"
+    }
+  },
   "databases": [
     {
       "name": "users",
-      "description": "用户集合",
-      "indexes": [
-        {
-          "name": "username_unique",
-          "unique": true,
-          "fields": ["username"]
-        },
-        {
-          "name": "email_unique",
-          "unique": true,
-          "fields": ["email"]
-        }
-      ]
+      "description": "用户集合"
+    },
+    {
+      "name": "departments",
+      "description": "部门集合"
+    },
+    {
+      "name": "tasks",
+      "description": "任务集合"
+    },
+    {
+      "name": "opportunities",
+      "description": "商机集合"
+    },
+    {
+      "name": "projects",
+      "description": "项目集合"
+    },
+    {
+      "name": "goals",
+      "description": "目标集合"
+    },
+    {
+      "name": "quarterly_measures",
+      "description": "季度举措集合"
+    },
+    {
+      "name": "issues",
+      "description": "问题集合"
+    },
+    {
+      "name": "issue_replies",
+      "description": "问题回复集合"
+    },
+    {
+      "name": "messages",
+      "description": "消息集合"
+    },
+    {
+      "name": "task_comments",
+      "description": "任务评论集合"
+    },
+    {
+      "name": "type_settings",
+      "description": "类型设置集合"
+    },
+    {
+      "name": "role_permissions",
+      "description": "角色权限集合"
+    },
+    {
+      "name": "operation_logs",
+      "description": "操作日志集合"
+    },
+    {
+      "name": "annual_budgets",
+      "description": "年度预算集合"
+    },
+    {
+      "name": "budget_accounts",
+      "description": "预算账户集合"
+    },
+    {
+      "name": "budget_execution",
+      "description": "预算执行集合"
+    },
+    {
+      "name": "product_order_forecast",
+      "description": "产品订单预测集合"
+    },
+    {
+      "name": "purchaseBatches",
+      "description": "采购批次集合"
+    },
+    {
+      "name": "sales_goals",
+      "description": "销售目标集合"
+    },
+    {
+      "name": "login_codes",
+      "description": "登录验证码集合"
+    },
+    {
+      "name": "sms_codes",
+      "description": "短信验证码集合"
     }
   ],
   "functions": [

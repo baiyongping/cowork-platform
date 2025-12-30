@@ -1,0 +1,9 @@
+{
+  "name": "createCollections",
+  "version": "1.0.0",
+  "description": "批量创建数据库集合 - 在生产环境创建所有必需的集合",
+  "main": "index.js",
+  "dependencies": {
+    "@cloudbase/node-sdk": "^2.10.0"
+  }
+}

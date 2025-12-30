@@ -5,10 +5,10 @@
 
 import React from 'react';
 import { usePermissions } from '../hooks/usePermissions';
-import { Button, ButtonProps } from './ui/button';
+import { Button } from './ui/button';
 import type { DataItem } from '../utils/permissionUtils';
 
-interface PermissionButtonProps extends ButtonProps {
+interface PermissionButtonProps extends React.ComponentProps<typeof Button> {
   /** 当前登录用户 */
   currentUser: any;
   

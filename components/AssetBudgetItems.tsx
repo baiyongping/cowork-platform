@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Edit, Trash2, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { showConfirm } from '../utils/ui-feedback';
 
 // 明细项接口（匹配数据库结构）
 interface BudgetItem {
@@ -36,7 +37,7 @@ export function AssetBudgetItems({ items, onUpdate, isEditing }: AssetBudgetItem
 
   // 删除明细
   const handleDelete = (id: string) => {
-    if (!confirm('确定要删除此明细项吗？')) {
+    if (!showConfirm('确定要删除此明细项吗？')) {
       return;
     }
 

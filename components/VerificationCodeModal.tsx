@@ -44,7 +44,7 @@ export function VerificationCodeModal({ phone, code, onClose }: VerificationCode
                 <button
                   onClick={() => {
                     navigator.clipboard.writeText(code);
-                    alert('验证码已复制到剪贴板');
+                    window.alert('验证码已复制到剪贴板');
                   }}
                   className="px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-600 text-xs rounded transition-colors"
                 >

@@ -1,0 +1,214 @@
+/**
+ * TDesign 样式定制文件
+ * 用于覆盖 TDesign 默认样式，使其与 Tailwind 风格协调一致
+ */
+
+/* ========================================
+   1. 基础样式覆盖（统一设计语言）
+   ======================================== */
+
+/* 统一字体（与 Tailwind 保持一致） */
+.t-button,
+.t-input,
+.t-select,
+.t-table {
+  font-family: inherit;
+}
+
+/* 统一圆角（与 Tailwind rounded-lg 一致） */
+.t-button,
+.t-input,
+.t-select-input,
+.t-popup,
+.t-table {
+  border-radius: 0.5rem;
+}
+
+/* 统一阴影（与 Tailwind shadow-sm 一致） */
+.t-popup,
+.t-select-popup,
+.t-dropdown__menu {
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+}
+
+/* ========================================
+   2. 按钮样式优化
+   ======================================== */
+
+/* 主要按钮 - 与 Tailwind bg-blue-600 一致 */
+.t-button--theme-primary {
+  background-color: #2563eb;
+  border-color: #2563eb;
+  transition: all 0.2s ease;
+}
+
+.t-button--theme-primary:hover {
+  background-color: #1d4ed8;
+  border-color: #1d4ed8;
+}
+
+/* 次要按钮 - 与 Tailwind bg-gray-100 一致 */
+.t-button--theme-default {
+  background-color: #f3f4f6;
+  border-color: #e5e7eb;
+  color: #374151;
+}
+
+.t-button--theme-default:hover {
+  background-color: #e5e7eb;
+}
+
+/* 危险按钮 - 与 Tailwind bg-red-600 一致 */
+.t-button--theme-danger {
+  background-color: #dc2626;
+  border-color: #dc2626;
+}
+
+.t-button--theme-danger:hover {
+  background-color: #b91c1c;
+}
+
+/* ========================================
+   3. 表单控件样式优化
+   ======================================== */
+
+/* 输入框 - 与 Tailwind border-gray-300 一致 */
+.t-input {
+  border-color: #d1d5db;
+  transition: all 0.2s ease;
+}
+
+.t-input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgb(37 99 235 / 0.1);
+}
+
+/* 选择器 */
+.t-select-input {
+  border-color: #d1d5db;
+}
+
+.t-select-input:hover {
+  border-color: #9ca3af;
+}
+
+/* ========================================
+   4. 表格样式优化
+   ======================================== */
+
+/* 表格边框颜色 */
+.t-table {
+  border-color: #e5e7eb;
+}
+
+/* 表头背景色 - 与 Tailwind bg-gray-50 一致 */
+.t-table__header {
+  background-color: #f9fafb;
+}
+
+/* 表格行 hover 效果 */
+.t-table-row:hover {
+  background-color: #f3f4f6;
+}
+
+/* 表格分页器 */
+.t-pagination .t-pagination__btn-current {
+  background-color: #2563eb;
+  border-color: #2563eb;
+}
+
+/* ========================================
+   5. 弹出层样式优化
+   ======================================== */
+
+/* 对话框 */
+.t-dialog__header {
+  border-bottom: 1px solid #e5e7eb;
+  padding: 1.5rem;
+}
+
+.t-dialog__footer {
+  border-top: 1px solid #e5e7eb;
+  padding: 1rem 1.5rem;
+}
+
+/* 下拉菜单 */
+.t-dropdown__menu {
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+}
+
+/* ========================================
+   6. 响应式优化（移动端）
+   ======================================== */
+
+@media (max-width: 768px) {
+  /* 移动端按钮尺寸优化 */
+  .t-button {
+    padding: 0.625rem 1rem;
+    font-size: 0.875rem;
+  }
+  
+  /* 移动端表格优化 */
+  .t-table {
+    font-size: 0.875rem;
+  }
+  
+  /* 移动端对话框优化 */
+  .t-dialog {
+    width: 90% !important;
+    max-width: 90% !important;
+  }
+}
+
+/* ========================================
+   7. 暗黑模式支持（可选）
+   ======================================== */
+
+@media (prefers-color-scheme: dark) {
+  /* 根据需求启用暗黑模式 */
+  /* 目前项目使用浅色主题，暗黑模式暂不启用 */
+}
+
+/* ========================================
+   8. 动画优化
+   ======================================== */
+
+/* 统一过渡动画 */
+.t-button,
+.t-input,
+.t-select-input,
+.t-popup {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ========================================
+   9. 特殊组件样式修复
+   ======================================== */
+
+/* 日期选择器 */
+.t-date-picker__panel {
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+}
+
+/* 上传组件 */
+.t-upload__dragger {
+  border: 2px dashed #d1d5db;
+  border-radius: 0.5rem;
+}
+
+.t-upload__dragger:hover {
+  border-color: #2563eb;
+}
+
+/* 步骤条 */
+.t-steps-item__icon {
+  background-color: #f3f4f6;
+  border-color: #d1d5db;
+}
+
+.t-steps-item--finish .t-steps-item__icon {
+  background-color: #2563eb;
+  border-color: #2563eb;
+}

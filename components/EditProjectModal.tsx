@@ -292,7 +292,7 @@ export default function EditProjectModal({ project, onClose, onSuccess }: EditPr
     setFormData(prev => ({
       ...prev,
       progress: newProgress,
-      phase: resetPhase ? '' : prev.phase // 状态改变时清空阶段选择
+      phase: (resetPhase ? '' : prev.phase) as ProjectPhase // 状态改变时清空阶段选择
     }));
   };
   
@@ -825,7 +825,7 @@ export default function EditProjectModal({ project, onClose, onSuccess }: EditPr
                         <input
                           type="number"
                           min="0"
-                          value={product.quantity === '' ? '' : product.quantity}
+                          value={product.quantity || ''}
                           onChange={(e) => updateDeliverable(index, 'quantity', e.target.value === '' ? '' : parseFloat(e.target.value) || 0)}
                           className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500"
                           placeholder="数量"
@@ -837,7 +837,7 @@ export default function EditProjectModal({ project, onClose, onSuccess }: EditPr
                           type="number"
                           min="0"
                           step="0.01"
-                          value={product.unitPrice === '' ? '' : product.unitPrice}
+                          value={product.unitPrice || ''}
                           onChange={(e) => updateDeliverable(index, 'unitPrice', e.target.value === '' ? '' : parseFloat(e.target.value) || 0)}
                           className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500"
                           placeholder="单价"
@@ -849,7 +849,7 @@ export default function EditProjectModal({ project, onClose, onSuccess }: EditPr
                           type="number"
                           min="0"
                           step="0.01"
-                          value={product.estimatedCost === '' ? '' : product.estimatedCost}
+                          value={product.estimatedCost || ''}
                           onChange={(e) => updateDeliverable(index, 'estimatedCost', e.target.value === '' ? '' : parseFloat(e.target.value) || 0)}
                           className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500"
                           placeholder="成本"

@@ -39,7 +39,7 @@ interface BudgetParametersManagementProps {
 
 export const BudgetParametersManagement: React.FC<BudgetParametersManagementProps> = ({ year }) => {
   // ✅ 引入权限检查
-  const { checkPermission, permissionLoading } = usePermissionContext();
+  const { checkPermission, loading: permissionLoading } = usePermissionContext();
   
   // 添加 Tab 状态
   const [activeTab, setActiveTab] = useState<'profit-loss' | 'payroll'>('profit-loss');

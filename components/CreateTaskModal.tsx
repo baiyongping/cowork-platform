@@ -48,7 +48,7 @@ export default function CreateTaskModal({ onClose, onSuccess, taskStatuses, task
   const [formData, setFormData] = useState<CreateTaskDto>({
     name: '',
     level: '个人级',
-    type: taskTypes[0] || '日常工作',  // 🆕 使用动态任务类型的第一个作为默认值
+    type: (taskTypes[0] as TaskType) || '日常工作',  // 🆕 使用动态任务类型的第一个作为默认值
     status: '未开始',
     progress: 0,
     owner: '',
@@ -202,8 +202,9 @@ export default function CreateTaskModal({ onClose, onSuccess, taskStatuses, task
       
       if (result.data && result.data.length > 0) {
         setTeamMonthlyTasks(result.data);
+        console.log(`✅ 加载了 ${result.data.length} 个团队月度任务`);
       } else {
-        console.warn('⚠️ 没有找到符合条件的团队月度任务');
+        console.log('💡 当前暂无团队月度任务,可在"日常工作"中创建');
         setTeamMonthlyTasks([]);
       }
     } catch (error) {
@@ -323,7 +324,7 @@ export default function CreateTaskModal({ onClose, onSuccess, taskStatuses, task
 
     // 检查当前用户是否已加载
     if (!currentUser || !currentUser._id) {
-      alert('用户信息加载中，请稍后再试');
+      window.alert('用户信息加载中，请稍后再试');
       return;
     }
 
@@ -339,7 +340,8 @@ export default function CreateTaskModal({ onClose, onSuccess, taskStatuses, task
         ...formData,
         createdBy: currentUser._id,
         createdAt: new Date(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
+        isDeleted: false  // 🔧 添加 isDeleted 字段,解决任务无法回显的问题
       });
 
       console.log('✅ [创建任务] 任务创建成功');
@@ -397,7 +399,7 @@ export default function CreateTaskModal({ onClose, onSuccess, taskStatuses, task
       setFormData({
         name: '',
         level: '个人级',
-        type: taskTypes[0] || '日常工作',  // 🆕 使用动态任务类型
+        type: (taskTypes[0] as TaskType) || '日常工作',  // 🆕 使用动态任务类型
         status: '未开始',
         progress: 0,
         owner: currentUser._id,
@@ -410,7 +412,7 @@ export default function CreateTaskModal({ onClose, onSuccess, taskStatuses, task
       });
     } catch (error: any) {
       console.error('❌ [创建任务] 创建失败:', error);
-      alert(`创建任务失败: ${error.message}`);
+      window.alert(`创建任务失败: ${error.message}`);
     } finally {
       setSubmitting(false);
     }
@@ -464,7 +466,7 @@ export default function CreateTaskModal({ onClose, onSuccess, taskStatuses, task
                 setFormData({ 
                   ...formData, 
                   type: newType,
-                  level: newType === '日常工作' ? '个人级' : '',
+                  level: newType === '日常工作' ? '个人级' : '团队级',
                   status: '未开始',
                   opportunityActionType: undefined,
                   projectPhase: undefined,
@@ -696,10 +698,14 @@ export default function CreateTaskModal({ onClose, onSuccess, taskStatuses, task
             </div>
           )}
 
+
           {/* 任务状态 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               任务状态 <span className="text-red-500">*</span>
+              <span className="text-xs text-gray-500 ml-2">
+                （新建任务时固定为"未开始"，保存后可修改）
+              </span>
             </label>
             <select
               value={formData.status}
@@ -712,7 +718,8 @@ export default function CreateTaskModal({ onClose, onSuccess, taskStatuses, task
                   progress: newStatus === '已完成' ? 100 : formData.progress
                 });
               }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              disabled={true}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 cursor-not-allowed opacity-60"
             >
               {getStatusOptions().map(status => (
                 <option key={status} value={status}>{status}</option>
@@ -720,13 +727,14 @@ export default function CreateTaskModal({ onClose, onSuccess, taskStatuses, task
             </select>
           </div>
 
+
           {/* 完成进度 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               完成进度: {formData.progress}%
-              {formData.status !== '进行中' && (
+              {(formData.status === '未开始' || formData.status === '已完成') && (
                 <span className="text-xs text-gray-500 ml-2">
-                  （仅在"进行中"状态时可编辑）
+                  （在"未开始"和"已完成"状态时不可编辑）
                 </span>
               )}
             </label>
@@ -737,8 +745,8 @@ export default function CreateTaskModal({ onClose, onSuccess, taskStatuses, task
               step="5"
               value={formData.progress}
               onChange={(e) => setFormData({ ...formData, progress: parseInt(e.target.value) })}
-              disabled={formData.status !== '进行中'}
-              className={`w-full ${formData.status !== '进行中' ? 'opacity-50 cursor-not-allowed' : ''}`}
+              disabled={formData.status === '未开始' || formData.status === '已完成'}
+              className={`w-full ${(formData.status === '未开始' || formData.status === '已完成') ? 'opacity-50 cursor-not-allowed' : ''}`}
             />
             <div className="flex justify-between text-xs text-gray-500 mt-1">
               <span>0%</span>

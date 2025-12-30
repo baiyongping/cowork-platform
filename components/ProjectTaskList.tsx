@@ -6,6 +6,27 @@ import { getStatusColor } from '../types/task';
 import CreateProjectTaskModal from './CreateProjectTaskModal';
 import TaskDetailModal from './TaskDetailModal';
 import EditTaskModal from './EditTaskModal';
+import { showError } from '../utils/ui-feedback';
+
+// 扩展 Task 类型以支持关联查询后的对象
+interface TaskWithPopulatedFields extends Omit<Task, 'owner' | 'collaborators'> {
+  owner: {
+    _id: string;
+    name: string;
+    username?: string;
+    avatar?: string;
+    department?: string;
+  };
+  collaborators?: Array<{
+    _id: string;
+    name: string;
+    username?: string;
+    avatar?: string;
+    department?: string;
+  }>;
+  ownerName?: string;
+  collaboratorNames?: string[];
+}
 
 interface ProjectTaskListProps {
   projectId: string;
@@ -13,13 +34,21 @@ interface ProjectTaskListProps {
 }
 
 export default function ProjectTaskList({ projectId, onTaskUpdate }: ProjectTaskListProps) {
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const [tasks, setTasks] = useState<TaskWithPopulatedFields[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [project, setProject] = useState<any>(null);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [selectedTask, setSelectedTask] = useState<TaskWithPopulatedFields | null>(null);
   const [showTaskDetailModal, setShowTaskDetailModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [taskStatuses, setTaskStatuses] = useState<string[]>([]);
+  const [taskTypes, setTaskTypes] = useState<string[]>([]);
+
+  // 加载任务状态和类型配置
+  useEffect(() => {
+    loadTaskStatuses();
+    loadTaskTypes();
+  }, []);
 
   // 加载项目信息和项目任务
   useEffect(() => {
@@ -100,6 +129,50 @@ export default function ProjectTaskList({ projectId, onTaskUpdate }: ProjectTask
     }
   };
 
+  // 加载任务状态配置
+  const loadTaskStatuses = async () => {
+    try {
+      const result = await db.collection('type_settings')
+        .where({ type: 'taskStatus' })
+        .get();
+      
+      if (result.data && result.data.length > 0) {
+        const statusConfig = result.data[0];
+        const statusValues = (statusConfig.values || [])
+          .filter((item: any) => item.enabled !== false)
+          .map((item: any) => typeof item === 'string' ? item : item.value);
+        setTaskStatuses(statusValues.length > 0 ? statusValues : ['未开始', '进行中', '已完成', '延期', '取消', '暂停']);
+      } else {
+        setTaskStatuses(['未开始', '进行中', '已完成', '延期', '取消', '暂停']);
+      }
+    } catch (error) {
+      console.error('加载任务状态配置失败:', error);
+      setTaskStatuses(['未开始', '进行中', '已完成', '延期', '取消', '暂停']);
+    }
+  };
+
+  // 加载任务类型配置
+  const loadTaskTypes = async () => {
+    try {
+      const result = await db.collection('type_settings')
+        .where({ type: 'taskType' })
+        .get();
+      
+      if (result.data && result.data.length > 0) {
+        const typeConfig = result.data[0];
+        const typeValues = (typeConfig.values || [])
+          .filter((item: any) => item.enabled !== false)
+          .map((item: any) => typeof item === 'string' ? item : item.value);
+        setTaskTypes(typeValues.length > 0 ? typeValues : ['日常工作', '商机跟进', '项目任务', '采购任务']);
+      } else {
+        setTaskTypes(['日常工作', '商机跟进', '项目任务', '采购任务']);
+      }
+    } catch (error) {
+      console.error('加载任务类型配置失败:', error);
+      setTaskTypes(['日常工作', '商机跟进', '项目任务', '采购任务']);
+    }
+  };
+
   // 格式化日期
   const formatDate = (date: Date | string): string => {
     if (!date) return '-';
@@ -121,7 +194,7 @@ export default function ProjectTaskList({ projectId, onTaskUpdate }: ProjectTask
   };
 
   // 打开任务详情
-  const handleOpenTaskDetail = (task: Task) => {
+  const handleOpenTaskDetail = (task: TaskWithPopulatedFields) => {
     setSelectedTask(task);
     setShowTaskDetailModal(true);
   };
@@ -168,7 +241,7 @@ export default function ProjectTaskList({ projectId, onTaskUpdate }: ProjectTask
       handleTaskUpdateSuccess();
     } catch (error) {
       console.error('删除任务失败:', error);
-      alert('删除任务失败，请重试');
+      showError('删除任务失败，请重试');
     }
   };
 
@@ -307,6 +380,8 @@ export default function ProjectTaskList({ projectId, onTaskUpdate }: ProjectTask
             handleCloseEdit();
             handleTaskUpdateSuccess();
           }}
+          taskStatuses={taskStatuses}
+          taskTypes={taskTypes}
         />
       )}
     </>

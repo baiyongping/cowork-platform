@@ -2,7 +2,7 @@
 
 > 基于 React + TypeScript + Tailwind CSS + CloudBase 的现代化企业协同办公管理平台
 
-[![Version](https://img.shields.io/badge/version-3.7.0-blue.svg)](https://github.com/your-repo)
+[![Version](https://img.shields.io/badge/version-3.8.0-blue.svg)](https://github.com/your-repo)
 [![React](https://img.shields.io/badge/React-18.2-61dafb.svg)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.2-3178c6.svg)](https://www.typescriptlang.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4.0-38bdf8.svg)](https://tailwindcss.com/)
@@ -10,7 +10,23 @@
 
 ---
 
-## 🎉 v3.7.0 最新更新 (2025-12-28)
+## 🎉 v3.8.0 最新更新 (2025-12-29)
+
+### 1. 工作台重点关注功能 ⭐ NEW
+- ✅ **光标悬停效果** - 鼠标移动时卡片高亮显示
+- ✅ **点击查看详情** - 点击任务/项目卡片打开详情弹窗
+- ✅ **实时数据同步** - 详情弹窗关闭后自动刷新工作台数据
+- ✅ **智能查询** - 自动从数据库获取完整的任务/项目信息
+- ✅ **友好交互** - 平滑过渡动画，提升用户体验
+
+### 2. 模块导入优化
+- ✅ 修复 TaskDetailModal 和 ProjectDetailModal 导入错误
+- ✅ 统一使用默认导出方式
+- ✅ 优化异步查询逻辑
+
+---
+
+## 🎉 v3.7.0 更新 (2025-12-28)
 
 ### 1. 权限控制完善
 - ✅ 财务参数设置权限修复（引入权限检查）
@@ -384,23 +400,29 @@ npx vite build --mode production
 
 **✅ 已部署到CloudBase静态托管**
 
-**访问地址**: https://jihua-oa-dev-3goht9irae4d949f-1301818329.tcloudbaseapp.com/
+**访问地址**: https://cowork-9gg9oocb516be5fb-1301818329.tcloudbaseapp.com/?v=20251230
 
-**部署环境**: jihua-oa-dev-3goht9irae4d949f（测试环境）
+**部署环境**: cowork-9gg9oocb516be5fb（生产环境）
+
+**最新部署**: 2025-12-30 19:19 (UTC+8)
 
 **CloudBase资源**:
-- ✅ **静态托管**: 前端应用（React + TypeScript）
-- ✅ **NoSQL数据库**: 13个集合（users, departments, tasks, opportunities, projects, goals等）
-- ✅ **云函数**: 7个（auth, fix-admin, resetAdminPassword, initPermissionDB等）
-- ✅ **认证服务**: CloudBase Auth + 微信登录
+- ✅ **静态托管**: 前端应用（React + TypeScript + Tailwind CSS）
+- ✅ **NoSQL数据库**: 23个集合（users, departments, tasks, opportunities, projects, goals, issues, messages等）
+- ✅ **云函数**: 22个（getTasks, getOpportunities, getProjects, message-list, scanLogin等）
+- ✅ **云存储**: 文件存储（avatars, attachments, logos, documents）
+- ✅ **认证服务**: CloudBase Auth + 微信扫码登录
 
 **部署命令**:
 ```bash
 # 构建
 npm run build
 
-# 使用CloudBase CLI部署
-tcb hosting deploy dist/ -e jihua-oa-dev-3goht9irae4d949f
+# 使用CloudBase MCP工具部署（推荐）
+# AI会自动调用uploadFiles工具上传dist目录到静态托管
+
+# 或使用CloudBase CLI部署
+tcb hosting deploy dist/ -e cowork-9gg9oocb516be5fb
 ```
 
 ### 传统部署方式
@@ -434,6 +456,18 @@ ssh root@152.136.183.181 "chown -R nginx:nginx /var/www/jihua-dev && chmod -R 75
 ---
 
 ## 📝 版本历史
+
+### v3.8.0 (2025-12-29) - 工作台交互优化版 ✨
+- ✨ **工作台重点关注功能**
+  - ✅ 光标悬停效果（鼠标移动时卡片高亮）
+  - ✅ 点击查看详情（打开任务/项目详情弹窗）
+  - ✅ 实时数据同步（弹窗关闭后刷新数据）
+  - ✅ 智能查询（从数据库获取完整信息）
+  - ✅ 友好交互（平滑过渡动画）
+- 🐛 **Bug 修复**
+  - ✅ 修复 TaskDetailModal 导入错误（改为默认导出）
+  - ✅ 修复 ProjectDetailModal 导入错误（改为默认导出）
+  - ✅ 优化异步查询逻辑
 
 ### v3.7.0 (2025-12-28) - 权限控制与系统优化版 🔒
 - 🔒 **权限控制完善**

@@ -97,6 +97,7 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
     departments: [] as string[], // 改为数组，支持多部门
     roles: [] as string[], // 改为数组，支持多角色
     status: '在职',
+    approvalStatus: '已通过', // 审核状态
     supervisorId: '', // 上级ID
     position: '' // 职务
   });
@@ -308,7 +309,7 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
               throw new Error(`创建角色失败: ${addResult.message}`);
             }
             
-            console.log(`返回的ID字段 - id: ${addResult.id}, _id: ${addResult._id}, docId: ${addResult.docId}`);
+            console.log(`返回的ID字段 - id: ${(addResult as any).id}, _id: ${(addResult as any)._id}, docId: ${(addResult as any).docId}`);
           } catch (err) {
             console.error(`创建角色 ${role.name} 异常:`, err);
             throw err;
@@ -416,14 +417,22 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
       name: '',
       description: '',
       permissions: {
-        task: { view: true, create: true, edit: false, delete: false, export: false },
-        opportunity: { view: true, create: true, edit: false, delete: false, export: false },
-        project: { view: true, create: true, edit: false, delete: false, export: false },
+        tasks: { view: true, create: true, edit: false, delete: false, export: false },
+        opportunities: { view: true, create: true, edit: false, delete: false, export: false },
+        projects: { view: true, create: true, edit: false, delete: false, export: false },
         goal: {
           salesGoal: { view: true, create: true, edit: false, delete: false, export: false },
           opportunityGoal: { view: true, create: true, edit: false, delete: false, export: false },
+          productOrder: { view: true, create: true, edit: false, delete: false, export: false },
           strategy: { view: true, create: true, edit: false, delete: false, export: false },
           execution: { view: true, create: true, edit: false, delete: false, export: false }
+        },
+        budget: {
+          annual: { view: true, create: false, edit: false, delete: false, export: false },
+          asset: { view: true, create: true, edit: false, delete: false, export: false },
+          execution: { view: true, create: false, edit: false, delete: false, export: false },
+          parameters: { view: false, create: false, edit: false, delete: false, export: false },
+          hr: { view: true, create: false, edit: false, delete: false, export: false }
         },
         settings: {
           userApproval: { view: true, create: false, edit: false, delete: false, export: false },
@@ -1261,7 +1270,7 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
       
       const result = await db.collection('operation_logs')
         .where({
-          createdAt: db.command.gte(startDateTime).and(db.command.lte(endDateTime))
+          createdAt: db.command.gte(startDateTime.getTime()).and(db.command.lte(endDateTime.getTime()))
         })
         .orderBy('createdAt', 'desc')
         .limit(100)
@@ -1350,6 +1359,7 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
       departments: employee.departments || [], // 使用多部门数组
       roles: employeeRoles, // 使用过滤后的有效角色
       status: employee.status || '在职',
+      approvalStatus: employee.approvalStatus || '已通过', // 审核状态
       supervisorId: employee.supervisorId || '', // 上级ID
       position: employee.position || '' // 职务
     });
@@ -1379,15 +1389,28 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
       
       // 更新用户数据库（不包含phone，因为手机号不可修改）
       // 将departments数组转为逗号分隔的字符串存储（兼容旧字段）
-      const updateData = {
+      const updateData: {
+        name: string;
+        phone: string;
+        departments: string[];
+        roles: string[];
+        status: string;
+        supervisorId: string;
+        position: string;
+        approvalStatus?: string;
+        department?: string;
+        role?: string;
+        updatedAt: Date;
+      } = {
         name: editForm.name,
+        phone: editForm.phone,
         department: newDepartments.join('、'), // 兼容旧字段
         departments: newDepartments, // 新的多部门字段
         role: editForm.roles[0] || '', // ✅ v2.2.0: 空字符串，不使用默认角色
         roles: editForm.roles, // 多角色数组
         status: editForm.status,
         approvalStatus: editForm.approvalStatus, // 🔧 修复：添加审核状态字段
-        supervisorId: editForm.supervisorId || null, // 上级ID，如果为空则设为null
+        supervisorId: editForm.supervisorId || null as any, // 上级ID，如果为空则设为null
         position: editForm.position || '', // 职务
         updatedAt: new Date()
       };
@@ -5090,10 +5113,40 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                                         type="checkbox"
                                         checked={roleForm.permissions[key]?.[subKey]?.view || false}
                                         onChange={(e) => {
-                                          const newPermissions = { ...roleForm.permissions };
-                                          if (!newPermissions[key]) newPermissions[key] = {};
-                                          if (!newPermissions[key][subKey]) newPermissions[key][subKey] = {};
-                                          newPermissions[key][subKey].view = e.target.checked;
+                                          const newPermissions = { ...roleForm.permissions } as any;
+                                          const moduleKey = key as any;
+                                          if (!newPermissions[moduleKey]) {
+                                            // 根据模块类型创建默认权限结构
+                                            if (moduleKey === 'goal') {
+                                              newPermissions[moduleKey] = {
+                                                salesGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                opportunityGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                productOrder: { view: false, create: false, edit: false, delete: false, export: false },
+                                                strategy: { view: false, create: false, edit: false, delete: false, export: false },
+                                                decomposition: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'budget') {
+                                              newPermissions[moduleKey] = {
+                                                annual: { view: false, create: false, edit: false, delete: false, export: false },
+                                                asset: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false },
+                                                parameters: { view: false, create: false, edit: false, delete: false, export: false },
+                                                hr: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'settings') {
+                                              newPermissions[moduleKey] = {
+                                                userApproval: { view: false, create: false, edit: false, delete: false, export: false },
+                                                employees: { view: false, create: false, edit: false, delete: false, export: false },
+                                                departments: { view: false, create: false, edit: false, delete: false, export: false },
+                                                roles: { view: false, create: false, edit: false, delete: false, export: false },
+                                                typeSettings: { view: false, create: false, edit: false, delete: false, export: false },
+                                                operationLogs: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            }
+                                          }
+                                          if (!newPermissions[moduleKey][subKey]) newPermissions[moduleKey][subKey] = { view: false, create: false, edit: false, delete: false, export: false };
+                                          newPermissions[moduleKey][subKey].view = e.target.checked;
                                           setRoleForm({ ...roleForm, permissions: newPermissions });
                                         }}
                                         className="w-4 h-4 text-blue-600 rounded"
@@ -5104,10 +5157,40 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                                         type="checkbox"
                                         checked={roleForm.permissions[key]?.[subKey]?.create || false}
                                         onChange={(e) => {
-                                          const newPermissions = { ...roleForm.permissions };
-                                          if (!newPermissions[key]) newPermissions[key] = {};
-                                          if (!newPermissions[key][subKey]) newPermissions[key][subKey] = {};
-                                          newPermissions[key][subKey].create = e.target.checked;
+                                          const newPermissions = { ...roleForm.permissions } as any;
+                                          const moduleKey = key as any;
+                                          if (!newPermissions[moduleKey]) {
+                                            // 根据模块类型创建默认权限结构
+                                            if (moduleKey === 'goal') {
+                                              newPermissions[moduleKey] = {
+                                                salesGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                opportunityGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                productOrder: { view: false, create: false, edit: false, delete: false, export: false },
+                                                strategy: { view: false, create: false, edit: false, delete: false, export: false },
+                                                decomposition: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'budget') {
+                                              newPermissions[moduleKey] = {
+                                                annual: { view: false, create: false, edit: false, delete: false, export: false },
+                                                asset: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false },
+                                                parameters: { view: false, create: false, edit: false, delete: false, export: false },
+                                                hr: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'settings') {
+                                              newPermissions[moduleKey] = {
+                                                userApproval: { view: false, create: false, edit: false, delete: false, export: false },
+                                                employees: { view: false, create: false, edit: false, delete: false, export: false },
+                                                departments: { view: false, create: false, edit: false, delete: false, export: false },
+                                                roles: { view: false, create: false, edit: false, delete: false, export: false },
+                                                typeSettings: { view: false, create: false, edit: false, delete: false, export: false },
+                                                operationLogs: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            }
+                                          }
+                                          if (!newPermissions[moduleKey][subKey]) newPermissions[moduleKey][subKey] = { view: false, create: false, edit: false, delete: false, export: false };
+                                          newPermissions[moduleKey][subKey].create = e.target.checked;
                                           setRoleForm({ ...roleForm, permissions: newPermissions });
                                         }}
                                         className="w-4 h-4 text-blue-600 rounded"
@@ -5118,10 +5201,40 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                                         type="checkbox"
                                         checked={roleForm.permissions[key]?.[subKey]?.edit || false}
                                         onChange={(e) => {
-                                          const newPermissions = { ...roleForm.permissions };
-                                          if (!newPermissions[key]) newPermissions[key] = {};
-                                          if (!newPermissions[key][subKey]) newPermissions[key][subKey] = {};
-                                          newPermissions[key][subKey].edit = e.target.checked;
+                                          const newPermissions = { ...roleForm.permissions } as any;
+                                          const moduleKey = key as any;
+                                          if (!newPermissions[moduleKey]) {
+                                            // 根据模块类型创建默认权限结构
+                                            if (moduleKey === 'goal') {
+                                              newPermissions[moduleKey] = {
+                                                salesGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                opportunityGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                productOrder: { view: false, create: false, edit: false, delete: false, export: false },
+                                                strategy: { view: false, create: false, edit: false, delete: false, export: false },
+                                                decomposition: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'budget') {
+                                              newPermissions[moduleKey] = {
+                                                annual: { view: false, create: false, edit: false, delete: false, export: false },
+                                                asset: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false },
+                                                parameters: { view: false, create: false, edit: false, delete: false, export: false },
+                                                hr: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'settings') {
+                                              newPermissions[moduleKey] = {
+                                                userApproval: { view: false, create: false, edit: false, delete: false, export: false },
+                                                employees: { view: false, create: false, edit: false, delete: false, export: false },
+                                                departments: { view: false, create: false, edit: false, delete: false, export: false },
+                                                roles: { view: false, create: false, edit: false, delete: false, export: false },
+                                                typeSettings: { view: false, create: false, edit: false, delete: false, export: false },
+                                                operationLogs: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            }
+                                          }
+                                          if (!newPermissions[moduleKey][subKey]) newPermissions[moduleKey][subKey] = { view: false, create: false, edit: false, delete: false, export: false };
+                                          newPermissions[moduleKey][subKey].edit = e.target.checked;
                                           setRoleForm({ ...roleForm, permissions: newPermissions });
                                         }}
                                         className="w-4 h-4 text-blue-600 rounded"
@@ -5132,10 +5245,40 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                                         type="checkbox"
                                         checked={roleForm.permissions[key]?.[subKey]?.delete || false}
                                         onChange={(e) => {
-                                          const newPermissions = { ...roleForm.permissions };
-                                          if (!newPermissions[key]) newPermissions[key] = {};
-                                          if (!newPermissions[key][subKey]) newPermissions[key][subKey] = {};
-                                          newPermissions[key][subKey].delete = e.target.checked;
+                                          const newPermissions = { ...roleForm.permissions } as any;
+                                          const moduleKey = key as any;
+                                          if (!newPermissions[moduleKey]) {
+                                            // 根据模块类型创建默认权限结构
+                                            if (moduleKey === 'goal') {
+                                              newPermissions[moduleKey] = {
+                                                salesGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                opportunityGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                productOrder: { view: false, create: false, edit: false, delete: false, export: false },
+                                                strategy: { view: false, create: false, edit: false, delete: false, export: false },
+                                                decomposition: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'budget') {
+                                              newPermissions[moduleKey] = {
+                                                annual: { view: false, create: false, edit: false, delete: false, export: false },
+                                                asset: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false },
+                                                parameters: { view: false, create: false, edit: false, delete: false, export: false },
+                                                hr: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'settings') {
+                                              newPermissions[moduleKey] = {
+                                                userApproval: { view: false, create: false, edit: false, delete: false, export: false },
+                                                employees: { view: false, create: false, edit: false, delete: false, export: false },
+                                                departments: { view: false, create: false, edit: false, delete: false, export: false },
+                                                roles: { view: false, create: false, edit: false, delete: false, export: false },
+                                                typeSettings: { view: false, create: false, edit: false, delete: false, export: false },
+                                                operationLogs: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            }
+                                          }
+                                          if (!newPermissions[moduleKey][subKey]) newPermissions[moduleKey][subKey] = { view: false, create: false, edit: false, delete: false, export: false };
+                                          newPermissions[moduleKey][subKey].delete = e.target.checked;
                                           setRoleForm({ ...roleForm, permissions: newPermissions });
                                         }}
                                         className="w-4 h-4 text-blue-600 rounded"
@@ -5146,10 +5289,40 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                                         type="checkbox"
                                         checked={roleForm.permissions[key]?.[subKey]?.export || false}
                                         onChange={(e) => {
-                                          const newPermissions = { ...roleForm.permissions };
-                                          if (!newPermissions[key]) newPermissions[key] = {};
-                                          if (!newPermissions[key][subKey]) newPermissions[key][subKey] = {};
-                                          newPermissions[key][subKey].export = e.target.checked;
+                                          const newPermissions = { ...roleForm.permissions } as any;
+                                          const moduleKey = key as any;
+                                          if (!newPermissions[moduleKey]) {
+                                            // 根据模块类型创建默认权限结构
+                                            if (moduleKey === 'goal') {
+                                              newPermissions[moduleKey] = {
+                                                salesGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                opportunityGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                productOrder: { view: false, create: false, edit: false, delete: false, export: false },
+                                                strategy: { view: false, create: false, edit: false, delete: false, export: false },
+                                                decomposition: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'budget') {
+                                              newPermissions[moduleKey] = {
+                                                annual: { view: false, create: false, edit: false, delete: false, export: false },
+                                                asset: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false },
+                                                parameters: { view: false, create: false, edit: false, delete: false, export: false },
+                                                hr: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'settings') {
+                                              newPermissions[moduleKey] = {
+                                                userApproval: { view: false, create: false, edit: false, delete: false, export: false },
+                                                employees: { view: false, create: false, edit: false, delete: false, export: false },
+                                                departments: { view: false, create: false, edit: false, delete: false, export: false },
+                                                roles: { view: false, create: false, edit: false, delete: false, export: false },
+                                                typeSettings: { view: false, create: false, edit: false, delete: false, export: false },
+                                                operationLogs: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            }
+                                          }
+                                          if (!newPermissions[moduleKey][subKey]) newPermissions[moduleKey][subKey] = { view: false, create: false, edit: false, delete: false, export: false };
+                                          newPermissions[moduleKey][subKey].export = e.target.checked;
                                           setRoleForm({ ...roleForm, permissions: newPermissions });
                                         }}
                                         className="w-4 h-4 text-blue-600 rounded"
@@ -5190,10 +5363,40 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                                         type="checkbox"
                                         checked={roleForm.permissions[key]?.[subKey]?.view || false}
                                         onChange={(e) => {
-                                          const newPermissions = { ...roleForm.permissions };
-                                          if (!newPermissions[key]) newPermissions[key] = {};
-                                          if (!newPermissions[key][subKey]) newPermissions[key][subKey] = {};
-                                          newPermissions[key][subKey].view = e.target.checked;
+                                          const newPermissions = { ...roleForm.permissions } as any;
+                                          const moduleKey = key as any;
+                                          if (!newPermissions[moduleKey]) {
+                                            // 根据模块类型创建默认权限结构
+                                            if (moduleKey === 'goal') {
+                                              newPermissions[moduleKey] = {
+                                                salesGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                opportunityGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                productOrder: { view: false, create: false, edit: false, delete: false, export: false },
+                                                strategy: { view: false, create: false, edit: false, delete: false, export: false },
+                                                decomposition: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'budget') {
+                                              newPermissions[moduleKey] = {
+                                                annual: { view: false, create: false, edit: false, delete: false, export: false },
+                                                asset: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false },
+                                                parameters: { view: false, create: false, edit: false, delete: false, export: false },
+                                                hr: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'settings') {
+                                              newPermissions[moduleKey] = {
+                                                userApproval: { view: false, create: false, edit: false, delete: false, export: false },
+                                                employees: { view: false, create: false, edit: false, delete: false, export: false },
+                                                departments: { view: false, create: false, edit: false, delete: false, export: false },
+                                                roles: { view: false, create: false, edit: false, delete: false, export: false },
+                                                typeSettings: { view: false, create: false, edit: false, delete: false, export: false },
+                                                operationLogs: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            }
+                                          }
+                                          if (!newPermissions[moduleKey][subKey]) newPermissions[moduleKey][subKey] = { view: false, create: false, edit: false, delete: false, export: false };
+                                          newPermissions[moduleKey][subKey].view = e.target.checked;
                                           setRoleForm({ ...roleForm, permissions: newPermissions });
                                         }}
                                         className="w-4 h-4 text-blue-600 rounded"
@@ -5204,10 +5407,40 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                                         type="checkbox"
                                         checked={roleForm.permissions[key]?.[subKey]?.create || false}
                                         onChange={(e) => {
-                                          const newPermissions = { ...roleForm.permissions };
-                                          if (!newPermissions[key]) newPermissions[key] = {};
-                                          if (!newPermissions[key][subKey]) newPermissions[key][subKey] = {};
-                                          newPermissions[key][subKey].create = e.target.checked;
+                                          const newPermissions = { ...roleForm.permissions } as any;
+                                          const moduleKey = key as any;
+                                          if (!newPermissions[moduleKey]) {
+                                            // 根据模块类型创建默认权限结构
+                                            if (moduleKey === 'goal') {
+                                              newPermissions[moduleKey] = {
+                                                salesGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                opportunityGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                productOrder: { view: false, create: false, edit: false, delete: false, export: false },
+                                                strategy: { view: false, create: false, edit: false, delete: false, export: false },
+                                                decomposition: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'budget') {
+                                              newPermissions[moduleKey] = {
+                                                annual: { view: false, create: false, edit: false, delete: false, export: false },
+                                                asset: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false },
+                                                parameters: { view: false, create: false, edit: false, delete: false, export: false },
+                                                hr: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'settings') {
+                                              newPermissions[moduleKey] = {
+                                                userApproval: { view: false, create: false, edit: false, delete: false, export: false },
+                                                employees: { view: false, create: false, edit: false, delete: false, export: false },
+                                                departments: { view: false, create: false, edit: false, delete: false, export: false },
+                                                roles: { view: false, create: false, edit: false, delete: false, export: false },
+                                                typeSettings: { view: false, create: false, edit: false, delete: false, export: false },
+                                                operationLogs: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            }
+                                          }
+                                          if (!newPermissions[moduleKey][subKey]) newPermissions[moduleKey][subKey] = { view: false, create: false, edit: false, delete: false, export: false };
+                                          newPermissions[moduleKey][subKey].create = e.target.checked;
                                           setRoleForm({ ...roleForm, permissions: newPermissions });
                                         }}
                                         className="w-4 h-4 text-blue-600 rounded"
@@ -5218,10 +5451,40 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                                         type="checkbox"
                                         checked={roleForm.permissions[key]?.[subKey]?.edit || false}
                                         onChange={(e) => {
-                                          const newPermissions = { ...roleForm.permissions };
-                                          if (!newPermissions[key]) newPermissions[key] = {};
-                                          if (!newPermissions[key][subKey]) newPermissions[key][subKey] = {};
-                                          newPermissions[key][subKey].edit = e.target.checked;
+                                          const newPermissions = { ...roleForm.permissions } as any;
+                                          const moduleKey = key as any;
+                                          if (!newPermissions[moduleKey]) {
+                                            // 根据模块类型创建默认权限结构
+                                            if (moduleKey === 'goal') {
+                                              newPermissions[moduleKey] = {
+                                                salesGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                opportunityGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                productOrder: { view: false, create: false, edit: false, delete: false, export: false },
+                                                strategy: { view: false, create: false, edit: false, delete: false, export: false },
+                                                decomposition: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'budget') {
+                                              newPermissions[moduleKey] = {
+                                                annual: { view: false, create: false, edit: false, delete: false, export: false },
+                                                asset: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false },
+                                                parameters: { view: false, create: false, edit: false, delete: false, export: false },
+                                                hr: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'settings') {
+                                              newPermissions[moduleKey] = {
+                                                userApproval: { view: false, create: false, edit: false, delete: false, export: false },
+                                                employees: { view: false, create: false, edit: false, delete: false, export: false },
+                                                departments: { view: false, create: false, edit: false, delete: false, export: false },
+                                                roles: { view: false, create: false, edit: false, delete: false, export: false },
+                                                typeSettings: { view: false, create: false, edit: false, delete: false, export: false },
+                                                operationLogs: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            }
+                                          }
+                                          if (!newPermissions[moduleKey][subKey]) newPermissions[moduleKey][subKey] = { view: false, create: false, edit: false, delete: false, export: false };
+                                          newPermissions[moduleKey][subKey].edit = e.target.checked;
                                           setRoleForm({ ...roleForm, permissions: newPermissions });
                                         }}
                                         className="w-4 h-4 text-blue-600 rounded"
@@ -5232,10 +5495,40 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                                         type="checkbox"
                                         checked={roleForm.permissions[key]?.[subKey]?.delete || false}
                                         onChange={(e) => {
-                                          const newPermissions = { ...roleForm.permissions };
-                                          if (!newPermissions[key]) newPermissions[key] = {};
-                                          if (!newPermissions[key][subKey]) newPermissions[key][subKey] = {};
-                                          newPermissions[key][subKey].delete = e.target.checked;
+                                          const newPermissions = { ...roleForm.permissions } as any;
+                                          const moduleKey = key as any;
+                                          if (!newPermissions[moduleKey]) {
+                                            // 根据模块类型创建默认权限结构
+                                            if (moduleKey === 'goal') {
+                                              newPermissions[moduleKey] = {
+                                                salesGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                opportunityGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                productOrder: { view: false, create: false, edit: false, delete: false, export: false },
+                                                strategy: { view: false, create: false, edit: false, delete: false, export: false },
+                                                decomposition: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'budget') {
+                                              newPermissions[moduleKey] = {
+                                                annual: { view: false, create: false, edit: false, delete: false, export: false },
+                                                asset: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false },
+                                                parameters: { view: false, create: false, edit: false, delete: false, export: false },
+                                                hr: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'settings') {
+                                              newPermissions[moduleKey] = {
+                                                userApproval: { view: false, create: false, edit: false, delete: false, export: false },
+                                                employees: { view: false, create: false, edit: false, delete: false, export: false },
+                                                departments: { view: false, create: false, edit: false, delete: false, export: false },
+                                                roles: { view: false, create: false, edit: false, delete: false, export: false },
+                                                typeSettings: { view: false, create: false, edit: false, delete: false, export: false },
+                                                operationLogs: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            }
+                                          }
+                                          if (!newPermissions[moduleKey][subKey]) newPermissions[moduleKey][subKey] = { view: false, create: false, edit: false, delete: false, export: false };
+                                          newPermissions[moduleKey][subKey].delete = e.target.checked;
                                           setRoleForm({ ...roleForm, permissions: newPermissions });
                                         }}
                                         className="w-4 h-4 text-blue-600 rounded"
@@ -5246,10 +5539,40 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                                         type="checkbox"
                                         checked={roleForm.permissions[key]?.[subKey]?.export || false}
                                         onChange={(e) => {
-                                          const newPermissions = { ...roleForm.permissions };
-                                          if (!newPermissions[key]) newPermissions[key] = {};
-                                          if (!newPermissions[key][subKey]) newPermissions[key][subKey] = {};
-                                          newPermissions[key][subKey].export = e.target.checked;
+                                          const newPermissions = { ...roleForm.permissions } as any;
+                                          const moduleKey = key as any;
+                                          if (!newPermissions[moduleKey]) {
+                                            // 根据模块类型创建默认权限结构
+                                            if (moduleKey === 'goal') {
+                                              newPermissions[moduleKey] = {
+                                                salesGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                opportunityGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                productOrder: { view: false, create: false, edit: false, delete: false, export: false },
+                                                strategy: { view: false, create: false, edit: false, delete: false, export: false },
+                                                decomposition: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'budget') {
+                                              newPermissions[moduleKey] = {
+                                                annual: { view: false, create: false, edit: false, delete: false, export: false },
+                                                asset: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false },
+                                                parameters: { view: false, create: false, edit: false, delete: false, export: false },
+                                                hr: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'settings') {
+                                              newPermissions[moduleKey] = {
+                                                userApproval: { view: false, create: false, edit: false, delete: false, export: false },
+                                                employees: { view: false, create: false, edit: false, delete: false, export: false },
+                                                departments: { view: false, create: false, edit: false, delete: false, export: false },
+                                                roles: { view: false, create: false, edit: false, delete: false, export: false },
+                                                typeSettings: { view: false, create: false, edit: false, delete: false, export: false },
+                                                operationLogs: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            }
+                                          }
+                                          if (!newPermissions[moduleKey][subKey]) newPermissions[moduleKey][subKey] = { view: false, create: false, edit: false, delete: false, export: false };
+                                          newPermissions[moduleKey][subKey].export = e.target.checked;
                                           setRoleForm({ ...roleForm, permissions: newPermissions });
                                         }}
                                         className="w-4 h-4 text-blue-600 rounded"
@@ -5291,10 +5614,40 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                                         type="checkbox"
                                         checked={roleForm.permissions[key]?.[subKey]?.view || false}
                                         onChange={(e) => {
-                                          const newPermissions = { ...roleForm.permissions };
-                                          if (!newPermissions[key]) newPermissions[key] = {};
-                                          if (!newPermissions[key][subKey]) newPermissions[key][subKey] = {};
-                                          newPermissions[key][subKey].view = e.target.checked;
+                                          const newPermissions = { ...roleForm.permissions } as any;
+                                          const moduleKey = key as any;
+                                          if (!newPermissions[moduleKey]) {
+                                            // 根据模块类型创建默认权限结构
+                                            if (moduleKey === 'goal') {
+                                              newPermissions[moduleKey] = {
+                                                salesGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                opportunityGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                productOrder: { view: false, create: false, edit: false, delete: false, export: false },
+                                                strategy: { view: false, create: false, edit: false, delete: false, export: false },
+                                                decomposition: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'budget') {
+                                              newPermissions[moduleKey] = {
+                                                annual: { view: false, create: false, edit: false, delete: false, export: false },
+                                                asset: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false },
+                                                parameters: { view: false, create: false, edit: false, delete: false, export: false },
+                                                hr: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'settings') {
+                                              newPermissions[moduleKey] = {
+                                                userApproval: { view: false, create: false, edit: false, delete: false, export: false },
+                                                employees: { view: false, create: false, edit: false, delete: false, export: false },
+                                                departments: { view: false, create: false, edit: false, delete: false, export: false },
+                                                roles: { view: false, create: false, edit: false, delete: false, export: false },
+                                                typeSettings: { view: false, create: false, edit: false, delete: false, export: false },
+                                                operationLogs: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            }
+                                          }
+                                          if (!newPermissions[moduleKey][subKey]) newPermissions[moduleKey][subKey] = { view: false, create: false, edit: false, delete: false, export: false };
+                                          newPermissions[moduleKey][subKey].view = e.target.checked;
                                           setRoleForm({ ...roleForm, permissions: newPermissions });
                                         }}
                                         className="w-4 h-4 text-blue-600 rounded"
@@ -5305,10 +5658,40 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                                         type="checkbox"
                                         checked={roleForm.permissions[key]?.[subKey]?.create || false}
                                         onChange={(e) => {
-                                          const newPermissions = { ...roleForm.permissions };
-                                          if (!newPermissions[key]) newPermissions[key] = {};
-                                          if (!newPermissions[key][subKey]) newPermissions[key][subKey] = {};
-                                          newPermissions[key][subKey].create = e.target.checked;
+                                          const newPermissions = { ...roleForm.permissions } as any;
+                                          const moduleKey = key as any;
+                                          if (!newPermissions[moduleKey]) {
+                                            // 根据模块类型创建默认权限结构
+                                            if (moduleKey === 'goal') {
+                                              newPermissions[moduleKey] = {
+                                                salesGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                opportunityGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                productOrder: { view: false, create: false, edit: false, delete: false, export: false },
+                                                strategy: { view: false, create: false, edit: false, delete: false, export: false },
+                                                decomposition: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'budget') {
+                                              newPermissions[moduleKey] = {
+                                                annual: { view: false, create: false, edit: false, delete: false, export: false },
+                                                asset: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false },
+                                                parameters: { view: false, create: false, edit: false, delete: false, export: false },
+                                                hr: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'settings') {
+                                              newPermissions[moduleKey] = {
+                                                userApproval: { view: false, create: false, edit: false, delete: false, export: false },
+                                                employees: { view: false, create: false, edit: false, delete: false, export: false },
+                                                departments: { view: false, create: false, edit: false, delete: false, export: false },
+                                                roles: { view: false, create: false, edit: false, delete: false, export: false },
+                                                typeSettings: { view: false, create: false, edit: false, delete: false, export: false },
+                                                operationLogs: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            }
+                                          }
+                                          if (!newPermissions[moduleKey][subKey]) newPermissions[moduleKey][subKey] = { view: false, create: false, edit: false, delete: false, export: false };
+                                          newPermissions[moduleKey][subKey].create = e.target.checked;
                                           setRoleForm({ ...roleForm, permissions: newPermissions });
                                         }}
                                         className="w-4 h-4 text-blue-600 rounded"
@@ -5319,10 +5702,40 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                                         type="checkbox"
                                         checked={roleForm.permissions[key]?.[subKey]?.edit || false}
                                         onChange={(e) => {
-                                          const newPermissions = { ...roleForm.permissions };
-                                          if (!newPermissions[key]) newPermissions[key] = {};
-                                          if (!newPermissions[key][subKey]) newPermissions[key][subKey] = {};
-                                          newPermissions[key][subKey].edit = e.target.checked;
+                                          const newPermissions = { ...roleForm.permissions } as any;
+                                          const moduleKey = key as any;
+                                          if (!newPermissions[moduleKey]) {
+                                            // 根据模块类型创建默认权限结构
+                                            if (moduleKey === 'goal') {
+                                              newPermissions[moduleKey] = {
+                                                salesGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                opportunityGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                productOrder: { view: false, create: false, edit: false, delete: false, export: false },
+                                                strategy: { view: false, create: false, edit: false, delete: false, export: false },
+                                                decomposition: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'budget') {
+                                              newPermissions[moduleKey] = {
+                                                annual: { view: false, create: false, edit: false, delete: false, export: false },
+                                                asset: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false },
+                                                parameters: { view: false, create: false, edit: false, delete: false, export: false },
+                                                hr: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'settings') {
+                                              newPermissions[moduleKey] = {
+                                                userApproval: { view: false, create: false, edit: false, delete: false, export: false },
+                                                employees: { view: false, create: false, edit: false, delete: false, export: false },
+                                                departments: { view: false, create: false, edit: false, delete: false, export: false },
+                                                roles: { view: false, create: false, edit: false, delete: false, export: false },
+                                                typeSettings: { view: false, create: false, edit: false, delete: false, export: false },
+                                                operationLogs: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            }
+                                          }
+                                          if (!newPermissions[moduleKey][subKey]) newPermissions[moduleKey][subKey] = { view: false, create: false, edit: false, delete: false, export: false };
+                                          newPermissions[moduleKey][subKey].edit = e.target.checked;
                                           setRoleForm({ ...roleForm, permissions: newPermissions });
                                         }}
                                         className="w-4 h-4 text-blue-600 rounded"
@@ -5333,10 +5746,40 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                                         type="checkbox"
                                         checked={roleForm.permissions[key]?.[subKey]?.delete || false}
                                         onChange={(e) => {
-                                          const newPermissions = { ...roleForm.permissions };
-                                          if (!newPermissions[key]) newPermissions[key] = {};
-                                          if (!newPermissions[key][subKey]) newPermissions[key][subKey] = {};
-                                          newPermissions[key][subKey].delete = e.target.checked;
+                                          const newPermissions = { ...roleForm.permissions } as any;
+                                          const moduleKey = key as any;
+                                          if (!newPermissions[moduleKey]) {
+                                            // 根据模块类型创建默认权限结构
+                                            if (moduleKey === 'goal') {
+                                              newPermissions[moduleKey] = {
+                                                salesGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                opportunityGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                productOrder: { view: false, create: false, edit: false, delete: false, export: false },
+                                                strategy: { view: false, create: false, edit: false, delete: false, export: false },
+                                                decomposition: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'budget') {
+                                              newPermissions[moduleKey] = {
+                                                annual: { view: false, create: false, edit: false, delete: false, export: false },
+                                                asset: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false },
+                                                parameters: { view: false, create: false, edit: false, delete: false, export: false },
+                                                hr: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'settings') {
+                                              newPermissions[moduleKey] = {
+                                                userApproval: { view: false, create: false, edit: false, delete: false, export: false },
+                                                employees: { view: false, create: false, edit: false, delete: false, export: false },
+                                                departments: { view: false, create: false, edit: false, delete: false, export: false },
+                                                roles: { view: false, create: false, edit: false, delete: false, export: false },
+                                                typeSettings: { view: false, create: false, edit: false, delete: false, export: false },
+                                                operationLogs: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            }
+                                          }
+                                          if (!newPermissions[moduleKey][subKey]) newPermissions[moduleKey][subKey] = { view: false, create: false, edit: false, delete: false, export: false };
+                                          newPermissions[moduleKey][subKey].delete = e.target.checked;
                                           setRoleForm({ ...roleForm, permissions: newPermissions });
                                         }}
                                         className="w-4 h-4 text-blue-600 rounded"
@@ -5347,10 +5790,40 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                                         type="checkbox"
                                         checked={roleForm.permissions[key]?.[subKey]?.export || false}
                                         onChange={(e) => {
-                                          const newPermissions = { ...roleForm.permissions };
-                                          if (!newPermissions[key]) newPermissions[key] = {};
-                                          if (!newPermissions[key][subKey]) newPermissions[key][subKey] = {};
-                                          newPermissions[key][subKey].export = e.target.checked;
+                                          const newPermissions = { ...roleForm.permissions } as any;
+                                          const moduleKey = key as any;
+                                          if (!newPermissions[moduleKey]) {
+                                            // 根据模块类型创建默认权限结构
+                                            if (moduleKey === 'goal') {
+                                              newPermissions[moduleKey] = {
+                                                salesGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                opportunityGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                productOrder: { view: false, create: false, edit: false, delete: false, export: false },
+                                                strategy: { view: false, create: false, edit: false, delete: false, export: false },
+                                                decomposition: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'budget') {
+                                              newPermissions[moduleKey] = {
+                                                annual: { view: false, create: false, edit: false, delete: false, export: false },
+                                                asset: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false },
+                                                parameters: { view: false, create: false, edit: false, delete: false, export: false },
+                                                hr: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'settings') {
+                                              newPermissions[moduleKey] = {
+                                                userApproval: { view: false, create: false, edit: false, delete: false, export: false },
+                                                employees: { view: false, create: false, edit: false, delete: false, export: false },
+                                                departments: { view: false, create: false, edit: false, delete: false, export: false },
+                                                roles: { view: false, create: false, edit: false, delete: false, export: false },
+                                                typeSettings: { view: false, create: false, edit: false, delete: false, export: false },
+                                                operationLogs: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            }
+                                          }
+                                          if (!newPermissions[moduleKey][subKey]) newPermissions[moduleKey][subKey] = { view: false, create: false, edit: false, delete: false, export: false };
+                                          newPermissions[moduleKey][subKey].export = e.target.checked;
                                           setRoleForm({ ...roleForm, permissions: newPermissions });
                                         }}
                                         className="w-4 h-4 text-blue-600 rounded"
@@ -5559,10 +6032,40 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                                         type="checkbox"
                                         checked={roleForm.permissions[key]?.[subKey]?.view || false}
                                         onChange={(e) => {
-                                          const newPermissions = { ...roleForm.permissions };
-                                          if (!newPermissions[key]) newPermissions[key] = {};
-                                          if (!newPermissions[key][subKey]) newPermissions[key][subKey] = {};
-                                          newPermissions[key][subKey].view = e.target.checked;
+                                          const newPermissions = { ...roleForm.permissions } as any;
+                                          const moduleKey = key as any;
+                                          if (!newPermissions[moduleKey]) {
+                                            // 根据模块类型创建默认权限结构
+                                            if (moduleKey === 'goal') {
+                                              newPermissions[moduleKey] = {
+                                                salesGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                opportunityGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                productOrder: { view: false, create: false, edit: false, delete: false, export: false },
+                                                strategy: { view: false, create: false, edit: false, delete: false, export: false },
+                                                decomposition: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'budget') {
+                                              newPermissions[moduleKey] = {
+                                                annual: { view: false, create: false, edit: false, delete: false, export: false },
+                                                asset: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false },
+                                                parameters: { view: false, create: false, edit: false, delete: false, export: false },
+                                                hr: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'settings') {
+                                              newPermissions[moduleKey] = {
+                                                userApproval: { view: false, create: false, edit: false, delete: false, export: false },
+                                                employees: { view: false, create: false, edit: false, delete: false, export: false },
+                                                departments: { view: false, create: false, edit: false, delete: false, export: false },
+                                                roles: { view: false, create: false, edit: false, delete: false, export: false },
+                                                typeSettings: { view: false, create: false, edit: false, delete: false, export: false },
+                                                operationLogs: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            }
+                                          }
+                                          if (!newPermissions[moduleKey][subKey]) newPermissions[moduleKey][subKey] = { view: false, create: false, edit: false, delete: false, export: false };
+                                          newPermissions[moduleKey][subKey].view = e.target.checked;
                                           setRoleForm({ ...roleForm, permissions: newPermissions });
                                         }}
                                         className="w-4 h-4 text-blue-600 rounded"
@@ -5573,10 +6076,40 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                                         type="checkbox"
                                         checked={roleForm.permissions[key]?.[subKey]?.create || false}
                                         onChange={(e) => {
-                                          const newPermissions = { ...roleForm.permissions };
-                                          if (!newPermissions[key]) newPermissions[key] = {};
-                                          if (!newPermissions[key][subKey]) newPermissions[key][subKey] = {};
-                                          newPermissions[key][subKey].create = e.target.checked;
+                                          const newPermissions = { ...roleForm.permissions } as any;
+                                          const moduleKey = key as any;
+                                          if (!newPermissions[moduleKey]) {
+                                            // 根据模块类型创建默认权限结构
+                                            if (moduleKey === 'goal') {
+                                              newPermissions[moduleKey] = {
+                                                salesGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                opportunityGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                productOrder: { view: false, create: false, edit: false, delete: false, export: false },
+                                                strategy: { view: false, create: false, edit: false, delete: false, export: false },
+                                                decomposition: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'budget') {
+                                              newPermissions[moduleKey] = {
+                                                annual: { view: false, create: false, edit: false, delete: false, export: false },
+                                                asset: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false },
+                                                parameters: { view: false, create: false, edit: false, delete: false, export: false },
+                                                hr: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'settings') {
+                                              newPermissions[moduleKey] = {
+                                                userApproval: { view: false, create: false, edit: false, delete: false, export: false },
+                                                employees: { view: false, create: false, edit: false, delete: false, export: false },
+                                                departments: { view: false, create: false, edit: false, delete: false, export: false },
+                                                roles: { view: false, create: false, edit: false, delete: false, export: false },
+                                                typeSettings: { view: false, create: false, edit: false, delete: false, export: false },
+                                                operationLogs: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            }
+                                          }
+                                          if (!newPermissions[moduleKey][subKey]) newPermissions[moduleKey][subKey] = { view: false, create: false, edit: false, delete: false, export: false };
+                                          newPermissions[moduleKey][subKey].create = e.target.checked;
                                           setRoleForm({ ...roleForm, permissions: newPermissions });
                                         }}
                                         className="w-4 h-4 text-blue-600 rounded"
@@ -5587,10 +6120,40 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                                         type="checkbox"
                                         checked={roleForm.permissions[key]?.[subKey]?.edit || false}
                                         onChange={(e) => {
-                                          const newPermissions = { ...roleForm.permissions };
-                                          if (!newPermissions[key]) newPermissions[key] = {};
-                                          if (!newPermissions[key][subKey]) newPermissions[key][subKey] = {};
-                                          newPermissions[key][subKey].edit = e.target.checked;
+                                          const newPermissions = { ...roleForm.permissions } as any;
+                                          const moduleKey = key as any;
+                                          if (!newPermissions[moduleKey]) {
+                                            // 根据模块类型创建默认权限结构
+                                            if (moduleKey === 'goal') {
+                                              newPermissions[moduleKey] = {
+                                                salesGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                opportunityGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                productOrder: { view: false, create: false, edit: false, delete: false, export: false },
+                                                strategy: { view: false, create: false, edit: false, delete: false, export: false },
+                                                decomposition: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'budget') {
+                                              newPermissions[moduleKey] = {
+                                                annual: { view: false, create: false, edit: false, delete: false, export: false },
+                                                asset: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false },
+                                                parameters: { view: false, create: false, edit: false, delete: false, export: false },
+                                                hr: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'settings') {
+                                              newPermissions[moduleKey] = {
+                                                userApproval: { view: false, create: false, edit: false, delete: false, export: false },
+                                                employees: { view: false, create: false, edit: false, delete: false, export: false },
+                                                departments: { view: false, create: false, edit: false, delete: false, export: false },
+                                                roles: { view: false, create: false, edit: false, delete: false, export: false },
+                                                typeSettings: { view: false, create: false, edit: false, delete: false, export: false },
+                                                operationLogs: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            }
+                                          }
+                                          if (!newPermissions[moduleKey][subKey]) newPermissions[moduleKey][subKey] = { view: false, create: false, edit: false, delete: false, export: false };
+                                          newPermissions[moduleKey][subKey].edit = e.target.checked;
                                           setRoleForm({ ...roleForm, permissions: newPermissions });
                                         }}
                                         className="w-4 h-4 text-blue-600 rounded"
@@ -5601,10 +6164,40 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                                         type="checkbox"
                                         checked={roleForm.permissions[key]?.[subKey]?.delete || false}
                                         onChange={(e) => {
-                                          const newPermissions = { ...roleForm.permissions };
-                                          if (!newPermissions[key]) newPermissions[key] = {};
-                                          if (!newPermissions[key][subKey]) newPermissions[key][subKey] = {};
-                                          newPermissions[key][subKey].delete = e.target.checked;
+                                          const newPermissions = { ...roleForm.permissions } as any;
+                                          const moduleKey = key as any;
+                                          if (!newPermissions[moduleKey]) {
+                                            // 根据模块类型创建默认权限结构
+                                            if (moduleKey === 'goal') {
+                                              newPermissions[moduleKey] = {
+                                                salesGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                opportunityGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                productOrder: { view: false, create: false, edit: false, delete: false, export: false },
+                                                strategy: { view: false, create: false, edit: false, delete: false, export: false },
+                                                decomposition: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'budget') {
+                                              newPermissions[moduleKey] = {
+                                                annual: { view: false, create: false, edit: false, delete: false, export: false },
+                                                asset: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false },
+                                                parameters: { view: false, create: false, edit: false, delete: false, export: false },
+                                                hr: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'settings') {
+                                              newPermissions[moduleKey] = {
+                                                userApproval: { view: false, create: false, edit: false, delete: false, export: false },
+                                                employees: { view: false, create: false, edit: false, delete: false, export: false },
+                                                departments: { view: false, create: false, edit: false, delete: false, export: false },
+                                                roles: { view: false, create: false, edit: false, delete: false, export: false },
+                                                typeSettings: { view: false, create: false, edit: false, delete: false, export: false },
+                                                operationLogs: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            }
+                                          }
+                                          if (!newPermissions[moduleKey][subKey]) newPermissions[moduleKey][subKey] = { view: false, create: false, edit: false, delete: false, export: false };
+                                          newPermissions[moduleKey][subKey].delete = e.target.checked;
                                           setRoleForm({ ...roleForm, permissions: newPermissions });
                                         }}
                                         className="w-4 h-4 text-blue-600 rounded"
@@ -5615,10 +6208,40 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                                         type="checkbox"
                                         checked={roleForm.permissions[key]?.[subKey]?.export || false}
                                         onChange={(e) => {
-                                          const newPermissions = { ...roleForm.permissions };
-                                          if (!newPermissions[key]) newPermissions[key] = {};
-                                          if (!newPermissions[key][subKey]) newPermissions[key][subKey] = {};
-                                          newPermissions[key][subKey].export = e.target.checked;
+                                          const newPermissions = { ...roleForm.permissions } as any;
+                                          const moduleKey = key as any;
+                                          if (!newPermissions[moduleKey]) {
+                                            // 根据模块类型创建默认权限结构
+                                            if (moduleKey === 'goal') {
+                                              newPermissions[moduleKey] = {
+                                                salesGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                opportunityGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                productOrder: { view: false, create: false, edit: false, delete: false, export: false },
+                                                strategy: { view: false, create: false, edit: false, delete: false, export: false },
+                                                decomposition: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'budget') {
+                                              newPermissions[moduleKey] = {
+                                                annual: { view: false, create: false, edit: false, delete: false, export: false },
+                                                asset: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false },
+                                                parameters: { view: false, create: false, edit: false, delete: false, export: false },
+                                                hr: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'settings') {
+                                              newPermissions[moduleKey] = {
+                                                userApproval: { view: false, create: false, edit: false, delete: false, export: false },
+                                                employees: { view: false, create: false, edit: false, delete: false, export: false },
+                                                departments: { view: false, create: false, edit: false, delete: false, export: false },
+                                                roles: { view: false, create: false, edit: false, delete: false, export: false },
+                                                typeSettings: { view: false, create: false, edit: false, delete: false, export: false },
+                                                operationLogs: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            }
+                                          }
+                                          if (!newPermissions[moduleKey][subKey]) newPermissions[moduleKey][subKey] = { view: false, create: false, edit: false, delete: false, export: false };
+                                          newPermissions[moduleKey][subKey].export = e.target.checked;
                                           setRoleForm({ ...roleForm, permissions: newPermissions });
                                         }}
                                         className="w-4 h-4 text-blue-600 rounded"
@@ -5659,10 +6282,40 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                                         type="checkbox"
                                         checked={roleForm.permissions[key]?.[subKey]?.view || false}
                                         onChange={(e) => {
-                                          const newPermissions = { ...roleForm.permissions };
-                                          if (!newPermissions[key]) newPermissions[key] = {};
-                                          if (!newPermissions[key][subKey]) newPermissions[key][subKey] = {};
-                                          newPermissions[key][subKey].view = e.target.checked;
+                                          const newPermissions = { ...roleForm.permissions } as any;
+                                          const moduleKey = key as any;
+                                          if (!newPermissions[moduleKey]) {
+                                            // 根据模块类型创建默认权限结构
+                                            if (moduleKey === 'goal') {
+                                              newPermissions[moduleKey] = {
+                                                salesGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                opportunityGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                productOrder: { view: false, create: false, edit: false, delete: false, export: false },
+                                                strategy: { view: false, create: false, edit: false, delete: false, export: false },
+                                                decomposition: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'budget') {
+                                              newPermissions[moduleKey] = {
+                                                annual: { view: false, create: false, edit: false, delete: false, export: false },
+                                                asset: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false },
+                                                parameters: { view: false, create: false, edit: false, delete: false, export: false },
+                                                hr: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'settings') {
+                                              newPermissions[moduleKey] = {
+                                                userApproval: { view: false, create: false, edit: false, delete: false, export: false },
+                                                employees: { view: false, create: false, edit: false, delete: false, export: false },
+                                                departments: { view: false, create: false, edit: false, delete: false, export: false },
+                                                roles: { view: false, create: false, edit: false, delete: false, export: false },
+                                                typeSettings: { view: false, create: false, edit: false, delete: false, export: false },
+                                                operationLogs: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            }
+                                          }
+                                          if (!newPermissions[moduleKey][subKey]) newPermissions[moduleKey][subKey] = { view: false, create: false, edit: false, delete: false, export: false };
+                                          newPermissions[moduleKey][subKey].view = e.target.checked;
                                           setRoleForm({ ...roleForm, permissions: newPermissions });
                                         }}
                                         className="w-4 h-4 text-blue-600 rounded"
@@ -5673,10 +6326,40 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                                         type="checkbox"
                                         checked={roleForm.permissions[key]?.[subKey]?.create || false}
                                         onChange={(e) => {
-                                          const newPermissions = { ...roleForm.permissions };
-                                          if (!newPermissions[key]) newPermissions[key] = {};
-                                          if (!newPermissions[key][subKey]) newPermissions[key][subKey] = {};
-                                          newPermissions[key][subKey].create = e.target.checked;
+                                          const newPermissions = { ...roleForm.permissions } as any;
+                                          const moduleKey = key as any;
+                                          if (!newPermissions[moduleKey]) {
+                                            // 根据模块类型创建默认权限结构
+                                            if (moduleKey === 'goal') {
+                                              newPermissions[moduleKey] = {
+                                                salesGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                opportunityGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                productOrder: { view: false, create: false, edit: false, delete: false, export: false },
+                                                strategy: { view: false, create: false, edit: false, delete: false, export: false },
+                                                decomposition: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'budget') {
+                                              newPermissions[moduleKey] = {
+                                                annual: { view: false, create: false, edit: false, delete: false, export: false },
+                                                asset: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false },
+                                                parameters: { view: false, create: false, edit: false, delete: false, export: false },
+                                                hr: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'settings') {
+                                              newPermissions[moduleKey] = {
+                                                userApproval: { view: false, create: false, edit: false, delete: false, export: false },
+                                                employees: { view: false, create: false, edit: false, delete: false, export: false },
+                                                departments: { view: false, create: false, edit: false, delete: false, export: false },
+                                                roles: { view: false, create: false, edit: false, delete: false, export: false },
+                                                typeSettings: { view: false, create: false, edit: false, delete: false, export: false },
+                                                operationLogs: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            }
+                                          }
+                                          if (!newPermissions[moduleKey][subKey]) newPermissions[moduleKey][subKey] = { view: false, create: false, edit: false, delete: false, export: false };
+                                          newPermissions[moduleKey][subKey].create = e.target.checked;
                                           setRoleForm({ ...roleForm, permissions: newPermissions });
                                         }}
                                         className="w-4 h-4 text-blue-600 rounded"
@@ -5687,10 +6370,40 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                                         type="checkbox"
                                         checked={roleForm.permissions[key]?.[subKey]?.edit || false}
                                         onChange={(e) => {
-                                          const newPermissions = { ...roleForm.permissions };
-                                          if (!newPermissions[key]) newPermissions[key] = {};
-                                          if (!newPermissions[key][subKey]) newPermissions[key][subKey] = {};
-                                          newPermissions[key][subKey].edit = e.target.checked;
+                                          const newPermissions = { ...roleForm.permissions } as any;
+                                          const moduleKey = key as any;
+                                          if (!newPermissions[moduleKey]) {
+                                            // 根据模块类型创建默认权限结构
+                                            if (moduleKey === 'goal') {
+                                              newPermissions[moduleKey] = {
+                                                salesGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                opportunityGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                productOrder: { view: false, create: false, edit: false, delete: false, export: false },
+                                                strategy: { view: false, create: false, edit: false, delete: false, export: false },
+                                                decomposition: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'budget') {
+                                              newPermissions[moduleKey] = {
+                                                annual: { view: false, create: false, edit: false, delete: false, export: false },
+                                                asset: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false },
+                                                parameters: { view: false, create: false, edit: false, delete: false, export: false },
+                                                hr: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'settings') {
+                                              newPermissions[moduleKey] = {
+                                                userApproval: { view: false, create: false, edit: false, delete: false, export: false },
+                                                employees: { view: false, create: false, edit: false, delete: false, export: false },
+                                                departments: { view: false, create: false, edit: false, delete: false, export: false },
+                                                roles: { view: false, create: false, edit: false, delete: false, export: false },
+                                                typeSettings: { view: false, create: false, edit: false, delete: false, export: false },
+                                                operationLogs: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            }
+                                          }
+                                          if (!newPermissions[moduleKey][subKey]) newPermissions[moduleKey][subKey] = { view: false, create: false, edit: false, delete: false, export: false };
+                                          newPermissions[moduleKey][subKey].edit = e.target.checked;
                                           setRoleForm({ ...roleForm, permissions: newPermissions });
                                         }}
                                         className="w-4 h-4 text-blue-600 rounded"
@@ -5701,10 +6414,40 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                                         type="checkbox"
                                         checked={roleForm.permissions[key]?.[subKey]?.delete || false}
                                         onChange={(e) => {
-                                          const newPermissions = { ...roleForm.permissions };
-                                          if (!newPermissions[key]) newPermissions[key] = {};
-                                          if (!newPermissions[key][subKey]) newPermissions[key][subKey] = {};
-                                          newPermissions[key][subKey].delete = e.target.checked;
+                                          const newPermissions = { ...roleForm.permissions } as any;
+                                          const moduleKey = key as any;
+                                          if (!newPermissions[moduleKey]) {
+                                            // 根据模块类型创建默认权限结构
+                                            if (moduleKey === 'goal') {
+                                              newPermissions[moduleKey] = {
+                                                salesGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                opportunityGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                productOrder: { view: false, create: false, edit: false, delete: false, export: false },
+                                                strategy: { view: false, create: false, edit: false, delete: false, export: false },
+                                                decomposition: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'budget') {
+                                              newPermissions[moduleKey] = {
+                                                annual: { view: false, create: false, edit: false, delete: false, export: false },
+                                                asset: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false },
+                                                parameters: { view: false, create: false, edit: false, delete: false, export: false },
+                                                hr: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'settings') {
+                                              newPermissions[moduleKey] = {
+                                                userApproval: { view: false, create: false, edit: false, delete: false, export: false },
+                                                employees: { view: false, create: false, edit: false, delete: false, export: false },
+                                                departments: { view: false, create: false, edit: false, delete: false, export: false },
+                                                roles: { view: false, create: false, edit: false, delete: false, export: false },
+                                                typeSettings: { view: false, create: false, edit: false, delete: false, export: false },
+                                                operationLogs: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            }
+                                          }
+                                          if (!newPermissions[moduleKey][subKey]) newPermissions[moduleKey][subKey] = { view: false, create: false, edit: false, delete: false, export: false };
+                                          newPermissions[moduleKey][subKey].delete = e.target.checked;
                                           setRoleForm({ ...roleForm, permissions: newPermissions });
                                         }}
                                         className="w-4 h-4 text-blue-600 rounded"
@@ -5715,10 +6458,40 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                                         type="checkbox"
                                         checked={roleForm.permissions[key]?.[subKey]?.export || false}
                                         onChange={(e) => {
-                                          const newPermissions = { ...roleForm.permissions };
-                                          if (!newPermissions[key]) newPermissions[key] = {};
-                                          if (!newPermissions[key][subKey]) newPermissions[key][subKey] = {};
-                                          newPermissions[key][subKey].export = e.target.checked;
+                                          const newPermissions = { ...roleForm.permissions } as any;
+                                          const moduleKey = key as any;
+                                          if (!newPermissions[moduleKey]) {
+                                            // 根据模块类型创建默认权限结构
+                                            if (moduleKey === 'goal') {
+                                              newPermissions[moduleKey] = {
+                                                salesGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                opportunityGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                productOrder: { view: false, create: false, edit: false, delete: false, export: false },
+                                                strategy: { view: false, create: false, edit: false, delete: false, export: false },
+                                                decomposition: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'budget') {
+                                              newPermissions[moduleKey] = {
+                                                annual: { view: false, create: false, edit: false, delete: false, export: false },
+                                                asset: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false },
+                                                parameters: { view: false, create: false, edit: false, delete: false, export: false },
+                                                hr: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'settings') {
+                                              newPermissions[moduleKey] = {
+                                                userApproval: { view: false, create: false, edit: false, delete: false, export: false },
+                                                employees: { view: false, create: false, edit: false, delete: false, export: false },
+                                                departments: { view: false, create: false, edit: false, delete: false, export: false },
+                                                roles: { view: false, create: false, edit: false, delete: false, export: false },
+                                                typeSettings: { view: false, create: false, edit: false, delete: false, export: false },
+                                                operationLogs: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            }
+                                          }
+                                          if (!newPermissions[moduleKey][subKey]) newPermissions[moduleKey][subKey] = { view: false, create: false, edit: false, delete: false, export: false };
+                                          newPermissions[moduleKey][subKey].export = e.target.checked;
                                           setRoleForm({ ...roleForm, permissions: newPermissions });
                                         }}
                                         className="w-4 h-4 text-blue-600 rounded"
@@ -5760,10 +6533,40 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                                         type="checkbox"
                                         checked={roleForm.permissions[key]?.[subKey]?.view || false}
                                         onChange={(e) => {
-                                          const newPermissions = { ...roleForm.permissions };
-                                          if (!newPermissions[key]) newPermissions[key] = {};
-                                          if (!newPermissions[key][subKey]) newPermissions[key][subKey] = {};
-                                          newPermissions[key][subKey].view = e.target.checked;
+                                          const newPermissions = { ...roleForm.permissions } as any;
+                                          const moduleKey = key as any;
+                                          if (!newPermissions[moduleKey]) {
+                                            // 根据模块类型创建默认权限结构
+                                            if (moduleKey === 'goal') {
+                                              newPermissions[moduleKey] = {
+                                                salesGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                opportunityGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                productOrder: { view: false, create: false, edit: false, delete: false, export: false },
+                                                strategy: { view: false, create: false, edit: false, delete: false, export: false },
+                                                decomposition: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'budget') {
+                                              newPermissions[moduleKey] = {
+                                                annual: { view: false, create: false, edit: false, delete: false, export: false },
+                                                asset: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false },
+                                                parameters: { view: false, create: false, edit: false, delete: false, export: false },
+                                                hr: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'settings') {
+                                              newPermissions[moduleKey] = {
+                                                userApproval: { view: false, create: false, edit: false, delete: false, export: false },
+                                                employees: { view: false, create: false, edit: false, delete: false, export: false },
+                                                departments: { view: false, create: false, edit: false, delete: false, export: false },
+                                                roles: { view: false, create: false, edit: false, delete: false, export: false },
+                                                typeSettings: { view: false, create: false, edit: false, delete: false, export: false },
+                                                operationLogs: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            }
+                                          }
+                                          if (!newPermissions[moduleKey][subKey]) newPermissions[moduleKey][subKey] = { view: false, create: false, edit: false, delete: false, export: false };
+                                          newPermissions[moduleKey][subKey].view = e.target.checked;
                                           setRoleForm({ ...roleForm, permissions: newPermissions });
                                         }}
                                         className="w-4 h-4 text-blue-600 rounded"
@@ -5774,10 +6577,40 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                                         type="checkbox"
                                         checked={roleForm.permissions[key]?.[subKey]?.create || false}
                                         onChange={(e) => {
-                                          const newPermissions = { ...roleForm.permissions };
-                                          if (!newPermissions[key]) newPermissions[key] = {};
-                                          if (!newPermissions[key][subKey]) newPermissions[key][subKey] = {};
-                                          newPermissions[key][subKey].create = e.target.checked;
+                                          const newPermissions = { ...roleForm.permissions } as any;
+                                          const moduleKey = key as any;
+                                          if (!newPermissions[moduleKey]) {
+                                            // 根据模块类型创建默认权限结构
+                                            if (moduleKey === 'goal') {
+                                              newPermissions[moduleKey] = {
+                                                salesGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                opportunityGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                productOrder: { view: false, create: false, edit: false, delete: false, export: false },
+                                                strategy: { view: false, create: false, edit: false, delete: false, export: false },
+                                                decomposition: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'budget') {
+                                              newPermissions[moduleKey] = {
+                                                annual: { view: false, create: false, edit: false, delete: false, export: false },
+                                                asset: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false },
+                                                parameters: { view: false, create: false, edit: false, delete: false, export: false },
+                                                hr: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'settings') {
+                                              newPermissions[moduleKey] = {
+                                                userApproval: { view: false, create: false, edit: false, delete: false, export: false },
+                                                employees: { view: false, create: false, edit: false, delete: false, export: false },
+                                                departments: { view: false, create: false, edit: false, delete: false, export: false },
+                                                roles: { view: false, create: false, edit: false, delete: false, export: false },
+                                                typeSettings: { view: false, create: false, edit: false, delete: false, export: false },
+                                                operationLogs: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            }
+                                          }
+                                          if (!newPermissions[moduleKey][subKey]) newPermissions[moduleKey][subKey] = { view: false, create: false, edit: false, delete: false, export: false };
+                                          newPermissions[moduleKey][subKey].create = e.target.checked;
                                           setRoleForm({ ...roleForm, permissions: newPermissions });
                                         }}
                                         className="w-4 h-4 text-blue-600 rounded"
@@ -5788,10 +6621,40 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                                         type="checkbox"
                                         checked={roleForm.permissions[key]?.[subKey]?.edit || false}
                                         onChange={(e) => {
-                                          const newPermissions = { ...roleForm.permissions };
-                                          if (!newPermissions[key]) newPermissions[key] = {};
-                                          if (!newPermissions[key][subKey]) newPermissions[key][subKey] = {};
-                                          newPermissions[key][subKey].edit = e.target.checked;
+                                          const newPermissions = { ...roleForm.permissions } as any;
+                                          const moduleKey = key as any;
+                                          if (!newPermissions[moduleKey]) {
+                                            // 根据模块类型创建默认权限结构
+                                            if (moduleKey === 'goal') {
+                                              newPermissions[moduleKey] = {
+                                                salesGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                opportunityGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                productOrder: { view: false, create: false, edit: false, delete: false, export: false },
+                                                strategy: { view: false, create: false, edit: false, delete: false, export: false },
+                                                decomposition: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'budget') {
+                                              newPermissions[moduleKey] = {
+                                                annual: { view: false, create: false, edit: false, delete: false, export: false },
+                                                asset: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false },
+                                                parameters: { view: false, create: false, edit: false, delete: false, export: false },
+                                                hr: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'settings') {
+                                              newPermissions[moduleKey] = {
+                                                userApproval: { view: false, create: false, edit: false, delete: false, export: false },
+                                                employees: { view: false, create: false, edit: false, delete: false, export: false },
+                                                departments: { view: false, create: false, edit: false, delete: false, export: false },
+                                                roles: { view: false, create: false, edit: false, delete: false, export: false },
+                                                typeSettings: { view: false, create: false, edit: false, delete: false, export: false },
+                                                operationLogs: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            }
+                                          }
+                                          if (!newPermissions[moduleKey][subKey]) newPermissions[moduleKey][subKey] = { view: false, create: false, edit: false, delete: false, export: false };
+                                          newPermissions[moduleKey][subKey].edit = e.target.checked;
                                           setRoleForm({ ...roleForm, permissions: newPermissions });
                                         }}
                                         className="w-4 h-4 text-blue-600 rounded"
@@ -5802,10 +6665,40 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                                         type="checkbox"
                                         checked={roleForm.permissions[key]?.[subKey]?.delete || false}
                                         onChange={(e) => {
-                                          const newPermissions = { ...roleForm.permissions };
-                                          if (!newPermissions[key]) newPermissions[key] = {};
-                                          if (!newPermissions[key][subKey]) newPermissions[key][subKey] = {};
-                                          newPermissions[key][subKey].delete = e.target.checked;
+                                          const newPermissions = { ...roleForm.permissions } as any;
+                                          const moduleKey = key as any;
+                                          if (!newPermissions[moduleKey]) {
+                                            // 根据模块类型创建默认权限结构
+                                            if (moduleKey === 'goal') {
+                                              newPermissions[moduleKey] = {
+                                                salesGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                opportunityGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                productOrder: { view: false, create: false, edit: false, delete: false, export: false },
+                                                strategy: { view: false, create: false, edit: false, delete: false, export: false },
+                                                decomposition: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'budget') {
+                                              newPermissions[moduleKey] = {
+                                                annual: { view: false, create: false, edit: false, delete: false, export: false },
+                                                asset: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false },
+                                                parameters: { view: false, create: false, edit: false, delete: false, export: false },
+                                                hr: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'settings') {
+                                              newPermissions[moduleKey] = {
+                                                userApproval: { view: false, create: false, edit: false, delete: false, export: false },
+                                                employees: { view: false, create: false, edit: false, delete: false, export: false },
+                                                departments: { view: false, create: false, edit: false, delete: false, export: false },
+                                                roles: { view: false, create: false, edit: false, delete: false, export: false },
+                                                typeSettings: { view: false, create: false, edit: false, delete: false, export: false },
+                                                operationLogs: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            }
+                                          }
+                                          if (!newPermissions[moduleKey][subKey]) newPermissions[moduleKey][subKey] = { view: false, create: false, edit: false, delete: false, export: false };
+                                          newPermissions[moduleKey][subKey].delete = e.target.checked;
                                           setRoleForm({ ...roleForm, permissions: newPermissions });
                                         }}
                                         className="w-4 h-4 text-blue-600 rounded"
@@ -5816,10 +6709,40 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                                         type="checkbox"
                                         checked={roleForm.permissions[key]?.[subKey]?.export || false}
                                         onChange={(e) => {
-                                          const newPermissions = { ...roleForm.permissions };
-                                          if (!newPermissions[key]) newPermissions[key] = {};
-                                          if (!newPermissions[key][subKey]) newPermissions[key][subKey] = {};
-                                          newPermissions[key][subKey].export = e.target.checked;
+                                          const newPermissions = { ...roleForm.permissions } as any;
+                                          const moduleKey = key as any;
+                                          if (!newPermissions[moduleKey]) {
+                                            // 根据模块类型创建默认权限结构
+                                            if (moduleKey === 'goal') {
+                                              newPermissions[moduleKey] = {
+                                                salesGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                opportunityGoal: { view: false, create: false, edit: false, delete: false, export: false },
+                                                productOrder: { view: false, create: false, edit: false, delete: false, export: false },
+                                                strategy: { view: false, create: false, edit: false, delete: false, export: false },
+                                                decomposition: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'budget') {
+                                              newPermissions[moduleKey] = {
+                                                annual: { view: false, create: false, edit: false, delete: false, export: false },
+                                                asset: { view: false, create: false, edit: false, delete: false, export: false },
+                                                execution: { view: false, create: false, edit: false, delete: false, export: false },
+                                                parameters: { view: false, create: false, edit: false, delete: false, export: false },
+                                                hr: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            } else if (moduleKey === 'settings') {
+                                              newPermissions[moduleKey] = {
+                                                userApproval: { view: false, create: false, edit: false, delete: false, export: false },
+                                                employees: { view: false, create: false, edit: false, delete: false, export: false },
+                                                departments: { view: false, create: false, edit: false, delete: false, export: false },
+                                                roles: { view: false, create: false, edit: false, delete: false, export: false },
+                                                typeSettings: { view: false, create: false, edit: false, delete: false, export: false },
+                                                operationLogs: { view: false, create: false, edit: false, delete: false, export: false }
+                                              };
+                                            }
+                                          }
+                                          if (!newPermissions[moduleKey][subKey]) newPermissions[moduleKey][subKey] = { view: false, create: false, edit: false, delete: false, export: false };
+                                          newPermissions[moduleKey][subKey].export = e.target.checked;
                                           setRoleForm({ ...roleForm, permissions: newPermissions });
                                         }}
                                         className="w-4 h-4 text-blue-600 rounded"
@@ -6025,7 +6948,7 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
               setSelectedEmployee(null);
             }
           }}
-          departments={departments}
+          allDepartments={departments}
           rolePermissions={rolePermissions}
           allEmployees={employees}
           currentUserRole={userRole}

@@ -4,6 +4,7 @@ import { db } from '../lib/cloudbase';
 import type { Opportunity } from '../types/opportunity';
 import OpportunityRecycleBinDetail from './OpportunityRecycleBinDetail';
 import { getOpportunityStageColor, getOpportunityLevelColor } from '../types/opportunity';
+import { showError } from '../utils/ui-feedback';
 
 interface OpportunityRecycleBinProps {
   onClose: () => void;
@@ -108,7 +109,7 @@ export default function OpportunityRecycleBin({ onClose, onRestore }: Opportunit
       setDeletedOpportunities(opportunitiesWithUsers);
     } catch (error) {
       console.error('加载回收站商机失败:', error);
-      alert('加载失败，请重试');
+      showError('加载失败，请重试');
     } finally {
       setLoading(false);
     }

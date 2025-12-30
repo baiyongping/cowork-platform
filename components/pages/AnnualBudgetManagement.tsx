@@ -21,6 +21,7 @@ interface BudgetAccount {
   type: 'income' | 'summary' | 'expense' | 'percentage';
   order: number;
   totalUnit?: string;  // 一级科目单位
+  formula?: Array<{type: string, value: string}>;  // 计算公式（可选）
   children?: Array<{
     _id: string;
     name: string;
@@ -57,6 +58,7 @@ interface DisplayRow {
   monthlyData?: MonthlyActuals; // 月度数据
   quarterlyBudgets?: QuarterlyBudgets; // 季度预算
   isExpanded?: boolean;        // 折叠状态
+  unit?: string;               // 单位（万元/元/%）
   order: number;               // 排序
 }
 

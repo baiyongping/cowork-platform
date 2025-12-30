@@ -1,6 +1,7 @@
 import { LayoutDashboard, CheckSquare, TrendingUp, FolderKanban, Target, Settings, LogOut, UserCircle, DollarSign, Calendar, Award, Briefcase, ChevronUp, ChevronDown, ChevronsLeft, ChevronsRight, AlertCircle } from 'lucide-react';
 import { useEffect, useState, useRef } from 'react';
 import { app, db } from '../lib/cloudbase';
+import { getStoragePublicURL } from '../constants/cloudbase';
 import { usePermissionContext } from '../contexts/PermissionContext';
 import { APP_VERSION } from '../lib/version';
 import { useNotificationStore } from '../lib/notification-store';
@@ -69,11 +70,15 @@ export function Sidebar({ currentPage, onPageChange, userRole, currentUser, onLo
         if (logoResult.data && logoResult.data.length > 0) {
           const logoData = logoResult.data[0].values?.[0];
           if (logoData) {
-            // 支持两种格式：Base64编码 或 云存储URL
+            // 支持三种格式：Base64编码、临时URL、或云存储公共URL
             if (logoData.base64) {
               setCompanyLogo(logoData.base64);
             } else if (logoData.tempFileURL) {
               setCompanyLogo(logoData.tempFileURL);
+            } else if (logoData.fileID) {
+              // ✅ 使用配置文件中的云存储域名构造公共URL
+              const publicURL = getStoragePublicURL(logoData.fileID);
+              setCompanyLogo(publicURL);
             }
           }
         }

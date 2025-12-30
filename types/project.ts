@@ -2,8 +2,8 @@
  * 项目管理 - 类型定义
  */
 
-// 项目状态
-export type ProjectStatus = '未开始' | '进行中' | '已完成' | '已取消' | '暂停';
+// 项目状态（支持动态状态）
+export type ProjectStatus = '未开始' | '进行中' | '已完成' | '已取消' | '暂停' | '未启动' | '完成' | '已交付' | '准备期' | '制造期' | '交付期' | string;
 
 // 项目阶段
 export type ProjectPhase = 
@@ -47,6 +47,7 @@ export interface Project {
   deliverables?: string; // 交付物清单
   notes?: string; // 备注信息
   isPublic: boolean; // 是否公开
+  isDeleted?: boolean; // 是否已删除（回收站）
   createdBy: string; // 创建人ID
   createdAt: Date | string; // 创建时间
   updatedAt: Date | string; // 更新时间
@@ -57,6 +58,12 @@ export interface Project {
   ownerName?: string;
   memberNames?: string[];
   opportunityName?: string;
+  
+  // 计算字段
+  totalAmount?: number; // 项目总金额（从deliverables解析）
+  totalCost?: number; // 项目总成本
+  profit?: number; // 项目利润
+  managerName?: string; // 项目经理名称
 }
 
 // 创建项目DTO

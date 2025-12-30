@@ -3,7 +3,7 @@ import { X, AlertCircle, UserPlus, Save, Link2 } from 'lucide-react';
 import { app, db } from '../lib/cloudbase';
 import type { 
   Task, TaskLevel, TaskType, TaskStatus, 
-  OpportunityActionType, ProjectPhase 
+  OpportunityActionType, ProjectPhase, PlanType
 } from '../types/task';
 import CollaboratorSelector from './CollaboratorSelector';
 import OpportunitySelector from './OpportunitySelector';
@@ -55,8 +55,8 @@ export default function EditTaskModal({ task, onClose, onSuccess, taskStatuses, 
     type: task.type,
     status: task.status,
     progress: task.progress,
-    owner: task.owner._id,
-    collaborators: task.collaborators?.map(c => c._id) || [],
+    owner: typeof task.owner === 'object' ? (task.owner as any)._id : task.owner,
+    collaborators: task.collaborators?.map(c => typeof c === 'object' ? (c as any)._id : c) || [],
     team: task.team || '',
     startDate: task.startDate ? new Date(task.startDate).toISOString().split('T')[0] : '',
     endDate: task.endDate ? new Date(task.endDate).toISOString().split('T')[0] : '',
@@ -275,7 +275,7 @@ export default function EditTaskModal({ task, onClose, onSuccess, taskStatuses, 
   };
 
   // 处理计划类型变更
-  const handlePlanTypeChange = (newPlanType: string) => {
+  const handlePlanTypeChange = (newPlanType: PlanType) => {
     setPlanType(newPlanType);
     const dateRange = calculateDateRangeByPlan(newPlanType);
     setFormData({
@@ -403,7 +403,7 @@ export default function EditTaskModal({ task, onClose, onSuccess, taskStatuses, 
       onClose();
     } catch (error: any) {
       console.error('更新任务失败:', error);
-      alert(`更新任务失败: ${error.message}`);
+      window.alert(`更新任务失败: ${error.message}`);
     } finally {
       setSubmitting(false);
     }
@@ -490,7 +490,7 @@ export default function EditTaskModal({ task, onClose, onSuccess, taskStatuses, 
                 </label>
                 <select
                   value={planType}
-                  onChange={(e) => handlePlanTypeChange(e.target.value)}
+                  onChange={(e) => handlePlanTypeChange(e.target.value as PlanType)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   {formData.level === '个人级' ? (
@@ -696,9 +696,9 @@ export default function EditTaskModal({ task, onClose, onSuccess, taskStatuses, 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               完成进度: {formData.progress}%
-              {formData.status !== '进行中' && (
+              {(formData.status === '未开始' || formData.status === '已完成') && (
                 <span className="text-xs text-gray-500 ml-2">
-                  （仅在"进行中"状态时可编辑）
+                  （在"未开始"和"已完成"状态时不可编辑）
                 </span>
               )}
             </label>
@@ -709,8 +709,8 @@ export default function EditTaskModal({ task, onClose, onSuccess, taskStatuses, 
               step="5"
               value={formData.progress}
               onChange={(e) => setFormData({ ...formData, progress: parseInt(e.target.value) })}
-              disabled={formData.status !== '进行中'}
-              className={`w-full ${formData.status !== '进行中' ? 'opacity-50 cursor-not-allowed' : ''}`}
+              disabled={formData.status === '未开始' || formData.status === '已完成'}
+              className={`w-full ${(formData.status === '未开始' || formData.status === '已完成') ? 'opacity-50 cursor-not-allowed' : ''}`}
             />
             <div className="flex justify-between text-xs text-gray-500 mt-1">
               <span>0%</span>

@@ -8,6 +8,7 @@ import type {
 import type { Opportunity } from '../types/opportunity';
 import CollaboratorSelector from './CollaboratorSelector';
 import { UserAvatar } from './UserAvatar';
+import { showError } from '../utils/ui-feedback';
 
 interface CreateOpportunityTaskModalProps {
   opportunity: Opportunity;
@@ -166,7 +167,7 @@ export default function CreateOpportunityTaskModal({ opportunity, onClose, onSuc
 
     // 检查当前用户是否已加载
     if (!currentUser || !currentUser._id) {
-      alert('用户信息加载中，请稍后再试');
+      window.alert('用户信息加载中，请稍后再试');
       return;
     }
 
@@ -235,7 +236,7 @@ export default function CreateOpportunityTaskModal({ opportunity, onClose, onSuc
       onClose();
     } catch (error: any) {
       console.error('❌ [商机跟进任务] 创建失败:', error);
-      alert(`创建任务失败: ${error.message}`);
+      showError(`创建任务失败: ${error.message}`);
     } finally {
       setSubmitting(false);
     }
@@ -349,6 +350,9 @@ export default function CreateOpportunityTaskModal({ opportunity, onClose, onSuc
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               任务状态 <span className="text-red-500">*</span>
+              <span className="text-xs text-gray-500 ml-2">
+                （新建任务时固定为"未开始"，保存后可修改）
+              </span>
             </label>
             <select
               value={formData.status}
@@ -361,7 +365,8 @@ export default function CreateOpportunityTaskModal({ opportunity, onClose, onSuc
                   progress: newStatus === '已完成' ? 100 : formData.progress
                 });
               }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              disabled={true}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 cursor-not-allowed opacity-60"
             >
               {getStatusOptions().map(status => (
                 <option key={status} value={status}>{status}</option>
@@ -373,9 +378,9 @@ export default function CreateOpportunityTaskModal({ opportunity, onClose, onSuc
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               完成进度: {formData.progress}%
-              {formData.status !== '进行中' && (
+              {(formData.status === '未开始' || formData.status === '已完成') && (
                 <span className="text-xs text-gray-500 ml-2">
-                  （仅在"进行中"状态时可编辑）
+                  （在"未开始"和"已完成"状态时不可编辑）
                 </span>
               )}
             </label>
@@ -386,8 +391,8 @@ export default function CreateOpportunityTaskModal({ opportunity, onClose, onSuc
               step="5"
               value={formData.progress}
               onChange={(e) => setFormData({ ...formData, progress: parseInt(e.target.value) })}
-              disabled={formData.status !== '进行中'}
-              className={`w-full ${formData.status !== '进行中' ? 'opacity-50 cursor-not-allowed' : ''}`}
+              disabled={formData.status === '未开始' || formData.status === '已完成'}
+              className={`w-full ${(formData.status === '未开始' || formData.status === '已完成') ? 'opacity-50 cursor-not-allowed' : ''}`}
             />
             <div className="flex justify-between text-xs text-gray-500 mt-1">
               <span>0%</span>

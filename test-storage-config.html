@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>云存储配置测试</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      max-width: 1200px;
+      margin: 40px auto;
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+    }
+    .container {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+      padding: 40px;
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 10px;
+    }
+    .subtitle {
+      color: #666;
+      margin-bottom: 30px;
+    }
+    .section {
+      margin: 30px 0;
+      padding: 20px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border-left: 4px solid #667eea;
+    }
+    .section h2 {
+      color: #667eea;
+      margin-top: 0;
+      font-size: 18px;
+    }
+    .info-grid {
+      display: grid;
+      grid-template-columns: 150px 1fr;
+      gap: 15px;
+      margin: 15px 0;
+    }
+    .info-label {
+      font-weight: 600;
+      color: #555;
+    }
+    .info-value {
+      color: #333;
+      word-break: break-all;
+    }
+    .status {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .status.success {
+      background: #d4edda;
+      color: #155724;
+    }
+    .status.error {
+      background: #f8d7da;
+      color: #721c24;
+    }
+    .test-button {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 12px 30px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 600;
+      margin: 10px 5px;
+      transition: transform 0.2s;
+    }
+    .test-button:hover {
+      transform: translateY(-2px);
+    }
+    .test-button:active {
+      transform: translateY(0);
+    }
+    .result {
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 6px;
+      display: none;
+    }
+    .result.show {
+      display: block;
+    }
+    .result.success {
+      background: #d4edda;
+      border: 1px solid #c3e6cb;
+      color: #155724;
+    }
+    .result.error {
+      background: #f8d7da;
+      border: 1px solid #f5c6cb;
+      color: #721c24;
+    }
+    code {
+      background: #e9ecef;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: 'Courier New', monospace;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🧪 云存储配置测试</h1>
+    <p class="subtitle">际华协同办公平台 - 生产环境存储桶验证</p>
+
+    <!-- 环境信息 -->
+    <div class="section">
+      <h2>📌 当前环境配置</h2>
+      <div class="info-grid">
+        <div class="info-label">构建模式:</div>
+        <div class="info-value" id="buildMode">-</div>
+        
+        <div class="info-label">环境ID:</div>
+        <div class="info-value" id="envId">-</div>
+        
+        <div class="info-label">存储桶:</div>
+        <div class="info-value" id="bucket">-</div>
+        
+        <div class="info-label">存储域名:</div>
+        <div class="info-value" id="domain">-</div>
+        
+        <div class="info-label">基础URL:</div>
+        <div class="info-value" id="baseUrl">-</div>
+      </div>
+    </div>
+
+    <!-- 测试区域 -->
+    <div class="section">
+      <h2>🧪 功能测试</h2>
+      <div>
+        <button class="test-button" onclick="testStorageURL()">测试云存储URL</button>
+        <button class="test-button" onclick="testFileIDExtraction()">测试FileID提取</button>
+        <button class="test-button" onclick="testStoragePath()">测试存储路径</button>
+      </div>
+      <div class="result" id="testResult"></div>
+    </div>
+
+    <!-- 配置对比 -->
+    <div class="section">
+      <h2>📊 环境配置对比</h2>
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr style="background: #667eea; color: white;">
+          <th style="padding: 10px; text-align: left;">项目</th>
+          <th style="padding: 10px; text-align: left;">开发环境</th>
+          <th style="padding: 10px; text-align: left;">生产环境</th>
+        </tr>
+        <tr>
+          <td style="padding: 10px; border-bottom: 1px solid #ddd;">环境ID</td>
+          <td style="padding: 10px; border-bottom: 1px solid #ddd;"><code>jihua-oa-dev-3goht9irae4d949f</code></td>
+          <td style="padding: 10px; border-bottom: 1px solid #ddd;"><code>cowork-9gg9oocb516be5fb</code></td>
+        </tr>
+        <tr>
+          <td style="padding: 10px; border-bottom: 1px solid #ddd;">存储桶</td>
+          <td style="padding: 10px; border-bottom: 1px solid #ddd;"><code>6a69-jihua-oa-dev-...</code></td>
+          <td style="padding: 10px; border-bottom: 1px solid #ddd;"><code>636f-cowork-9gg9o...</code></td>
+        </tr>
+        <tr>
+          <td style="padding: 10px;">域名</td>
+          <td style="padding: 10px;"><code>6a69-jihua-oa-dev-3goht9irae4d949f-1301818329.tcb.qcloud.la</code></td>
+          <td style="padding: 10px;"><code>636f-cowork-9gg9oocb516be5fb-1301818329.tcb.qcloud.la</code></td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <script type="module">
+    // 动态导入配置（支持 Vite 环境变量）
+    import { CLOUDBASE_ENV_ID, CLOUDBASE_STORAGE, getStoragePublicURL, extractFileID, getStoragePath } from './constants/cloudbase.ts';
+
+    // 显示当前配置
+    document.getElementById('buildMode').textContent = import.meta.env.MODE || 'development';
+    document.getElementById('envId').textContent = CLOUDBASE_ENV_ID;
+    document.getElementById('bucket').textContent = CLOUDBASE_STORAGE.BUCKET;
+    document.getElementById('domain').textContent = CLOUDBASE_STORAGE.DOMAIN;
+    document.getElementById('baseUrl').textContent = CLOUDBASE_STORAGE.BASE_URL;
+
+    // 测试函数
+    window.testStorageURL = function() {
+      const result = document.getElementById('testResult');
+      try {
+        const testFileID = 'avatars/test_user_123.jpg';
+        const url = getStoragePublicURL(testFileID);
+        
+        const expectedDomain = import.meta.env.MODE === 'production' 
+          ? '636f-cowork-9gg9oocb516be5fb-1301818329.tcb.qcloud.la'
+          : '6a69-jihua-oa-dev-3goht9irae4d949f-1301818329.tcb.qcloud.la';
+        
+        const isCorrect = url.includes(expectedDomain);
+        
+        result.className = 'result show ' + (isCorrect ? 'success' : 'error');
+        result.innerHTML = `
+          <strong>${isCorrect ? '✅ 测试通过' : '❌ 测试失败'}</strong><br>
+          <strong>输入:</strong> <code>${testFileID}</code><br>
+          <strong>输出:</strong> <code>${url}</code><br>
+          <strong>预期域名:</strong> <code>${expectedDomain}</code><br>
+          <strong>状态:</strong> ${isCorrect ? '域名正确' : '域名不匹配'}
+        `;
+      } catch (error) {
+        result.className = 'result show error';
+        result.innerHTML = `<strong>❌ 测试失败:</strong> ${error.message}`;
+      }
+    };
+
+    window.testFileIDExtraction = function() {
+      const result = document.getElementById('testResult');
+      try {
+        const testURL = `https://${CLOUDBASE_STORAGE.DOMAIN}/avatars/test_user_123.jpg`;
+        const fileID = extractFileID(testURL);
+        
+        const isCorrect = fileID === 'avatars/test_user_123.jpg';
+        
+        result.className = 'result show ' + (isCorrect ? 'success' : 'error');
+        result.innerHTML = `
+          <strong>${isCorrect ? '✅ 测试通过' : '❌ 测试失败'}</strong><br>
+          <strong>输入URL:</strong> <code>${testURL}</code><br>
+          <strong>提取的FileID:</strong> <code>${fileID}</code><br>
+          <strong>预期FileID:</strong> <code>avatars/test_user_123.jpg</code>
+        `;
+      } catch (error) {
+        result.className = 'result show error';
+        result.innerHTML = `<strong>❌ 测试失败:</strong> ${error.message}`;
+      }
+    };
+
+    window.testStoragePath = function() {
+      const result = document.getElementById('testResult');
+      try {
+        const path = getStoragePath('AVATARS', 'user_123.jpg');
+        const isCorrect = path === 'avatars/user_123.jpg';
+        
+        result.className = 'result show ' + (isCorrect ? 'success' : 'error');
+        result.innerHTML = `
+          <strong>${isCorrect ? '✅ 测试通过' : '❌ 测试失败'}</strong><br>
+          <strong>分类:</strong> <code>AVATARS</code><br>
+          <strong>文件名:</strong> <code>user_123.jpg</code><br>
+          <strong>生成路径:</strong> <code>${path}</code>
+        `;
+      } catch (error) {
+        result.className = 'result show error';
+        result.innerHTML = `<strong>❌ 测试失败:</strong> ${error.message}`;
+      }
+    };
+
+    // 自动运行第一个测试
+    setTimeout(() => {
+      testStorageURL();
+    }, 500);
+  </script>
+</body>
+</html>

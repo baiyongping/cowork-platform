@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Edit, Trash2, Calendar, Users, TrendingUp, Target, CheckCircle, Save, Briefcase, DollarSign } from 'lucide-react';
-import { db } from '../lib/cloudbase';
+import { db, app } from '../lib/cloudbase';
 import type { Opportunity } from '../types/opportunity';
 import EditOpportunityModal from './EditOpportunityModal';
 import OpportunityFollowUpList from './OpportunityFollowUpList';
@@ -175,7 +175,7 @@ export default function OpportunityDetailModal({ opportunity, onClose, onSuccess
       if (opportunity.isProjectFormed) {
         console.log('⚠️  该商机已形成项目，先扣减产品订单数据...');
         
-        const removeResult = await cloudbase.callFunction({
+        const removeResult = await app.callFunction({
           name: 'remove-product-forecast',
           data: { opportunityId: opportunity._id }
         });

@@ -419,16 +419,20 @@ export default function EditOpportunityModal({ opportunity, onClose, onSuccess, 
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     产品类型
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={formData.productType}
-                    onChange={(e) => setFormData({ ...formData, productType: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, productType: e.target.value as ProductType })}
                     disabled={isLocked}
                     className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                       isLocked ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''
                     }`}
-                    placeholder="请输入产品类型"
-                  />
+                  >
+                    <option value="职业装">职业装</option>
+                    <option value="工作服">工作服</option>
+                    <option value="制服">制服</option>
+                    <option value="防护服">防护服</option>
+                    <option value="其他">其他</option>
+                  </select>
                 </div>
               </div>
             </div>

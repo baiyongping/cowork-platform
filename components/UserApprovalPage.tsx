@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { CheckCircle, XCircle, Clock, User, Phone, Calendar, Search, Mail, Bell } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, User, Phone, Calendar, Search, Mail, Bell, Trash2 } from 'lucide-react';
 import { db } from '../lib/cloudbase';
 import { sendApprovalSuccessSms, sendApprovalRejectSms } from '../lib/sms-service';
+import { showAlert, showConfirm, showSuccess, showError, showWarning } from '../lib/dialog-utils';
 
 interface PendingUser {
   _id: string;
@@ -109,7 +110,7 @@ export function UserApprovalPage({ currentUser, onPendingCountChange }: UserAppr
       
     } catch (error: any) {
       console.error('❌ 加载用户列表失败:', error);
-      alert(`加载用户列表失败: ${error.message || '未知错误'}\n\n请检查:\n1. CloudBase环境是否正确初始化\n2. 数据库权限是否配置\n3. users集合是否存在\n\n如果数据库为空，请使用初始化工具添加测试数据`);
+      await showError(`加载用户列表失败: ${error.message || '未知错误'}\n\n请检查:\n1. CloudBase环境是否正确初始化\n2. 数据库权限是否配置\n3. users集合是否存在\n\n如果数据库为空，请使用初始化工具添加测试数据`);
     } finally {
       setLoading(false);
     }
@@ -134,19 +135,19 @@ export function UserApprovalPage({ currentUser, onPendingCountChange }: UserAppr
         
         if (smsResult.success) {
           console.log('✓ 短信通知发送成功');
-          alert(`✅ 审核通过成功！\n\n已向用户 ${user.phone} 发送短信通知。`);
+          await showSuccess(`审核通过成功！\n\n已向用户 ${user.phone} 发送短信通知。`);
         } else {
           console.warn('短信通知发送失败:', smsResult.message);
-          alert(`✅ 审核通过成功！\n\n⚠️ 但短信通知发送失败：${smsResult.message}`);
+          await showWarning(`审核通过成功！\n\n⚠️ 但短信通知发送失败：${smsResult.message}`);
         }
       } else {
-        alert('审核通过成功！\n\n⚠️ 用户未提供手机号，无法发送短信通知。');
+        await showWarning('审核通过成功！\n\n⚠️ 用户未提供手机号，无法发送短信通知。');
       }
 
       loadUsers();
     } catch (error) {
       console.error('审核通过失败:', error);
-      alert('❌ 审核通过失败，请重试');
+      await showError('审核通过失败，请重试');
     }
   };
 
@@ -160,7 +161,7 @@ export function UserApprovalPage({ currentUser, onPendingCountChange }: UserAppr
     if (!selectedUser) return;
 
     if (!rejectReason.trim()) {
-      alert('请填写拒绝原因');
+      await showAlert('请填写拒绝原因', 'warning');
       return;
     }
 
@@ -187,13 +188,13 @@ export function UserApprovalPage({ currentUser, onPendingCountChange }: UserAppr
         
         if (smsResult.success) {
           console.log('✓ 短信通知发送成功');
-          alert(`✅ 审核拒绝成功！\n\n已向用户 ${selectedUser.phone} 发送短信通知。`);
+          await showSuccess(`审核拒绝成功！\n\n已向用户 ${selectedUser.phone} 发送短信通知。`);
         } else {
           console.warn('短信通知发送失败:', smsResult.message);
-          alert(`✅ 审核拒绝成功！\n\n⚠️ 但短信通知发送失败：${smsResult.message}`);
+          await showWarning(`审核拒绝成功！\n\n⚠️ 但短信通知发送失败：${smsResult.message}`);
         }
       } else {
-        alert('审核拒绝成功！\n\n⚠️ 用户未提供手机号，无法发送短信通知。');
+        await showWarning('审核拒绝成功！\n\n⚠️ 用户未提供手机号，无法发送短信通知。');
       }
 
       setShowRejectModal(false);
@@ -202,7 +203,34 @@ export function UserApprovalPage({ currentUser, onPendingCountChange }: UserAppr
       loadUsers();
     } catch (error) {
       console.error('审核拒绝失败:', error);
-      alert('❌ 审核拒绝失败，请重试');
+      await showError('审核拒绝失败，请重试');
+    }
+  };
+
+  const handleDelete = async (user: PendingUser) => {
+    // 防止删除admin用户
+    if (user.username === 'admin') {
+      await showAlert('无法删除管理员账号', 'error');
+      return;
+    }
+
+    const confirmed = await showConfirm(
+      `确认删除用户吗？\n\n` +
+      `用户名: ${user.username}\n` +
+      `姓名: ${user.name}\n` +
+      `手机号: ${user.phone || '未填写'}\n\n` +
+      `此操作不可恢复！`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      await db.collection('users').doc(user._id).remove();
+      await showSuccess(`用户 ${user.name} (@${user.username}) 已删除`);
+      loadUsers();
+    } catch (error) {
+      console.error('删除用户失败:', error);
+      await showError('删除用户失败，请重试');
     }
   };
 
@@ -363,11 +391,9 @@ export function UserApprovalPage({ currentUser, onPendingCountChange }: UserAppr
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th className="px-6 py-3 text-left text-sm text-gray-600">用户信息</th>
-                  <th className="px-6 py-3 text-left text-sm text-gray-600">角色/部门</th>
-                  <th className="px-6 py-3 text-left text-sm text-gray-600">联系电话</th>
                   <th className="px-6 py-3 text-left text-sm text-gray-600">注册时间</th>
                   <th className="px-6 py-3 text-left text-sm text-gray-600">审核状态</th>
-                  <th className="px-6 py-3 text-left text-sm text-gray-600">操作</th>
+                  <th className="px-6 py-3 text-center text-sm text-gray-600">操作</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">{filteredUsers.map((user) => {
@@ -399,28 +425,14 @@ export function UserApprovalPage({ currentUser, onPendingCountChange }: UserAppr
                                 管理员
                               </span>
                             )}
+                            {user.phone && (
+                              <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
+                                <Phone className="w-3 h-3" />
+                                {user.phone}
+                              </div>
+                            )}
                           </div>
                         </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900">
-                          {(() => {
-                            // 过滤掉user角色
-                            const displayRole = user.role && user.role !== 'user' ? user.role : '--';
-                            return displayRole;
-                          })()}
-                        </div>
-                        {user.department && (
-                          <div className="text-sm text-gray-500">{user.department}</div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4">
-                        {user.phone && (
-                          <div className="flex items-center gap-2 text-sm text-gray-900">
-                            <Phone className="w-4 h-4 text-gray-400" />
-                            {user.phone}
-                          </div>
-                        )}
                       </td>
                       <td className="px-6 py-4">
                         <div className="text-sm text-gray-900">
@@ -446,37 +458,63 @@ export function UserApprovalPage({ currentUser, onPendingCountChange }: UserAppr
                       </td>
                       <td className="px-6 py-4">
                         {user.approvalStatus === 'pending' && (
-                          <div className="flex gap-2">
+                          <div className="flex justify-center gap-2">
                             <button
                               onClick={() => handleApprove(user)}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                              className="w-8 h-8 flex items-center justify-center bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
                               title="审核通过后将发送短信通知"
                             >
-                              通过
+                              <CheckCircle className="w-5 h-5" />
                             </button>
                             <button
                               onClick={() => handleReject(user)}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
+                              className="w-8 h-8 flex items-center justify-center bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
                               title="审核拒绝后将发送短信通知"
                             >
-                              拒绝
+                              <XCircle className="w-5 h-5" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(user)}
+                              className="w-8 h-8 flex items-center justify-center bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                              title="删除用户（不可恢复）"
+                            >
+                              <Trash2 className="w-5 h-5" />
                             </button>
                           </div>
                         )}
                         {user.approvalStatus === 'approved' && user.username !== 'admin' && (
-                          <span className="text-sm text-gray-400">--</span>
+                          <div className="flex justify-center">
+                            <button
+                              onClick={() => handleDelete(user)}
+                              className="w-8 h-8 flex items-center justify-center bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                              title="删除用户（不可恢复）"
+                            >
+                              <Trash2 className="w-5 h-5" />
+                            </button>
+                          </div>
                         )}
                         {user.approvalStatus === 'rejected' && (
-                          <button
-                            onClick={() => handleApprove(user)}
-                            className="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                            title="重新审核通过"
-                          >
-                            重新审核
-                          </button>
+                          <div className="flex justify-center gap-2">
+                            <button
+                              onClick={() => handleApprove(user)}
+                              className="w-8 h-8 flex items-center justify-center bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                              title="重新审核通过"
+                            >
+                              <CheckCircle className="w-5 h-5" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(user)}
+                              className="w-8 h-8 flex items-center justify-center bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                              title="删除用户（不可恢复）"
+                            >
+                              <Trash2 className="w-5 h-5" />
+                            </button>
+                          </div>
                         )}
                         {user.username === 'admin' && (
-                          <span className="text-sm text-gray-400">--</span>
+                          <div className="text-center">
+                            <span className="text-sm text-gray-400">--</span>
+                          </div>
                         )}
                       </td>
                     </tr>

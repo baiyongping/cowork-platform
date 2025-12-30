@@ -59,6 +59,15 @@ export async function handleWechatCallback(): Promise<{
   try {
     console.log('🔍 检查是否是微信登录回调...');
     
+    // ✅ 关键修复：检查URL是否包含微信回调参数
+    const urlParams = new URLSearchParams(window.location.search);
+    const hasWechatParams = urlParams.has('code') || urlParams.has('state');
+    
+    if (!hasWechatParams) {
+      console.log('ℹ️ URL无微信回调参数,跳过检查');
+      return { success: false, message: '非微信回调' };
+    }
+    
     // 获取当前登录状态
     const loginState = await auth.getLoginState();
     
@@ -74,7 +83,14 @@ export async function handleWechatCallback(): Promise<{
       return { success: false, message: '无用户信息' };
     }
     
-    console.log('✅ 检测到CloudBase登录态:', user.uid);
+    // ✅ 关键修复：检查登录方式是否为微信
+    const loginType = loginState.loginType;
+    if (loginType !== 'WECHAT-OPEN' && loginType !== 'weixinopen') {
+      console.log('ℹ️ 非微信登录方式:', loginType);
+      return { success: false, message: '非微信登录' };
+    }
+    
+    console.log('✅ 检测到CloudBase微信登录:', user.uid);
     
     // 获取微信用户信息(CloudBase会自动存储)
     const wechatInfo = user.customUserId || user.uid; // CloudBase存储的微信openid

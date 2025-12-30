@@ -150,9 +150,9 @@ export function getUserPermissions(user: User, rolePermissions: RolePermission[]
               permissions[moduleKey] = { ...modulePerms };
             } else {
               // 合并权限: 任一角色有权限则为true
-              Object.keys(modulePerms).forEach(action => {
-                if (modulePerms[action]) {
-                  permissions[moduleKey][action] = true;
+              Object.keys(modulePerms).forEach((action: string) => {
+                if (modulePerms[action as keyof typeof modulePerms]) {
+                  (permissions[moduleKey] as any)[action] = true;
                 }
               });
             }
@@ -199,8 +199,8 @@ export function getUserPermissions(user: User, rolePermissions: RolePermission[]
         } else {
           // 旧格式: 扁平化结构
           // permissions 字段直接包含所有模块的权限配置
-          Object.keys(rp.permissions).forEach(moduleKey => {
-            permissions[moduleKey] = rp.permissions[moduleKey];
+          Object.keys(rp.permissions).forEach((moduleKey: string) => {
+            (permissions as any)[moduleKey] = rp.permissions[moduleKey as keyof typeof rp.permissions];
           });
         }
       });

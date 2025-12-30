@@ -3,6 +3,9 @@ import { Lock, User, Users, Phone, ArrowLeft } from 'lucide-react';
 import { login, register, sendVerificationCode, resetPassword } from '../lib/auth-service';
 import { initWechatLogin, handleWechatCallback } from '../lib/wechat-login-service';
 import { APP_VERSION } from '../lib/version';
+import { getStoragePublicURL } from '../constants/cloudbase';
+import { db } from '../lib/cloudbase';
+import { ConfirmDialog } from './ConfirmDialog';
 
 interface LoginPageProps {
   onLogin: (user: any, token: string) => void;
@@ -36,6 +39,17 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     phone: '',
     verificationCode: ''
   });
+
+  // 用户名验证状态
+  const [usernameValidation, setUsernameValidation] = useState<{
+    checking: boolean;
+    available: boolean | null;
+    message: string;
+  }>({
+    checking: false,
+    available: null,
+    message: ''
+  });
   
   // 忘记密码表单
   const [forgotForm, setForgotForm] = useState({
@@ -50,10 +64,24 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     sending: false
   });
 
+  // 通知对话框状态
+  const [notificationDialog, setNotificationDialog] = useState({
+    show: false,
+    title: '',
+    message: ''
+  });
+
   // 加载系统名称和Logo
   useEffect(() => {
     const loadSystemSettings = async () => {
       try {
+        // ✅ 关键修复：退出登录后不加载系统设置
+        const hasLoggedOut = sessionStorage.getItem('has-logged-out');
+        if (hasLoggedOut === 'true') {
+          console.log('⚠️ 用户已退出登录，跳过加载系统设置');
+          return;
+        }
+        
         const cloudbase = (await import('../lib/cloudbase')).default;
         
         // 确保 CloudBase 已初始化
@@ -102,10 +130,8 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                   setCompanyLogo(url);
                 }
               } else if (logoData.fileID) {
-                // 如果只有 fileID，直接使用 CloudBase 公共 URL 格式（无需登录）
-                // 格式：https://{envId}.tcb.qcloud.la/{fileID}
-                const envId = 'jihua-oa-dev-3goht9irae4d949f';
-                const publicURL = `https://${envId}.tcb.qcloud.la/${logoData.fileID}`;
+                // ✅ 使用配置文件中的云存储域名构造公共URL
+                const publicURL = getStoragePublicURL(logoData.fileID);
                 setCompanyLogo(publicURL);
                 console.log('🔍 [LoginPage] 使用公共URL加载Logo:', publicURL);
               }
@@ -272,6 +298,41 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     }
   };
 
+  // 检查用户名是否可用
+  const checkUsernameAvailability = async (username: string) => {
+    if (!username || !username.trim()) {
+      setUsernameValidation({ checking: false, available: null, message: '' });
+      return;
+    }
+
+    setUsernameValidation({ checking: true, available: null, message: '正在检查...' });
+
+    try {
+      const existingUser = await db.collection('users').where({ username: username.trim() }).get();
+      
+      if (existingUser.data && existingUser.data.length > 0) {
+        setUsernameValidation({
+          checking: false,
+          available: false,
+          message: '该用户名已被使用'
+        });
+      } else {
+        setUsernameValidation({
+          checking: false,
+          available: true,
+          message: '用户名可用'
+        });
+      }
+    } catch (err: any) {
+      console.error('检查用户名失败:', err);
+      setUsernameValidation({
+        checking: false,
+        available: null,
+        message: '检查失败,请稍后重试'
+      });
+    }
+  };
+
   const handleSendCode = async (type: 'register' | 'forgot' = 'register') => {
     // 获取原始手机号
     const rawPhone = type === 'register' ? registerForm.phone : forgotForm.phone;
@@ -322,6 +383,25 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     e.preventDefault();
     setError('');
 
+    // 验证用户名
+    if (!registerForm.username || !registerForm.username.trim()) {
+      setError('请输入用户名');
+      return;
+    }
+
+    // 先检查用户名是否已存在
+    try {
+      const existingUser = await db.collection('users').where({ username: registerForm.username }).get();
+      if (existingUser.data && existingUser.data.length > 0) {
+        setError('用户名已存在，请更换其他用户名');
+        return;
+      }
+    } catch (err: any) {
+      console.error('检查用户名失败:', err);
+      setError('检查用户名失败，请稍后重试');
+      return;
+    }
+
     // 先检查是否输入了手机号
     if (!registerForm.phone || !registerForm.phone.trim()) {
       setError('请输入手机号');
@@ -369,8 +449,12 @@ export function LoginPage({ onLogin }: LoginPageProps) {
       if (result.success) {
         // 注册成功，提示等待审核
         setError('');
-        alert('注册成功！您的账号正在等待管理员审核，审核通过后即可登录。');
-        setCurrentView('login'); // 切换到登录页面
+        setNotificationDialog({
+          show: true,
+          title: '注册成功',
+          message: '您的账号正在等待管理员审核，审核通过后即可登录。'
+        });
+        // 清空表单
         setRegisterForm({
           username: '',
           password: '',
@@ -436,7 +520,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
       if (result.success) {
         setError('');
-        alert('密码重置成功！请使用新密码登录。');
+        window.alert('密码重置成功！请使用新密码登录。');
         setCurrentView('login'); // 切换到登录页面
         setForgotForm({
           phone: '',
@@ -522,6 +606,13 @@ export function LoginPage({ onLogin }: LoginPageProps) {
             {loginMode === 'account' ? (
               // 账号密码登录
               <form onSubmit={handleLoginSubmit} className="space-y-6">
+                {/* ✅ 错误提示 */}
+                {error && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                    {error}
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-sm text-gray-700 mb-2">用户名</label>
                   <div className="relative">
@@ -635,6 +726,13 @@ export function LoginPage({ onLogin }: LoginPageProps) {
         ) : currentView === 'register' ? (
           // 注册表单
           <form onSubmit={handleRegisterSubmit} className="space-y-4">
+            {/* ✅ 错误提示 */}
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                {error}
+              </div>
+            )}
+
             <div>
               <label className="block text-sm text-gray-700 mb-2">用户名 *</label>
               <div className="relative">
@@ -642,13 +740,40 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                 <input
                   type="text"
                   value={registerForm.username}
-                  onChange={(e) => setRegisterForm({ ...registerForm, username: e.target.value })}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  onChange={(e) => {
+                    setRegisterForm({ ...registerForm, username: e.target.value });
+                    // 清空验证状态
+                    setUsernameValidation({ checking: false, available: null, message: '' });
+                  }}
+                  onBlur={(e) => {
+                    // 失焦时检查用户名
+                    if (e.target.value.trim()) {
+                      checkUsernameAvailability(e.target.value);
+                    }
+                  }}
+                  className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 ${
+                    usernameValidation.available === false
+                      ? 'border-red-500 focus:ring-red-500'
+                      : usernameValidation.available === true
+                      ? 'border-green-500 focus:ring-green-500'
+                      : 'border-gray-300 focus:ring-blue-500'
+                  }`}
                   placeholder="请输入用户名"
                   required
                   disabled={loading}
                 />
               </div>
+              {usernameValidation.message && (
+                <p className={`text-xs mt-1 ${
+                  usernameValidation.available === false
+                    ? 'text-red-600'
+                    : usernameValidation.available === true
+                    ? 'text-green-600'
+                    : 'text-gray-600'
+                }`}>
+                  {usernameValidation.checking ? '正在检查...' : usernameValidation.message}
+                </p>
+              )}
             </div>
 
             <div>
@@ -772,6 +897,13 @@ export function LoginPage({ onLogin }: LoginPageProps) {
             </button>
 
             <form onSubmit={handleForgotSubmit} className="space-y-4">
+              {/* ✅ 错误提示 */}
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                  {error}
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm text-gray-700 mb-2">手机号 *</label>
                 <div className="relative">
@@ -866,6 +998,24 @@ export function LoginPage({ onLogin }: LoginPageProps) {
           </div>
         )}
       </div>
+
+      {/* 通知对话框 */}
+      <ConfirmDialog
+        show={notificationDialog.show}
+        title={notificationDialog.title}
+        message={notificationDialog.message}
+        confirmText="确定"
+        cancelText=""
+        confirmButtonClass="bg-blue-600 hover:bg-blue-700"
+        onConfirm={() => {
+          setNotificationDialog({ show: false, title: '', message: '' });
+          setCurrentView('login'); // 关闭对话框后切换到登录页面
+        }}
+        onCancel={() => {
+          setNotificationDialog({ show: false, title: '', message: '' });
+          setCurrentView('login'); // 关闭对话框后切换到登录页面
+        }}
+      />
     </div>
   );
 }

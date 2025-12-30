@@ -199,7 +199,10 @@ export function checkFunctionPermission(
   
   const modulePermission = permissions.find(p => p.module === module);
   if (!modulePermission) return false;
-  return modulePermission.actions[action] || false;
+  
+  // 确保 action 存在于 modulePermission.actions 中
+  const actionValue = modulePermission.actions[action];
+  return typeof actionValue === 'boolean' ? actionValue : false;
 }
 
 /**
@@ -284,7 +287,8 @@ export async function buildQueryConditions(
   const conditions: any[] = [
     { owner: currentUserId }, // 自己创建的
     { createdBy: currentUserId }, // 创建者字段(兼容不同模块)
-    { collaborators: currentUserId }, // 作为协作人的(任务、商机、项目)
+    { collaborators: currentUserId }, // 作为协作人的(任务、商机)
+    { members: currentUserId }, // 🔧 项目管理模块：作为项目成员
   ];
   
   // 🔧 问题管理模块：添加 solvers 条件(如果存在)
