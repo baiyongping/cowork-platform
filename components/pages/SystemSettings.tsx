@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Building2, Shield, Tags, Plus, X, FileText, Calendar, Search, Download, UserCheck, ChevronDown, ChevronUp, Save, CheckCircle, XCircle, Trash2, User, Upload, Image as ImageIcon } from 'lucide-react';
+import { Users, Building2, Shield, Tags, Plus, X, FileText, Calendar, Search, Download, UserCheck, ChevronDown, ChevronUp, Save, CheckCircle, XCircle, Trash2, User, Upload, Image as ImageIcon, UserPlus } from 'lucide-react';
 import { UserApprovalPage } from '../UserApprovalPage';
 import EmployeeDetailModal from '../EmployeeDetailModal';
+import CreateEmployeeModal from '../CreateEmployeeModal';
 import { EmployeeTrash } from '../EmployeeTrash';
 import { db, app } from '../../lib/cloudbase';
+import { getStoragePublicURL } from '../../constants/cloudbase';
 import { usePermissionContext } from '../../contexts/PermissionContext';
+import { showAlert, showConfirm, showSuccess, showError, showWarning } from '../../lib/dialog-utils';
 
 interface TypeItem {
   value: string;
@@ -83,6 +86,7 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showEmployeeDetail, setShowEmployeeDetail] = useState(false);
   const [showEmployeeTrash, setShowEmployeeTrash] = useState(false);
+  const [showCreateEmployeeModal, setShowCreateEmployeeModal] = useState(false);
   const [showInvitationModal, setShowInvitationModal] = useState(false);
   const [invitationData, setInvitationData] = useState<{code: string; url: string; qrUrl: string} | null>(null);
   const [generatingInvitation, setGeneratingInvitation] = useState(false);
@@ -593,7 +597,7 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
     }
     
     // ✅ 添加删除确认
-    if (!confirm(`确定要删除角色「${selectedRole.name}」吗？\n\n此操作不可撤销！`)) {
+    if (!showConfirm(`确定要删除角色「${selectedRole.name}」吗？\n\n此操作不可撤销！`)) {
       return;
     }
     
@@ -751,7 +755,12 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
     setUploadingLogo(true);
     
     try {
-      console.log('开始上传Logo:', logoFile.name, 'Type:', logoFile.type, 'Size:', logoFile.size);
+      // 确保 logoFile 存在后再访问属性
+      const fileName = logoFile.name;
+      const fileType = logoFile.type;
+      const fileSize = logoFile.size;
+      
+      console.log('开始上传Logo:', fileName, 'Type:', fileType, 'Size:', fileSize);
       
       // 将文件转换为Base64编码
       const base64 = await new Promise<string>((resolve, reject) => {
@@ -771,9 +780,9 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
       // 保存Logo信息到数据库（使用Base64编码）
       const logoData = {
         base64,
-        fileName: logoFile.name,
-        fileType: logoFile.type,
-        fileSize: logoFile.size,
+        fileName,
+        fileType,
+        fileSize,
         uploadTime: new Date().toISOString()
       };
       
@@ -813,7 +822,7 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
       setLogoPreview(base64); // 立即更新预览
       
       // 记录操作日志
-      await addOperationLog('类型设置', '上传公司Logo', `上传新Logo文件: ${logoFile.name}`);
+      await addOperationLog('类型设置', '上传公司Logo', `上传新Logo文件: ${fileName}`);
       
       console.log('✅ Logo上传完成!');
       alert('✅ Logo上传成功！页面将自动刷新显示新Logo。');
@@ -850,7 +859,7 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
       return;
     }
     
-    if (!confirm('确定要删除公司Logo吗？删除后将恢复默认Logo。')) {
+    if (!showConfirm('确定要删除公司Logo吗？删除后将恢复默认Logo。')) {
       return;
     }
     
@@ -1104,8 +1113,10 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
   const loadEmployees = async () => {
     setLoadingEmployees(true);
     try {
-      // 🔧 修复：不再过滤审核状态，显示所有用户（除了已删除的）
-      const result = await db.collection('users').get();
+      // ✅ 只加载已审核通过的用户
+      const result = await db.collection('users')
+        .where({ approvalStatus: 'approved' })
+        .get();
       
       // 🔧 过滤掉已删除的用户和 admin 超级用户（系统默认隐藏）
       const activeUsers = result.data.filter((user: any) => 
@@ -2764,7 +2775,7 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
         }
 
         // 确认删除
-        if (!confirm(`确定要删除${typeName}「${typeValue}」吗？`)) {
+        if (!showConfirm(`确定要删除${typeName}「${typeValue}」吗？`)) {
           return;
         }
 
@@ -2853,7 +2864,7 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
       typeName = currentTypeSetting.name;
 
       // 确认删除
-      if (!confirm(`确定要删除${typeName}「${typeValue}」吗？`)) {
+      if (!showConfirm(`确定要删除${typeName}「${typeValue}」吗？`)) {
         return;
       }
 
@@ -3074,7 +3085,7 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
     }
 
     // ✅ 保留删除二次确认
-    if (!confirm(`确定要删除此类型设置吗？\n\n类型: ${categoryKey}\n\n此操作不可撤销！`)) {
+    if (!showConfirm(`确定要删除此类型设置吗？\n\n类型: ${categoryKey}\n\n此操作不可撤销！`)) {
       return;
     }
 
@@ -3211,14 +3222,23 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
           </div>
           <div className="flex items-center gap-3">
             {checkPermission('settings.employees', 'create') && (
-              <button
-                onClick={handleGenerateInvitation}
-                disabled={generatingInvitation}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-              >
-                <Plus className="w-4 h-4" />
-                {generatingInvitation ? '生成中...' : '邀请注册'}
-              </button>
+              <>
+                <button
+                  onClick={() => setShowCreateEmployeeModal(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  新增员工
+                </button>
+                <button
+                  onClick={handleGenerateInvitation}
+                  disabled={generatingInvitation}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  <Plus className="w-4 h-4" />
+                  {generatingInvitation ? '生成中...' : '邀请注册'}
+                </button>
+              </>
             )}
             {checkPermission('settings.employees', 'delete') && (
               <button
@@ -3618,10 +3638,7 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                         opportunities: '商机管理',
                         projects: '项目管理',
                         goal: '目标管理',
-<<<<<<< HEAD
                         issues: '问题管理',
-=======
->>>>>>> 5372b260f97be4d365db3bfd71fb049296341309
                         budget: '预算管理',
                         settings: '系统设置'
                       }).map(([key, label]) => {
@@ -5039,10 +5056,7 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                           opportunities: '商机管理',
                           projects: '项目管理',
                           goal: '目标管理',
-<<<<<<< HEAD
                           issues: '问题管理',
-=======
->>>>>>> 5372b260f97be4d365db3bfd71fb049296341309
                           budget: '预算管理',
                           settings: '系统设置'
                         }).map(([key, label]) => {
@@ -5511,10 +5525,7 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                           opportunities: '商机管理',
                           projects: '项目管理',
                           goal: '目标管理',
-<<<<<<< HEAD
                           issues: '问题管理',
-=======
->>>>>>> 5372b260f97be4d365db3bfd71fb049296341309
                           budget: '预算管理',
                           settings: '系统设置'
                         }).map(([key, label]) => {
@@ -6017,6 +6028,7 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
           departments={departments}
           rolePermissions={rolePermissions}
           allEmployees={employees}
+          currentUserRole={userRole}
         />
       )}
 
@@ -6025,6 +6037,21 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
         <EmployeeTrash
           onClose={() => setShowEmployeeTrash(false)}
           onSuccess={() => loadEmployees()}
+        />
+      )}
+
+      {/* Create Employee Modal */}
+      {showCreateEmployeeModal && (
+        <CreateEmployeeModal
+          show={showCreateEmployeeModal}
+          onClose={() => setShowCreateEmployeeModal(false)}
+          onSuccess={async () => {
+            console.log('✅ [新增员工] 员工创建成功,刷新员工列表...');
+            await loadEmployees();
+            showSuccess('员工创建成功');
+          }}
+          departments={departments.map(d => d.name)}
+          currentUser={currentUser}
         />
       )}
 
