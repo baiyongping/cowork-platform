@@ -114,8 +114,7 @@ export default function OpportunitySelector({ selectedId, onSelect, onClose }: O
       const keyword = searchKeyword.toLowerCase();
       return (
         opp.name.toLowerCase().includes(keyword) ||
-        opp.customer.toLowerCase().includes(keyword) ||
-        opp.contactPerson.toLowerCase().includes(keyword)
+        opp.customer.toLowerCase().includes(keyword)
       );
     }
     
@@ -199,7 +198,6 @@ export default function OpportunitySelector({ selectedId, onSelect, onClose }: O
                       </div>
                       <div className="grid grid-cols-2 gap-2 text-sm text-gray-600">
                         <div>客户：{opp.customer}</div>
-                        <div>联系人：{opp.contactPerson}</div>
                         <div>阶段：
                           <span className="ml-1 px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-800">
                             {opp.stage}

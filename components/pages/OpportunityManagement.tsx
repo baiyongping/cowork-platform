@@ -10,8 +10,7 @@ import { showAlert, showSuccess, showError } from '../../lib/dialog-utils';
 import type { 
   Opportunity, 
   OpportunityStage, 
-  OpportunityLevel, 
-  ProductType,
+  OpportunityLevel,
   OpportunityStatistics
 } from '../../types/opportunity';
 
@@ -570,13 +569,11 @@ export function OpportunityManagement({ userRole, currentUserId, openOpportunity
         budget: opportunity.estimatedAmount, // 继承预计金额作为预算
         actualCost: 0,
         customer: opportunity.customer, // 继承客户名称
-        contactPerson: opportunity.contactPerson, // 继承联系人
-        contactPhone: opportunity.contactPhone, // 继承联系电话
         opportunityId: opportunity._id, // 关联商机ID
         description: opportunity.description || `由商机"${opportunity.name}"自动生成的项目`,
         requirements: opportunity.description || '',
         deliverables: opportunity.notes || '',
-        notes: `从商机"${opportunity.name}"（${opportunity.productType}）自动创建`,
+        notes: `从商机"${opportunity.name}"自动创建`,
         isPublic: opportunity.isPublic !== false,
         createdBy: opportunity.owner,
         createdAt: new Date(),

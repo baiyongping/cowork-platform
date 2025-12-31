@@ -1,9 +1,14 @@
 #!/bin/bash
 
 # ============================================
-# 际华协同办公平台 - 生产环境蓝绿部署脚本
-# 版本: v1.0
+# 际华协同办公平台 - 增强版蓝绿部署脚本
+# 版本: v2.0 (防缓存增强版)
 # 端口配置: 3000(蓝) + 3003(绿)
+# 新增功能:
+# - 部署前清理旧dist
+# - 验证上传文件完整性
+# - 强制Docker无缓存构建
+# - 自动备份和清理旧版本
 # ============================================
 
 set -e
@@ -27,6 +32,112 @@ NC='\033[0m'
 log_info() { echo -e "${GREEN}[INFO]${NC} $1"; }
 log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
+
+# 新增: 清理旧部署文件
+clean_old_deployment() {
+    log_info "======================================"
+    log_info "清理旧部署文件"
+    log_info "======================================"
+    
+    # 1. 备份当前dist (如果存在)
+    if [ -d "$DIST_DIR" ]; then
+        local backup_name="dist-backup-$(date +%Y%m%d-%H%M%S)"
+        log_info "备份当前 dist 到: $backup_name"
+        cp -r "$DIST_DIR" "$DEPLOY_DIR/$backup_name"
+        
+        # 2. 强制删除旧dist
+        log_info "删除旧的 dist 目录..."
+        rm -rf "$DIST_DIR"
+        sleep 1
+        log_info "✓ 旧 dist 目录已删除"
+        
+        # 3. 清理旧备份 (保留最近3个)
+        log_info "清理旧备份..."
+        cd "$DEPLOY_DIR"
+        ls -t | grep "^dist-backup-" | tail -n +4 | xargs -r rm -rf
+        log_info "✓ 旧备份已清理 (保留最近3个)"
+    else
+        log_info "✓ dist 目录不存在,跳过清理"
+    fi
+    
+    # 4. 清理Docker build缓存
+    log_info "清理 Docker build 缓存..."
+    docker builder prune -f --filter "label=project=jihua-prod" > /dev/null 2>&1 || true
+    log_info "✓ Docker 缓存已清理"
+}
+
+# 新增: 验证上传文件
+validate_upload() {
+    log_info "======================================"
+    log_info "验证上传文件"
+    log_info "======================================"
+    
+    # 1. 检查dist目录
+    if [ ! -d "$DIST_DIR" ]; then
+        log_error "dist 目录不存在: $DIST_DIR"
+        exit 1
+    fi
+    
+    # 2. 检查index.html
+    if [ ! -f "$DIST_DIR/index.html" ]; then
+        log_error "index.html 不存在"
+        exit 1
+    fi
+    
+    # 3. 检查assets目录
+    if [ ! -d "$DIST_DIR/assets" ]; then
+        log_error "assets 目录不存在"
+        exit 1
+    fi
+    
+    # 4. 统计文件数量和大小
+    local file_count=$(find "$DIST_DIR" -type f | wc -l)
+    local total_size=$(du -sh "$DIST_DIR" | awk '{print $1}')
+    
+    log_info "文件总数: $file_count"
+    log_info "总大小: $total_size"
+    
+    # 5. 检查构建版本标记
+    if [ -f "$DIST_DIR/.build-version" ]; then
+        local build_version=$(cat "$DIST_DIR/.build-version")
+        log_info "构建版本: $build_version"
+    else
+        log_warn "未找到构建版本标记"
+    fi
+    
+    # 6. 验证文件完整性 (基本检查)
+    if [ $file_count -lt 5 ]; then
+        log_error "文件数量异常 (少于5个),可能上传不完整"
+        exit 1
+    fi
+    
+    log_info "✓ 文件验证通过"
+}
+
+# 新增: 强制无缓存构建镜像
+build_docker_image() {
+    local target_env=$1
+    
+    log_info "======================================"
+    log_info "构建 Docker 镜像 (无缓存)"
+    log_info "======================================"
+    
+    cd $DEPLOY_DIR
+    
+    # 使用 --no-cache 强制重新构建
+    # 添加构建标签用于后续清理
+    docker build \
+        --no-cache \
+        --pull \
+        --label "project=jihua-prod" \
+        --label "env=$target_env" \
+        --label "build-time=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+        -t ${IMAGE_NAME}:${target_env} \
+        -f $DOCKERFILE_PATH \
+        .
+    
+    log_info "✓ Docker 镜像构建完成"
+}
 
 # 检查当前活跃环境
 get_active_env() {
@@ -111,11 +222,17 @@ switch_nginx() {
     fi
 }
 
-# 主部署流程
+# 主部署流程 (增强版)
 main() {
     log_info "======================================"
-    log_info "开始生产环境蓝绿部署"
+    log_info "开始增强版蓝绿部署"
     log_info "======================================"
+    
+    # 【新增】步骤0: 清理旧文件
+    clean_old_deployment
+    
+    # 【新增】步骤1: 验证上传文件
+    validate_upload
     
     ACTIVE_ENV=$(get_active_env)
     TARGET_ENV=$(get_target_env)
@@ -124,21 +241,17 @@ main() {
     log_info "当前活跃环境: $ACTIVE_ENV"
     log_info "目标部署环境: $TARGET_ENV (端口:$TARGET_PORT)"
     
-    if [ ! -d "$DIST_DIR" ]; then
-        log_error "部署目录不存在: $DIST_DIR"
-        exit 1
-    fi
+    # 步骤2: 强制无缓存构建镜像
+    build_docker_image $TARGET_ENV
     
-    log_info "构建Docker镜像..."
-    cd $DEPLOY_DIR
-    docker build -t ${IMAGE_NAME}:${TARGET_ENV} -f $DOCKERFILE_PATH .
-    
+    # 步骤3: 停止旧容器
     if docker ps -a --format "{{.Names}}" | grep -q "${PROJECT_NAME}-${TARGET_ENV}"; then
         log_info "停止旧的 $TARGET_ENV 容器..."
         docker stop ${PROJECT_NAME}-${TARGET_ENV} || true
         docker rm ${PROJECT_NAME}-${TARGET_ENV} || true
     fi
     
+    # 步骤4: 启动新容器
     log_info "启动新容器: ${PROJECT_NAME}-${TARGET_ENV} (端口:$TARGET_PORT)..."
     docker run -d \
         --name ${PROJECT_NAME}-${TARGET_ENV} \
@@ -146,23 +259,30 @@ main() {
         -p $TARGET_PORT:80 \
         ${IMAGE_NAME}:${TARGET_ENV}
     
+    # 步骤5: 健康检查
     if ! health_check $TARGET_PORT; then
         log_error "新环境健康检查失败,回滚部署"
         docker stop ${PROJECT_NAME}-${TARGET_ENV}
         exit 1
     fi
     
+    # 步骤6: 切换Nginx
     if ! switch_nginx $TARGET_ENV; then
         log_error "Nginx切换失败,回滚部署"
         docker stop ${PROJECT_NAME}-${TARGET_ENV}
         exit 1
     fi
     
+    # 步骤7: 清理旧容器和镜像
     if [ "$ACTIVE_ENV" != "none" ]; then
         log_info "等待30秒后清理旧环境..."
         sleep 30
         log_info "停止旧容器: ${PROJECT_NAME}-${ACTIVE_ENV}..."
         docker stop ${PROJECT_NAME}-${ACTIVE_ENV} || true
+        
+        # 【新增】删除旧镜像
+        log_info "删除旧镜像: ${IMAGE_NAME}:${ACTIVE_ENV}..."
+        docker rmi ${IMAGE_NAME}:${ACTIVE_ENV} || true
     fi
     
     log_info "======================================"
@@ -170,8 +290,16 @@ main() {
     log_info "======================================"
     log_info "活跃环境: $TARGET_ENV"
     log_info "访问地址: https://$DOMAIN"
+    log_info ""
     log_info "容器状态:"
     docker ps --filter "name=${PROJECT_NAME}" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+    
+    # 【新增】清理提示
+    log_info ""
+    log_warn "⚠ 重要提示:"
+    log_warn "1. 请使用 Ctrl+Shift+R (硬刷新) 清理浏览器缓存"
+    log_warn "2. 或使用隐私/无痕模式访问验证"
+    log_warn "3. CDN缓存约需3-5分钟更新"
 }
 
 # 回滚函数
@@ -212,6 +340,12 @@ case "${1:-deploy}" in
     deploy)
         main
         ;;
+    clean)
+        clean_old_deployment
+        ;;
+    validate)
+        validate_upload
+        ;;
     rollback)
         rollback $2
         ;;
@@ -220,7 +354,14 @@ case "${1:-deploy}" in
         docker ps --filter "name=${PROJECT_NAME}" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
         ;;
     *)
-        echo "用法: $0 {deploy|rollback|status} [blue|green]"
+        echo "用法: $0 {deploy|clean|validate|rollback|status} [blue|green]"
+        echo ""
+        echo "命令说明:"
+        echo "  deploy    - 执行完整的蓝绿部署 (包含清理和验证)"
+        echo "  clean     - 仅清理旧部署文件和缓存"
+        echo "  validate  - 仅验证上传文件的完整性"
+        echo "  rollback  - 回滚到指定环境 (需指定 blue 或 green)"
+        echo "  status    - 查看当前环境状态"
         exit 1
         ;;
 esac

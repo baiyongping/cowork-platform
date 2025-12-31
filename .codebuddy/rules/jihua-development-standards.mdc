@@ -1,0 +1,795 @@
+---
+description: 
+alwaysApply: true
+enabled: true
+updatedAt: 2025-12-31T23:01:57.029Z
+provider: 
+---
+
+# 际华协同办公平台开发规范
+
+## 概述
+
+本规范定义了际华协同办公平台的核心开发标准，包括代码规范、架构模式、部署流程等，确保项目的一致性和可维护性。
+
+## 1. 项目架构
+
+### 1.1 技术栈
+
+**前端**:
+- React 18 + TypeScript
+- Vite 构建工具
+- TailwindCSS 样式框架
+- CloudBase Web SDK
+
+**后端**:
+- CloudBase 云函数 (Node.js)
+- CloudBase NoSQL 数据库
+
+**部署**:
+- 测试环境: Lighthouse 服务器 (152.136.183.181:3443)
+- 生产环境: https://jihuadz.xin
+- CDN: 腾讯云 CDN
+
+### 1.2 核心模块
+
+```
+├── 员工管理 (user-management)
+├── 商机管理 (opportunity-management)
+├── 任务管理 (task-management)
+├── 项目管理 (project-management)
+├── 目标管理 (goal-management)
+├── 预算管理 (budget-management)
+├── 问题管理 (issue-management)
+└── 消息通知 (notification)
+```
+
+## 2. 代码规范
+
+### 2.1 命名规范
+
+**文件命名**:
+```
+- 组件: PascalCase (CreateOpportunityModal.tsx)
+- 工具函数: camelCase (auth-service.ts)
+- 常量: UPPER_SNAKE_CASE (MAX_RETRY_COUNT)
+- 云函数: kebab-case (user-management/)
+```
+
+**变量命名**:
+```typescript
+// 组件命名
+const CreateOpportunityModal: React.FC = () => {};
+
+// 状态命名
+const [isLoading, setIsLoading] = useState(false);
+const [userData, setUserData] = useState<User | null>(null);
+
+// 函数命名
+const handleSubmit = () => {};
+const fetchUserData = async () => {};
+const validateForm = () => {};
+```
+
+### 2.2 TypeScript 类型规范
+
+**类型定义位置**: `/types/*.ts`
+
+**类型定义示例**:
+```typescript
+// types/opportunity.ts
+export interface Opportunity {
+  _id: string;
+  customer: string;
+  contact: string;
+  amount: number;
+  status: OpportunityStatus;
+  owner: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type OpportunityStatus = 
+  | '潜在商机' 
+  | '意向客户' 
+  | '方案报价' 
+  | '谈判中' 
+  | '已成交' 
+  | '已失败';
+```
+
+**必须定义类型**:
+- ✅ 所有 API 请求/响应
+- ✅ 所有组件 Props
+- ✅ 所有状态对象
+- ✅ 所有数据库模型
+
+### 2.3 组件规范
+
+**组件结构**:
+```typescript
+import React, { useState, useEffect } from 'react';
+import { Icon } from 'lucide-react';
+
+// 类型定义
+interface ComponentProps {
+  data: Data;
+  onSubmit: (value: string) => void;
+}
+
+// 组件
+const Component: React.FC<ComponentProps> = ({ data, onSubmit }) => {
+  // 1. 状态声明
+  const [state, setState] = useState<Type>(initialValue);
+  
+  // 2. 副作用
+  useEffect(() => {
+    // effect logic
+  }, [dependencies]);
+  
+  // 3. 事件处理
+  const handleClick = () => {
+    // handler logic
+  };
+  
+  // 4. 渲染
+  return (
+    <div className="container">
+      {/* JSX */}
+    </div>
+  );
+};
+
+export default Component;
+```
+
+**组件文件组织**:
+- 主组件: `components/pages/*.tsx`
+- 子组件/模态框: `components/*.tsx`
+- 通用组件: `components/shared/*.tsx`
+
+### 2.4 样式规范
+
+**TailwindCSS 使用规范**:
+```tsx
+{/* ✅ 推荐: 使用语义化类名组合 */}
+<div className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg shadow">
+
+{/* ❌ 避免: 行内样式 */}
+<div style={{ display: 'flex', padding: '8px' }}>
+
+{/* ✅ 推荐: 响应式设计 */}
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+
+{/* ✅ 推荐: 条件样式 */}
+<div className={`px-4 py-2 ${isActive ? 'bg-blue-500' : 'bg-gray-200'}`}>
+```
+
+**颜色规范**:
+```css
+/* 主色调 */
+primary: blue-600
+success: green-600
+warning: orange-600
+danger: red-600
+
+/* 中性色 */
+text-primary: gray-900
+text-secondary: gray-600
+bg-primary: white
+bg-secondary: gray-50
+border: gray-200
+```
+
+## 3. CloudBase 开发规范
+
+### 3.1 云函数结构
+
+**标准云函数模板**:
+```javascript
+// cloudfunctions/function-name/index.js
+const cloud = require('wx-server-sdk');
+cloud.init({
+  env: cloud.DYNAMIC_CURRENT_ENV
+});
+
+const db = cloud.database();
+const _ = db.command;
+
+exports.main = async (event, context) => {
+  const { action, data } = event;
+  const wxContext = cloud.getWXContext();
+  
+  try {
+    switch (action) {
+      case 'create':
+        return await handleCreate(data, wxContext);
+      case 'update':
+        return await handleUpdate(data, wxContext);
+      case 'delete':
+        return await handleDelete(data, wxContext);
+      case 'query':
+        return await handleQuery(data, wxContext);
+      default:
+        throw new Error(`Unknown action: ${action}`);
+    }
+  } catch (error) {
+    console.error(`[${action}] Error:`, error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+};
+
+// 处理函数
+async function handleCreate(data, wxContext) {
+  // 实现逻辑
+}
+```
+
+**云函数命名规范**:
+```
+- 单一职责: user-management, opportunity-management
+- 功能清晰: auth, notification
+- 避免过度拆分: ❌ create-user, update-user, delete-user
+```
+
+### 3.2 数据库操作规范
+
+**集合命名**: 小驼峰 (camelCase)
+```
+users
+opportunities
+tasks
+projects
+goals
+budgetSubjects
+issueRecords
+```
+
+**查询规范**:
+```javascript
+// ✅ 推荐: 使用索引字段查询
+const result = await db.collection('opportunities')
+  .where({
+    owner: wxContext.OPENID,
+    status: '意向客户'
+  })
+  .orderBy('createdAt', 'desc')
+  .limit(20)
+  .get();
+
+// ✅ 推荐: 分页查询
+const result = await db.collection('opportunities')
+  .where(condition)
+  .skip(page * limit)
+  .limit(limit)
+  .get();
+
+// ❌ 避免: 获取所有数据
+const result = await db.collection('opportunities').get();
+```
+
+**权限控制**:
+```javascript
+// 云函数内验证权限
+const user = await db.collection('users')
+  .where({ _openid: wxContext.OPENID })
+  .get();
+
+if (!user.data[0] || user.data[0].status !== 'active') {
+  throw new Error('无权限访问');
+}
+```
+
+### 3.3 前端 SDK 调用规范
+
+**初始化** (`lib/cloudbase.ts`):
+```typescript
+import cloudbase from '@cloudbase/js-sdk';
+
+const app = cloudbase.init({
+  env: import.meta.env.VITE_CLOUDBASE_ENV_ID
+});
+
+export const auth = app.auth();
+export const db = app.database();
+export const callFunction = app.callFunction.bind(app);
+```
+
+**云函数调用**:
+```typescript
+// ✅ 推荐: 封装调用逻辑
+export const opportunityService = {
+  async create(data: CreateOpportunityInput) {
+    const res = await callFunction({
+      name: 'opportunity-management',
+      data: { action: 'create', data }
+    });
+    return res.result;
+  },
+  
+  async query(filters: OpportunityFilters) {
+    const res = await callFunction({
+      name: 'opportunity-management',
+      data: { action: 'query', data: filters }
+    });
+    return res.result;
+  }
+};
+```
+
+## 4. 部署规范
+
+### 4.1 环境配置
+
+**环境变量** (`.env.*`):
+```bash
+# 开发环境 (.env.development)
+VITE_CLOUDBASE_ENV_ID=jihua-oa-dev-3goht9irae4d949f
+
+# 生产环境 (.env.production)
+VITE_CLOUDBASE_ENV_ID=cowork-9gg9oocb516be5fb
+```
+
+### 4.2 构建流程
+
+**构建命令**:
+```bash
+# 开发环境
+npm run build:dev
+
+# 生产环境
+npm run build:prod
+```
+
+**构建产物**: `/dist` 目录
+
+### 4.3 部署流程
+
+**测试环境部署**:
+```bash
+# 1. 构建
+npm run build:dev
+
+# 2. 部署到 Lighthouse
+scp -r dist/* root@152.136.183.181:/var/www/jihua-dev/
+
+# 3. 访问
+https://152.136.183.181:3443
+```
+
+**生产环境部署**:
+```bash
+# 1. 构建
+npm run build:prod
+
+# 2. 使用蓝绿部署脚本
+./blue-green-deploy.sh
+
+# 3. 访问
+https://jihuadz.xin
+```
+
+**云函数部署**:
+```bash
+# 使用 CloudBase CLI
+tcb fn deploy function-name
+```
+
+### 4.4 缓存处理
+
+**防止缓存问题**:
+```typescript
+// vite.config.ts
+export default defineConfig({
+  build: {
+    rollupOptions: {
+      output: {
+        // 文件名添加哈希
+        entryFileNames: 'assets/[name].[hash].js',
+        chunkFileNames: 'assets/[name].[hash].js',
+        assetFileNames: 'assets/[name].[hash].[ext]'
+      }
+    }
+  }
+});
+```
+
+**访问链接添加时间戳**:
+```
+https://jihuadz.xin?t=1735200000000
+```
+
+## 5. 错误处理规范
+
+### 5.1 前端错误处理
+
+**统一错误处理**:
+```typescript
+try {
+  const result = await opportunityService.create(data);
+  message.success('创建成功');
+} catch (error) {
+  console.error('创建商机失败:', error);
+  message.error(error.message || '创建失败，请稍后重试');
+}
+```
+
+**错误边界组件**:
+```typescript
+class ErrorBoundary extends React.Component {
+  componentDidCatch(error, errorInfo) {
+    console.error('组件错误:', error, errorInfo);
+    // 上报错误日志
+  }
+  
+  render() {
+    if (this.state.hasError) {
+      return <ErrorPage />;
+    }
+    return this.props.children;
+  }
+}
+```
+
+### 5.2 云函数错误处理
+
+```javascript
+try {
+  // 业务逻辑
+} catch (error) {
+  console.error(`[${action}] Error:`, error);
+  
+  // 统一错误响应
+  return {
+    success: false,
+    error: error.message,
+    code: error.code || 'UNKNOWN_ERROR'
+  };
+}
+```
+
+## 6. 性能优化规范
+
+### 6.1 前端性能优化
+
+**代码分割**:
+```typescript
+// ✅ 推荐: 路由懒加载
+const OpportunityManagement = lazy(() => 
+  import('./components/pages/OpportunityManagement')
+);
+```
+
+**数据缓存**:
+```typescript
+// ✅ 推荐: 使用 React Query 或 SWR
+const { data, isLoading } = useQuery(
+  ['opportunities', filters],
+  () => opportunityService.query(filters),
+  { staleTime: 5 * 60 * 1000 } // 5分钟缓存
+);
+```
+
+**图片优化**:
+```tsx
+{/* ✅ 推荐: 使用 WebP 格式 + 懒加载 */}
+<img 
+  src="image.webp" 
+  loading="lazy" 
+  alt="description"
+/>
+```
+
+### 6.2 数据库性能优化
+
+**索引优化**:
+```javascript
+// 为常用查询字段创建索引
+db.collection('opportunities').createIndex({
+  keys: { owner: 1, status: 1, createdAt: -1 }
+});
+```
+
+**分页查询**:
+```javascript
+// ✅ 推荐: 分页+限制返回字段
+const result = await db.collection('opportunities')
+  .field({ customer: true, amount: true, status: true })
+  .where(condition)
+  .skip(page * limit)
+  .limit(limit)
+  .get();
+```
+
+## 7. 安全规范
+
+### 7.1 前端安全
+
+**输入验证**:
+```typescript
+// ✅ 推荐: 前端验证
+const validateOpportunity = (data: OpportunityInput) => {
+  if (!data.customer?.trim()) {
+    throw new Error('客户名称不能为空');
+  }
+  if (data.amount <= 0) {
+    throw new Error('商机金额必须大于0');
+  }
+  // ...
+};
+```
+
+**敏感信息处理**:
+```typescript
+// ❌ 避免: 在前端存储敏感信息
+localStorage.setItem('password', password);
+
+// ✅ 推荐: 只存储必要的非敏感信息
+localStorage.setItem('userId', userId);
+```
+
+### 7.2 云函数安全
+
+**权限验证**:
+```javascript
+// ✅ 必须: 每个操作验证权限
+const hasPermission = await checkPermission(
+  wxContext.OPENID, 
+  'opportunity:create'
+);
+
+if (!hasPermission) {
+  throw new Error('无权限执行此操作');
+}
+```
+
+**数据脱敏**:
+```javascript
+// ✅ 推荐: 返回前脱敏
+const user = await db.collection('users')
+  .doc(userId)
+  .get();
+
+delete user.data.password;
+delete user.data._openid;
+
+return user.data;
+```
+
+## 8. 测试规范
+
+### 8.1 单元测试
+
+**测试文件命名**: `*.test.ts` 或 `*.spec.ts`
+
+**测试示例**:
+```typescript
+// auth-service.test.ts
+describe('AuthService', () => {
+  it('should login successfully', async () => {
+    const result = await authService.login('admin', 'password');
+    expect(result.success).toBe(true);
+    expect(result.user).toBeDefined();
+  });
+  
+  it('should throw error for invalid credentials', async () => {
+    await expect(
+      authService.login('admin', 'wrong-password')
+    ).rejects.toThrow('用户名或密码错误');
+  });
+});
+```
+
+### 8.2 集成测试
+
+**测试覆盖**:
+- ✅ 关键业务流程
+- ✅ 云函数调用
+- ✅ 数据库操作
+- ✅ 权限验证
+
+## 9. 文档规范
+
+### 9.1 代码注释
+
+**函数注释**:
+```typescript
+/**
+ * 创建商机
+ * @param data 商机数据
+ * @returns 创建结果
+ * @throws 权限不足错误
+ */
+async function createOpportunity(data: OpportunityInput): Promise<Opportunity> {
+  // 实现逻辑
+}
+```
+
+**复杂逻辑注释**:
+```typescript
+// 计算商机阶段转化率
+// 公式: (当前阶段数量 / 上一阶段数量) * 100%
+const conversionRate = calculateConversionRate(
+  currentStageCount,
+  previousStageCount
+);
+```
+
+### 9.2 README 文档
+
+**项目文档结构**:
+```markdown
+# 项目名称
+
+## 概述
+- 项目简介
+- 核心功能
+
+## 快速开始
+- 环境要求
+- 安装步骤
+- 运行命令
+
+## 架构说明
+- 技术栈
+- 目录结构
+- 核心模块
+
+## 部署指南
+- 测试环境
+- 生产环境
+
+## 常见问题
+```
+
+## 10. Git 规范
+
+### 10.1 分支管理
+
+**分支命名**:
+```
+- master: 生产环境分支
+- develop: 开发环境分支
+- feature/xxx: 功能分支
+- hotfix/xxx: 紧急修复分支
+```
+
+### 10.2 提交规范
+
+**提交信息格式**:
+```
+<type>(<scope>): <subject>
+
+<body>
+
+<footer>
+```
+
+**类型 (type)**:
+```
+- feat: 新功能
+- fix: 修复 bug
+- docs: 文档更新
+- style: 代码格式调整
+- refactor: 重构
+- test: 测试相关
+- chore: 构建/工具相关
+```
+
+**示例**:
+```bash
+# 新功能
+git commit -m "feat(opportunity): 添加商机回收站功能"
+
+# 修复
+git commit -m "fix(login): 修复退出登录后仍可访问的问题"
+
+# 文档
+git commit -m "docs(readme): 更新部署流程说明"
+```
+
+## 11. 版本管理
+
+### 11.1 版本号规范
+
+**语义化版本**: `MAJOR.MINOR.PATCH`
+
+```
+- MAJOR: 重大更新(不兼容的 API 变更)
+- MINOR: 新功能(向后兼容)
+- PATCH: 修复 bug(向后兼容)
+
+示例: v3.8.0, v3.9.1
+```
+
+### 11.2 版本发布
+
+**发布流程**:
+1. 更新 VERSION.md
+2. 创建 Git Tag
+3. 生成 CHANGELOG
+4. 部署到生产环境
+
+## 12. 监控与日志
+
+### 12.1 日志规范
+
+**日志级别**:
+```javascript
+console.log('[INFO]', message);    // 一般信息
+console.warn('[WARN]', message);   // 警告
+console.error('[ERROR]', message); // 错误
+```
+
+**日志内容**:
+```javascript
+// ✅ 推荐: 包含上下文信息
+console.log('[opportunity-management]', {
+  action: 'create',
+  user: wxContext.OPENID,
+  data: opportunityId,
+  timestamp: new Date().toISOString()
+});
+```
+
+### 12.2 监控指标
+
+**关键指标**:
+- 响应时间
+- 错误率
+- 并发用户数
+- 数据库查询性能
+
+## 13. 开发工具
+
+### 13.1 推荐工具
+
+- **IDE**: VS Code / WebStorm
+- **版本管理**: Git + GitHub
+- **API 测试**: Postman
+- **性能分析**: Chrome DevTools
+- **代码质量**: ESLint + Prettier
+
+### 13.2 VS Code 插件
+
+```json
+{
+  "recommendations": [
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "bradlc.vscode-tailwindcss",
+    "ms-vscode.vscode-typescript-next"
+  ]
+}
+```
+
+## 14. 检查清单
+
+在提交代码前，确保:
+
+- [ ] 代码符合命名规范
+- [ ] 添加了必要的类型定义
+- [ ] 进行了充分的错误处理
+- [ ] 添加了适当的注释
+- [ ] 进行了本地测试
+- [ ] 更新了相关文档
+- [ ] Git 提交信息规范
+- [ ] 没有遗留 console.log
+- [ ] 没有硬编码的配置信息
+
+## 15. 相关资源
+
+- [React 官方文档](https://react.dev/)
+- [TypeScript 官方文档](https://www.typescriptlang.org/docs/)
+- [TailwindCSS 文档](https://tailwindcss.com/docs)
+- [CloudBase 文档](https://docs.cloudbase.net/)
+- [Vite 文档](https://vitejs.dev/)
+
+---
+
+**版本**: v1.0.0  
+**更新日期**: 2025-01-26  
+**维护者**: 际华协同办公平台开发团队

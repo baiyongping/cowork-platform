@@ -208,12 +208,6 @@ export default function OpportunityRecycleBinDetail({ opportunity, onClose, onSu
 
             {/* 商机详情 */}
             <div className="grid grid-cols-2 gap-6">
-              {/* 产品类型 */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">产品类型</label>
-                <div className="text-gray-900">{opportunity.productType}</div>
-              </div>
-
               {/* 预计成交日期 */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -235,38 +229,6 @@ export default function OpportunityRecycleBinDetail({ opportunity, onClose, onSu
                   </label>
                   <div className="text-gray-900">{opportunity.customer}</div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    <Users className="w-4 h-4 inline mr-1" />
-                    联系人
-                  </label>
-                  <div className="text-gray-900">{opportunity.contactPerson}</div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    <Phone className="w-4 h-4 inline mr-1" />
-                    联系电话
-                  </label>
-                  <div className="text-gray-900">{opportunity.contactPhone}</div>
-                </div>
-                {opportunity.contactEmail && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      <Mail className="w-4 h-4 inline mr-1" />
-                      联系邮箱
-                    </label>
-                    <div className="text-gray-900">{opportunity.contactEmail}</div>
-                  </div>
-                )}
-                {opportunity.address && (
-                  <div className="col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      <MapPin className="w-4 h-4 inline mr-1" />
-                      客户地址
-                    </label>
-                    <div className="text-gray-900">{opportunity.address}</div>
-                  </div>
-                )}
               </div>
             </div>
 

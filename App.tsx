@@ -15,7 +15,6 @@ import { SystemSettings } from './components/pages/SystemSettings';
 import { AccountSettings } from './components/pages/AccountSettings';
 import IssueManagementPage from './components/IssueManagementPage';
 import { LoginPage } from './components/LoginPage';
-import { WechatBindModal } from './components/WechatBindModal';
 import { MessageCenter } from './components/MessageCenter';
 import { verifyToken } from './lib/auth-service';
 import { ensureAuth, app } from './lib/cloudbase';
@@ -37,7 +36,6 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [authReady, setAuthReady] = useState(false);
-  const [showWechatBindModal, setShowWechatBindModal] = useState(false);
   const [pendingUserCount, setPendingUserCount] = useState(0);
   const [openItemId, setOpenItemId] = useState<string | undefined>();  // 🔧 保存要打开的项目ID
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);  // 🎨 侧边栏收起状态
@@ -224,14 +222,6 @@ export default function App() {
     const { clearLogoutFlag } = await import('./lib/cloudbase');
     clearLogoutFlag();
     console.log('✓ 已清除退出标记，允许访问数据库');
-    
-    // 检查是否是超级管理员且未绑定微信
-    if (user.role === 'admin' && !user.wxOpenId) {
-      // 延迟500ms显示弹窗，避免登录动画冲突
-      setTimeout(() => {
-        setShowWechatBindModal(true);
-      }, 500);
-    }
   };
 
   const handleUserUpdate = (updatedUser: any) => {
@@ -437,18 +427,6 @@ export default function App() {
           },
         }}
       />
-      
-      {/* 超级管理员微信绑定弹窗 */}
-      {showWechatBindModal && (
-        <WechatBindModal
-          onClose={() => setShowWechatBindModal(false)}
-          onSuccess={(updatedUser) => {
-            setCurrentUser(updatedUser);
-            localStorage.setItem('current_user', JSON.stringify(updatedUser));
-            setShowWechatBindModal(false);
-          }}
-        />
-      )}
     </PermissionProvider>
     </DialogProvider>
   );

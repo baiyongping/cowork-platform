@@ -208,6 +208,15 @@ async function login(event) {
 
     // 验证密码
     const hashedInputPassword = hashPassword(password);
+    
+    // 🔍 调试日志
+    console.log('🔐 密码验证:');
+    console.log('  用户名:', username);
+    console.log('  输入密码:', password);
+    console.log('  SECRET_KEY:', SECRET_KEY);
+    console.log('  输入哈希:', hashedInputPassword);
+    console.log('  数据库哈希:', user.password);
+    
     const isPasswordValid = hashedInputPassword === user.password;
 
     if (!isPasswordValid) {

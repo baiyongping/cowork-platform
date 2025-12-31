@@ -409,16 +409,6 @@ export default function OpportunityDetailModal({ opportunity, onClose, onSuccess
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">联系人</label>
-                  <span className="text-gray-900">{opportunity.contact || '-'}</span>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">联系电话</label>
-                  <span className="text-gray-900">{opportunity.contactPhone || '-'}</span>
-                </div>
-
-                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">预计成交日期</label>
                   <div className="flex items-center gap-2">
                     <Calendar className="w-4 h-4 text-gray-500" />

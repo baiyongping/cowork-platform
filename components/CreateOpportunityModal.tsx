@@ -143,10 +143,6 @@ export default function CreateOpportunityModal({ onClose, onSuccess }: CreateOpp
         description: formData.description,
         owner: formData.owner, // 确保是用户的 _id
         // 以下字段设置默认值，在详情页编辑
-        productType: '', // 产品类型默认空
-        contactPerson: '',
-        contactPhone: '',
-        contactEmail: '',
         estimatedAmount: 0, // 预计金额默认0
         requirements: [], // 商机需求默认空数组
         expectedCloseDate: new Date().toISOString().slice(0, 10), // 预计成交日期默认为当前日期

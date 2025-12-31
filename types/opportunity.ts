@@ -21,7 +21,6 @@ export interface Opportunity {
   _id: string;
   name: string; // 商机名称
   customer: string; // 客户名称
-  productType: ProductType; // 产品类型
   estimatedAmount: number; // 预计金额(元) - 自动计算为需求列表总价合计
   requirements?: OpportunityRequirement[]; // 商机产品需求列表
   stage: OpportunityStage; // 商机阶段(关联系统设置)
@@ -30,17 +29,12 @@ export interface Opportunity {
   owner: string; // 负责人ID
   collaborators?: string[]; // 协同人ID数组
   expectedCloseDate: Date | string; // 预计成交日期
-  contactPerson: string; // 联系人
-  contactPhone: string; // 联系电话
-  contactEmail?: string; // 联系邮箱
-  address?: string; // 客户地址
   description?: string; // 商机描述
   notes?: string; // 备注信息
   isPublic?: boolean; // 是否公开(可选)
   projectId?: string; // 关联项目ID（形成项目后填充）
   isProjectFormed?: boolean; // 是否已形成项目
   customerName?: string; // 客户名称（别名，兼容旧字段）
-  contact?: string; // 联系人（别名，兼容旧字段）
   isDeleted?: boolean; // 是否已删除(软删除标记)
   deletedAt?: Date | string; // 删除时间
   closedAt?: Date | string; // 成交时间
@@ -61,7 +55,6 @@ export interface Opportunity {
 export interface CreateOpportunityDto {
   name: string;
   customer: string;
-  productType: ProductType;
   estimatedAmount: number;
   stage: OpportunityStage; // 商机阶段
   probability?: number;
@@ -69,10 +62,6 @@ export interface CreateOpportunityDto {
   owner: string;
   collaborators?: string[];
   expectedCloseDate: string;
-  contactPerson: string;
-  contactPhone: string;
-  contactEmail?: string;
-  address?: string;
   description?: string;
   notes?: string;
   isPublic?: boolean;

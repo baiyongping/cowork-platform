@@ -5,6 +5,7 @@ import { db } from '../../lib/cloudbase';
 import toast, { Toaster } from 'react-hot-toast';
 import { MessageCenter } from '../MessageCenter';
 import { useNotificationStore } from '../../lib/notification-store';
+import WechatBinding from '../WechatBinding';
 
 interface AccountSettingsProps {
   currentUser: any;
@@ -16,6 +17,7 @@ export function AccountSettings({ currentUser, onUserUpdate, onNavigate }: Accou
   const [activeTab, setActiveTab] = useState<'info' | 'team' | 'message' | 'goals' | 'execution' | 'performance'>('info');
   const [userInfo, setUserInfo] = useState<any>(currentUser);
   const [loadingUserInfo, setLoadingUserInfo] = useState(false);
+  const [showWechatBinding, setShowWechatBinding] = useState(false);
   
   // 🔔 使用消息通知 store
   const { unreadCount } = useNotificationStore();
@@ -54,6 +56,7 @@ export function AccountSettings({ currentUser, onUserUpdate, onNavigate }: Accou
       if (result.data && result.data.length > 0) {
         const dbUser = result.data[0];
         console.log('✅ [账户设置] 数据库用户信息:', dbUser);
+        console.log('🔍 [微信绑定] wechatOpenId:', dbUser.wechatOpenId || '未绑定');
         
         // 查询用户所属部门
         const deptResult = await db.collection('departments').get();
@@ -718,6 +721,44 @@ export function AccountSettings({ currentUser, onUserUpdate, onNavigate }: Accou
                     )}
                   </div>
                 
+                  {/* 微信绑定 */}
+                  <div className="flex items-center justify-between py-4 px-4 hover:bg-gray-50 rounded-lg transition-colors">
+                    <div className="flex items-center gap-3 flex-1">
+                      <span className="text-sm text-gray-500 w-20">微信绑定</span>
+                      {userInfo.wechatOpenId ? (
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 border border-green-200 rounded-lg">
+                            <div className="w-5 h-5 rounded-full bg-green-600 flex items-center justify-center">
+                              <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                              </svg>
+                            </div>
+                            <span className="text-sm font-medium text-green-700">已绑定</span>
+                          </div>
+                          <span className="text-xs text-gray-400 ml-2">可使用微信扫码登录</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 px-3 py-1.5 bg-yellow-50 border border-yellow-200 rounded-lg">
+                            <div className="w-5 h-5 rounded-full bg-yellow-600 flex items-center justify-center">
+                              <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                              </svg>
+                            </div>
+                            <span className="text-sm font-medium text-yellow-700">未绑定</span>
+                          </div>
+                          <span className="text-xs text-gray-400 ml-2">绑定后可扫码登录</span>
+                        </div>
+                      )}
+                    </div>
+                    <button 
+                      onClick={() => setShowWechatBinding(true)}
+                      className="text-blue-600 hover:text-blue-700 font-medium text-sm"
+                    >
+                      {userInfo.wechatOpenId ? '重新绑定' : '立即绑定'}
+                    </button>
+                  </div>
+                
                   {/* 部门 */}
                   <div className="flex items-center justify-between py-4 px-4 hover:bg-gray-50 rounded-lg transition-colors">
                     <div className="flex items-center gap-3">
@@ -1055,6 +1096,40 @@ export function AccountSettings({ currentUser, onUserUpdate, onNavigate }: Accou
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 微信绑定弹窗 */}
+      {showWechatBinding && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="bg-gradient-to-r from-green-50 to-teal-50 px-6 py-4 border-b border-gray-200 sticky top-0 flex justify-between items-center">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">绑定微信</h3>
+                <p className="text-sm text-gray-600 mt-1">使用微信扫码完成绑定</p>
+              </div>
+              <button
+                onClick={() => setShowWechatBinding(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="p-6">
+              <WechatBinding 
+                userId={currentUser.userId}
+                token={localStorage.getItem('auth_token') || ''}
+                onBindSuccess={async () => {
+                  toast.success('微信绑定成功!');
+                  setShowWechatBinding(false);
+                  await loadUserInfoFromDB();
+                }}
+              />
+            </div>
           </div>
         </div>
       )}

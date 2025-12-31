@@ -1,5 +1,5 @@
 {
-  "envId": "cowork-9gg9oocb516be5fb",
+  "envId": "jihua-oa-dev-3goht9irae4d949f",
   "framework": {
     "name": "react",
     "plugins": {
@@ -13,8 +13,8 @@
     }
   },
   "storage": {
-    "bucket": "636f-cowork-9gg9oocb516be5fb-1301818329",
-    "domain": "https://636f-cowork-9gg9oocb516be5fb-1301818329.tcb.qcloud.la",
+    "bucket": "6a69-jihua-oa-dev-3goht9irae4d949f-1301818329",
+    "domain": "https://6a69-jihua-oa-dev-3goht9irae4d949f-1301818329.tcb.qcloud.la",
     "paths": {
       "avatars": "avatars",
       "attachments": "attachments",

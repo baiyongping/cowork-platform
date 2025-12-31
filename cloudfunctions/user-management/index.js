@@ -45,6 +45,70 @@ exports.main = async (event, context) => {
       };
     }
 
+    // Admin密码重置功能(无需userId)
+    if (action === 'resetAdminPassword') {
+      if (!newPassword) {
+        return {
+          success: false,
+          message: '缺少newPassword参数'
+        };
+      }
+
+      try {
+        // 查找admin用户
+        const adminResult = await db.collection('users')
+          .where({ username: 'admin' })
+          .get();
+
+        if (!adminResult.data || adminResult.data.length === 0) {
+          return {
+            success: false,
+            message: 'admin用户不存在'
+          };
+        }
+
+        const adminUser = adminResult.data[0];
+        const userId = adminUser._id;
+
+        // 使用SHA-256加密
+        const crypto = require('crypto');
+        const SECRET_KEY = 'jihua-oa-platform-secret-key-2025';
+        const hash = crypto.createHash('sha256');
+        hash.update(newPassword + SECRET_KEY);
+        const hashedPassword = hash.digest('hex');
+
+        console.log('🔐 重置admin密码:', {
+          userId,
+          oldHash: adminUser.password.substring(0, 16) + '...',
+          newHash: hashedPassword.substring(0, 16) + '...'
+        });
+
+        // 更新数据库
+        await db.collection('users').doc(userId).update({
+          password: hashedPassword,
+          updatedAt: new Date()
+        });
+
+        console.log('✅ admin密码重置成功');
+
+        return {
+          success: true,
+          message: 'admin密码重置成功',
+          data: {
+            userId,
+            username: 'admin',
+            newPasswordHash: hashedPassword
+          }
+        };
+      } catch (error) {
+        console.error('❌ admin密码重置失败:', error);
+        return {
+          success: false,
+          message: '密码重置失败: ' + error.message
+        };
+      }
+    }
+
     // 密码重置功能
     if (action === 'resetPassword') {
       if (!userId) {

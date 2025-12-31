@@ -3,7 +3,7 @@ import { X, Save, UserPlus } from 'lucide-react';
 import { app, db } from '../lib/cloudbase';
 import CollaboratorSelector from './CollaboratorSelector';
 import OpportunityRequirements from './OpportunityRequirements';
-import type { Opportunity, OpportunityStage, OpportunityLevel, ProductType, OpportunityRequirement } from '../types/opportunity';
+import type { Opportunity, OpportunityStage, OpportunityLevel, OpportunityRequirement } from '../types/opportunity';
 
 interface EditOpportunityModalProps {
   opportunity: Opportunity;
@@ -38,11 +38,6 @@ export default function EditOpportunityModal({ opportunity, onClose, onSuccess, 
     stage: opportunity.stage as OpportunityStage,
     level: opportunity.level as OpportunityLevel,
     customer: opportunity.customer,
-    productType: opportunity.productType, // ✅ 添加产品类型
-    contactPerson: opportunity.contactPerson,
-    contactPhone: opportunity.contactPhone,
-    contactEmail: opportunity.contactEmail || '',
-    address: opportunity.address || '', // ✅ 添加客户地址
     estimatedAmount: opportunity.estimatedAmount, // 自动计算
     expectedCloseDate: opportunity.expectedCloseDate 
       ? (typeof opportunity.expectedCloseDate === 'string' 
@@ -51,7 +46,7 @@ export default function EditOpportunityModal({ opportunity, onClose, onSuccess, 
       : new Date().toISOString().split('T')[0], // 如果为空，默认当前日期
     probability: opportunity.probability,
     description: opportunity.description || '',
-    notes: opportunity.notes || '', // ✅ 添加备注
+    notes: opportunity.notes || '',
     owner: opportunity.owner,
     collaborators: opportunity.collaborators || [] as string[],
     isPublic: opportunity.isPublic !== false
@@ -171,11 +166,6 @@ export default function EditOpportunityModal({ opportunity, onClose, onSuccess, 
         stage: formData.stage,
         level: formData.level,
         customer: formData.customer,
-        productType: formData.productType,
-        contactPerson: formData.contactPerson,
-        contactPhone: formData.contactPhone,
-        contactEmail: formData.contactEmail,
-        address: formData.address,
         estimatedAmount: formData.estimatedAmount,
         expectedCloseDate: formData.expectedCloseDate,
         probability: formData.probability,
@@ -344,95 +334,6 @@ export default function EditOpportunityModal({ opportunity, onClose, onSuccess, 
                     placeholder="输入客户公司名称"
                   />
                   {errors.customer && <p className="mt-1 text-sm text-red-500">{errors.customer}</p>}
-                </div>
-
-                {/* 联系人 */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    联系人
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.contactPerson}
-                    onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
-                    disabled={isLocked}
-                    className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                      isLocked ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''
-                    }`}
-                    placeholder="请输入联系人"
-                  />
-                </div>
-
-                {/* 联系电话 */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    联系电话
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.contactPhone}
-                    onChange={(e) => setFormData({ ...formData, contactPhone: e.target.value })}
-                    disabled={isLocked}
-                    className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                      isLocked ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''
-                    }`}
-                    placeholder="请输入联系电话"
-                  />
-                </div>
-
-                {/* 联系邮箱 */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    联系邮箱
-                  </label>
-                  <input
-                    type="email"
-                    value={formData.contactEmail}
-                    onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
-                    disabled={isLocked}
-                    className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                      isLocked ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''
-                    }`}
-                    placeholder="请输入联系邮箱"
-                  />
-                </div>
-
-                {/* 客户地址 */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    客户地址
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.address}
-                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                    disabled={isLocked}
-                    className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                      isLocked ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''
-                    }`}
-                    placeholder="请输入客户地址"
-                  />
-                </div>
-
-                {/* 产品类型 */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    产品类型
-                  </label>
-                  <select
-                    value={formData.productType}
-                    onChange={(e) => setFormData({ ...formData, productType: e.target.value as ProductType })}
-                    disabled={isLocked}
-                    className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                      isLocked ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''
-                    }`}
-                  >
-                    <option value="职业装">职业装</option>
-                    <option value="工作服">工作服</option>
-                    <option value="制服">制服</option>
-                    <option value="防护服">防护服</option>
-                    <option value="其他">其他</option>
-                  </select>
                 </div>
               </div>
             </div>

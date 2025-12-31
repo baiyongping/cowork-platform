@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>重置Admin密码</title>
+  <script src="https://imgcache.qq.com/qcloud/cloudbase-js-sdk/2.0.1/cloudbase.full.js"></script>
+</head>
+<body>
+  <h1>重置Admin密码</h1>
+  <button id="resetBtn" onclick="resetAdminPassword()">重置密码</button>
+  <pre id="result"></pre>
+
+  <script>
+    // 等待SDK加载
+    window.addEventListener('load', () => {
+      const result = document.getElementById('result');
+      
+      if (typeof cloudbase === 'undefined') {
+        result.textContent = '❌ CloudBase SDK加载失败,请检查网络';
+        return;
+      }
+
+      try {
+        // 初始化CloudBase
+        window.app = cloudbase.init({
+          env: 'cowork-9gg9oocb516be5fb'
+        });
+        console.log('✅ CloudBase初始化成功');
+        result.textContent = '✅ 已就绪,点击按钮重置密码';
+      } catch (error) {
+        console.error('❌ CloudBase初始化失败:', error);
+        result.textContent = '❌ CloudBase初始化失败: ' + error.message;
+      }
+    });
+
+    async function resetAdminPassword() {
+      const result = document.getElementById('result');
+      const btn = document.getElementById('resetBtn');
+      
+      if (!window.app) {
+        result.textContent = '❌ CloudBase未初始化,请等待页面加载完成';
+        return;
+      }
+
+      btn.disabled = true;
+      result.textContent = '⏳ 正在重置密码...';
+
+      try {
+        // 调用云函数
+        const res = await window.app.callFunction({
+          name: 'user-management',
+          data: {
+            action: 'resetAdminPassword',
+            newPassword: 'admin123'
+          }
+        });
+
+        console.log('📥 云函数返回:', res);
+
+        if (res.result && res.result.success) {
+          result.textContent = '✅ admin密码已重置为: admin123\n\n详细信息:\n' + 
+            JSON.stringify(res.result, null, 2);
+        } else {
+          result.textContent = '❌ 重置失败: ' + 
+            (res.result?.message || '未知错误') + '\n\n详细信息:\n' +
+            JSON.stringify(res, null, 2);
+        }
+      } catch (error) {
+        console.error('❌ 错误:', error);
+        result.textContent = '❌ 重置失败: ' + error.message + '\n\n详细错误:\n' +
+          JSON.stringify(error, null, 2);
+      } finally {
+        btn.disabled = false;
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+    pre {
+      background-color: #f5f5f5;
+      padding: 15px;
+      border-radius: 4px;
+      margin-top: 20px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+  </style>
+</body>
+</html>

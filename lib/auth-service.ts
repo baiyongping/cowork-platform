@@ -335,95 +335,64 @@ export async function login(username: string, password: string): Promise<LoginRe
       return { success: false, message: '用户名和密码不能为空' };
     }
 
-    // 查询用户
-    const userResult = await db.collection('users').where({ username }).get();
+    // 🔧 正确流程：直接调用auth云函数，传明文密码
+    // auth云函数内部会加密密码并验证
+    console.log('🔐 调用auth云函数验证登录...');
+    console.log('📤 发送数据:', { action: 'login', username, password: '***' });
     
-    if (userResult.code) {
-      console.error('❌ CloudBase查询错误:', userResult.code, userResult.message);
-      return { success: false, message: '查询失败，请稍后重试' };
-    }
-
-    if (!userResult.data || userResult.data.length === 0) {
-      return { success: false, message: '用户名或密码错误' };
-    }
-
-    const user = userResult.data[0] as any;
-
-    // 检查用户是否已被禁用
-    if (!user.isActive) {
-      return { success: false, message: '账号已被禁用，请联系管理员' };
-    }
-
-    // 检查审核状态
-    if (user.approvalStatus === 'pending') {
-      return { success: false, message: '账号正在审核中，请等待管理员审核' };
-    }
-
-    if (user.approvalStatus === 'rejected') {
-      const reason = user.rejectReason ? `（原因：${user.rejectReason}）` : '';
-      return { success: false, message: `账号审核未通过${reason}，请联系管理员` };
-    }
-
-    // 只有审核通过的用户才能登录
-    if (user.approvalStatus !== 'approved') {
-      return { success: false, message: '账号状态异常，请联系管理员' };
-    }
-
-    // 检查员工状态（离职或暂停使用的用户不能登录）
-    if (user.status === '离职') {
-      return { success: false, message: '账号已离职，无法登录系统' };
-    }
-
-    if (user.status === '暂停使用') {
-      return { success: false, message: '账号已暂停使用，请联系管理员' };
-    }
-
-    // 验证密码
-    const hashedInputPassword = await hashPassword(password);
-    
-    if (hashedInputPassword !== user.password) {
-      console.error('❌ 密码不匹配！');
-      // 逐字符对比找出差异
-      for (let i = 0; i < Math.max(hashedInputPassword.length, user.password.length); i++) {
-        if (hashedInputPassword[i] !== user.password[i]) {
-          console.error(`  第 ${i} 位不同: '${hashedInputPassword[i]}' vs '${user.password[i]}'`);
-          break;
-        }
+    const result = await app.callFunction({
+      name: 'auth',
+      data: {
+        action: 'login',
+        username,
+        password // 传明文密码
       }
-      return { success: false, message: '用户名或密码错误' };
-    }
-    
-    console.log('✅ 密码验证通过');
-
-    // 更新最后登录时间
-    await db.collection('users').doc(user._id).update({
-      lastLoginAt: new Date()
     });
 
-    // 生成token
-    const token = btoa(JSON.stringify({
-      userId: user._id,
-      username: user.username,
-      role: user.role,
-      timestamp: Date.now()
-    }));
+    console.log('📥 云函数返回:', result);
+
+    if (!result.result) {
+      console.error('❌ 云函数调用失败:', result);
+      return { success: false, message: '登录失败，请稍后重试' };
+    }
+
+    // 🔧 修复：正确解析云函数返回格式
+    const responseData = result.result as any;
+    const { code, message, data } = responseData;
+    
+    // 从 data 对象中提取 user 和 token
+    const user = data?.user;
+    const token = data?.token;
+    
+    console.log('📊 解析结果:', { code, message, user: user?.username, hasToken: !!token });
+
+    if (code !== 200) {
+      return { success: false, message };
+    }
+
+    if (!user || !token) {
+      console.error('❌ 云函数返回数据不完整:', { user, token });
+      return { success: false, message: '登录数据不完整，请重试' };
+    }
+
+    console.log('✅ 登录成功');
 
     return {
       success: true,
       message: '登录成功',
       user: {
-        userId: user._id,
+        userId: user.userId,
         username: user.username,
         name: user.name,
         email: user.email,
         role: user.role,
-        roles: user.roles || [], // ✅ 关键修复：包含roles数组
-        departments: user.departments || [], // ✅ 包含部门数组
+        roles: user.roles || [],
+        departments: user.departments || [],
         department: user.department,
-        avatar: user.avatar,
-        position: user.position || '', // ✅ 包含职务
-        supervisorId: user.supervisorId || '', // ✅ 包含上级ID
-        status: user.status || '在职' // ✅ 包含员工状态
+        avatar: user.avatar || '',
+        position: user.position || '',
+        supervisorId: user.supervisorId || '',
+        status: user.status || '在职'
       },
       token
     };

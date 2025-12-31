@@ -6,6 +6,7 @@ import { APP_VERSION } from '../lib/version';
 import { getStoragePublicURL } from '../constants/cloudbase';
 import { db } from '../lib/cloudbase';
 import { ConfirmDialog } from './ConfirmDialog';
+import WechatQRLogin from './WechatQRLogin';
 
 interface LoginPageProps {
   onLogin: (user: any, token: string) => void;
@@ -170,8 +171,13 @@ export function LoginPage({ onLogin }: LoginPageProps) {
         if (result.success && result.user && result.token) {
           // 微信登录成功(已审核通过)
           onLogin(result.user, result.token);
-        } else if (result.message && result.message !== '未登录' && result.message !== '无用户信息') {
-          // 显示错误或提示信息（忽略常规的"未登录"消息）
+        } else if (
+          result.message && 
+          result.message !== '未登录' && 
+          result.message !== '无用户信息' &&
+          result.message !== '非微信回调'  // ✅ 新增：忽略非微信回调的正常情况
+        ) {
+          // 显示错误或提示信息（忽略常规的"未登录"和"非微信回调"消息）
           setError(result.message);
         }
       } catch (err: any) {
@@ -183,6 +189,12 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     
     checkWechatCallback();
   }, [onLogin]);
+
+  // 微信扫码登录成功处理
+  const handleLoginSuccess = (token: string, user: any) => {
+    console.log('✓ [LoginPage] 微信扫码登录成功');
+    onLogin(user, token);
+  };
 
   // 生成扫码登录二维码
   const generateQRCode = async () => {
@@ -258,12 +270,12 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     }, 5 * 60 * 1000);
   };
 
-  // 切换到扫码登录时自动生成二维码
-  useEffect(() => {
-    if (loginMode === 'qrcode' && !qrCodeData) {
-      generateQRCode();
-    }
-  }, [loginMode]);
+  // 扫码登录模式下不需要自动生成（由 WechatQRLogin 组件处理）
+  // useEffect(() => {
+  //   if (loginMode === 'qrcode' && !qrCodeData) {
+  //     generateQRCode();
+  //   }
+  // }, [loginMode]);
 
   // 微信扫码登录
   const handleWechatLogin = async () => {
@@ -678,49 +690,11 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                 </button>
               </form>
             ) : (
-              // 扫码登录
-              <div className="flex flex-col items-center space-y-6 py-8">
-                {qrCodeData ? (
-                  <>
-                    <div className="relative">
-                      <img
-                        src={qrCodeData.qrUrl}
-                        alt="登录二维码"
-                        className="w-64 h-64 border-4 border-blue-600 rounded-lg shadow-lg"
-                      />
-                      {qrPolling && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-90 rounded-lg">
-                          <div className="text-center">
-                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                            <p className="text-sm text-gray-600">等待扫码...</p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="text-center space-y-2">
-                      <p className="text-lg font-medium text-gray-900">请使用微信小程序扫码登录</p>
-                      <p className="text-sm text-gray-600">打开"际华协同办公"小程序</p>
-                      <p className="text-sm text-gray-600">点击"扫一扫"功能扫描二维码</p>
-                    </div>
-
-                    <button
-                      onClick={() => {
-                        setQrCodeData(null);
-                        generateQRCode();
-                      }}
-                      className="px-6 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
-                    >
-                      刷新二维码
-                    </button>
-                  </>
-                ) : (
-                  <div className="text-center py-12">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                    <p className="text-gray-600">正在生成二维码...</p>
-                  </div>
-                )}
-              </div>
+              // 微信扫码登录
+              <WechatQRLogin
+                onLoginSuccess={handleLoginSuccess}
+                onSwitchToPassword={() => setLoginMode('account')}
+              />
             )}
           </div>
         ) : currentView === 'register' ? (
