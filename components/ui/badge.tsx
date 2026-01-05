@@ -1,26 +1,30 @@
 import * as React from "react";
-import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
-
 import { cn } from "./utils";
 
 const badgeVariants = cva(
-  "inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-xs font-medium w-fit whitespace-nowrap shrink-0 [&>svg]:size-3 gap-1 [&>svg]:pointer-events-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive transition-[color,box-shadow] overflow-hidden",
+  "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold transition-all duration-300",
   {
     variants: {
       variant: {
-        default:
-          "border-transparent bg-primary text-primary-foreground [a&]:hover:bg-primary/90",
-        secondary:
-          "border-transparent bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90",
-        destructive:
-          "border-transparent bg-destructive text-white [a&]:hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
-        outline:
-          "text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
+        default: "bg-primary text-primary-foreground shadow-soft hover:shadow-medium",
+        secondary: "bg-secondary text-secondary-foreground shadow-soft hover:shadow-medium",
+        destructive: "bg-destructive text-white shadow-soft hover:shadow-medium",
+        outline: "border border-gray-200 text-gray-700 bg-white hover:bg-gray-50",
+        success: "bg-success-500 text-white shadow-soft hover:shadow-medium hover:bg-success-600",
+        warning: "bg-warning-500 text-white shadow-soft hover:shadow-medium hover:bg-warning-600",
+        info: "bg-info-500 text-white shadow-soft hover:shadow-medium hover:bg-info-600",
+        gray: "bg-gray-100 text-gray-600 hover:bg-gray-200",
+      },
+      size: {
+        default: "px-2.5 py-0.5 text-xs",
+        sm: "px-2 py-0.5 text-xs",
+        lg: "px-3 py-1 text-sm",
       },
     },
     defaultVariants: {
       variant: "default",
+      size: "default",
     },
   },
 );
@@ -28,16 +32,14 @@ const badgeVariants = cva(
 function Badge({
   className,
   variant,
-  asChild = false,
+  size,
   ...props
 }: React.ComponentProps<"span"> &
-  VariantProps<typeof badgeVariants> & { asChild?: boolean }) {
-  const Comp = asChild ? Slot : "span";
-
+  VariantProps<typeof badgeVariants>) {
   return (
-    <Comp
+    <span
       data-slot="badge"
-      className={cn(badgeVariants({ variant }), className)}
+      className={cn(badgeVariants({ variant, size, className }))}
       {...props}
     />
   );

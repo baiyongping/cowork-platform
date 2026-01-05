@@ -112,7 +112,7 @@ interface ProductOrderForecast {
 
 export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened }: GoalManagementProps) {
   const [selectedTab, setSelectedTab] = useState<'sales' | 'opportunity' | 'product' | 'strategy' | 'decomposition' | 'execution'>('sales');
-  const [selectedYear, setSelectedYear] = useState(2025);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   
   // 使用新的权限上下文
   const { checkPermission, loading: permissionLoading } = usePermissionContext();

@@ -1,11 +1,16 @@
 import { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, Target, FolderKanban, CheckSquare, Users, DollarSign, X, Calendar, User as UserIcon, AlertCircle, Clock, Bell, LogOut } from 'lucide-react';
+import { TrendingUp, TrendingDown, Target, FolderKanban, CheckSquare, Users, DollarSign, X, Calendar, User as UserIcon, AlertCircle, Clock, Bell, LogOut, BarChart3, FileText, Star, Activity } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { OpportunityFunnel } from '../OpportunityFunnel';
 import { db } from '../../lib/cloudbase';
 import { useNotificationStore } from '../../lib/notification-store';
 import TaskDetailModal from '../TaskDetailModal';
 import ProjectDetailModal from '../ProjectDetailModal';
+import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
+import { Badge } from '../ui/badge';
+import { Button } from '../ui/button';
+import { LoadingSpinner, LoadingCard } from '../ui/loading';
+import { EmptyState } from '../ui/empty-state';
 
 interface DashboardProps {
   userRole: 'admin' | 'employee';
@@ -134,8 +139,8 @@ export function Dashboard({ userRole, currentUser, onLogout }: DashboardProps) {
       setLoading(true);
       setError(null);
 
-      // ⚠️ 硬编码2025年，因为数据库中任务都是2025年的
-      const currentYear = 2025;
+      // ✅ 动态获取当前年份
+      const currentYear = new Date().getFullYear();
       const currentMonth = new Date().getMonth(); // 0-11，12月是11
       const startOfMonth = new Date(currentYear, currentMonth, 1);
       const endOfMonth = new Date(currentYear, currentMonth + 1, 0);
@@ -157,24 +162,56 @@ export function Dashboard({ userRole, currentUser, onLogout }: DashboardProps) {
       // 获取当前季度
       const currentQuarter = `Q${Math.floor(currentMonth / 3) + 1}`;
 
-      // 并行加载所有数据
+      // 🚀 优化：分批加载数据，提高性能
+      // 第一批：核心统计数据
       const [
         strategyResult,
         measuresResult,
+        opportunitiesResult,
+        projectsResult,
+        usersResult
+      ] = await Promise.all([
+        // 年度策略 - 查询本年度，按创建时间降序
+        db.collection('annual_strategies').where({
+          year: currentYear
+        }).orderBy('createdAt', 'desc').get(),
+        
+        // 当前季度措施
+        db.collection('quarterly_measures').where({
+          quarter: currentQuarter,
+          year: currentYear
+        }).get(),
+        
+        // 跟进商机(当前处于三个阶段且未关闭的商机)
+        db.collection('opportunities').where({
+          stage: db.command.in(['跟进线索', '方案咨询', '商务谈判']),
+          isClosed: db.command.neq(true)
+        }).get(),
+        
+        // 进行中的项目(状态不是"已完成"、"暂停"、"已取消"的项目)
+        db.collection('projects').where({
+          status: db.command.nin(['已完成', '暂停', '已取消'])
+        }).get(),
+        
+        // 用户信息（用于显示负责人姓名）
+        db.collection('users').where({
+          deleted: db.command.neq(true)
+        }).get()
+      ]);
+
+      // 第二批：详细统计数据（并行但分阶段）
+      const [
         allMeasuresResult,
         teamMonthlyTasksResult,
         monthlyTasksInProgressResult,  // 本月进行中任务
         monthlyTasksCompletedResult,   // 本月已完成任务
         lastMonthTasksInProgressResult,  // 上月进行中任务
         lastMonthTasksCompletedResult,   // 上月已完成任务
-        opportunitiesResult,
-        projectsResult,
         deliveredProjectsResult,  // 本月交付项目
         salesGoalResult,
         opportunityGoalResult,
         yearlyTasksResult,
         teamTasksResult,
-        usersResult,
         allMyTasksResult,  // 我的所有未完成任务（用于重点关注）
         allMyProjectsResult  // 我的所有未完成项目（用于重点关注）
       ] = await Promise.all([
@@ -703,23 +740,28 @@ export function Dashboard({ userRole, currentUser, onLogout }: DashboardProps) {
   if (!dashboardData) return null;
 
   return (
-    <div className="p-6 pb-3">
-      {/* 工作台标题区 - 添加消息铃铛和退出登录 */}
-      <div className="mb-6 flex items-start justify-between">
-        <div>
-          <h1 className="text-gray-900 mb-2">工作台</h1>
-          <p className="text-gray-600">欢迎回来，{currentUser?.name || '管理员'}</p>
+    <div className="p-6 pb-3 bg-gray-50 min-h-screen">
+      {/* 工作台标题区 - 优化设计 */}
+      <div className="mb-8 flex items-start justify-between">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
+            <BarChart3 className="h-6 w-6 text-white" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-1">工作台</h1>
+            <p className="text-gray-600">欢迎回来，{currentUser?.name || '管理员'}</p>
+          </div>
         </div>
         
-        {/* 右侧操作区 - 消息和退出登录 */}
-        <div className="flex items-center gap-2">
-          {/* 🔔 消息铃铛按钮 */}
+        {/* 右侧操作区 */}
+        <div className="flex items-center gap-3">
+          {/* 消息铃铛按钮 */}
           <button
             onClick={() => setShowNotification(true)}
-            className="relative p-3 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200 group"
+            className="relative p-3 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all duration-300 group shadow-soft hover:shadow-medium hover:scale-[1.02]"
             title="消息中心"
           >
-            <Bell className="h-6 w-6 group-hover:scale-110 transition-transform" />
+            <Bell className="h-5 w-5 group-hover:scale-110 transition-transform" />
             {/* 未读消息徽章 */}
             {unreadCount > 0 && (
               <span className="absolute -top-1 -right-1 inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold text-white bg-red-500 rounded-full min-w-[20px] shadow-md animate-pulse">
@@ -728,14 +770,14 @@ export function Dashboard({ userRole, currentUser, onLogout }: DashboardProps) {
             )}
           </button>
           
-          {/* 🚪 退出登录按钮 */}
+          {/* 退出登录按钮 */}
           {onLogout && (
             <button
               onClick={onLogout}
-              className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              className="flex items-center gap-2 px-4 py-2.5 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all duration-300 shadow-soft hover:shadow-medium hover:scale-[1.02]"
               title="退出登录"
             >
-              <LogOut className="h-5 w-5" />
+              <LogOut className="h-4 w-4" />
               <span className="text-sm font-medium">退出</span>
             </button>
           )}
@@ -744,59 +786,72 @@ export function Dashboard({ userRole, currentUser, onLogout }: DashboardProps) {
 
       {/* 重点关注区域 */}
       {dashboardData.focusItems.length > 0 && (
-        <div className="mb-6 bg-white rounded-lg border-2 border-orange-300 shadow-md">
-          <div className="px-6 py-4 bg-gradient-to-r from-orange-50 to-yellow-50 border-b border-orange-200 flex items-center gap-2">
-            <AlertCircle className="w-5 h-5 text-orange-600" />
-            <h3 className="text-gray-900 font-semibold">重点关注</h3>
-            <span className="ml-auto text-sm text-gray-600">
-              共 {dashboardData.focusItems.length} 项需要关注
-            </span>
-          </div>
-          <div className="p-6">
-            <div className="space-y-3">
+        <Card className="mb-8 border-l-4 border-l-orange-500 shadow-card">
+          <CardHeader className="bg-gradient-to-r from-orange-50 to-yellow-50 border-b border-orange-100">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center shadow-md">
+                <AlertCircle className="w-5 h-5 text-white" />
+              </div>
+              <div className="flex-1">
+                <CardTitle className="text-gray-900">重点关注</CardTitle>
+                <p className="text-sm text-gray-600">共 {dashboardData.focusItems.length} 项需要关注</p>
+              </div>
+              <Badge variant="warning" className="px-3 py-1">
+                优先处理
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {dashboardData.focusItems.map((item) => (
                 <div
                   key={`${item.type}-${item.id}`}
                   onClick={() => handleFocusItemClick(item)}
-                  className={`flex items-center justify-between p-4 rounded-lg border-l-4 cursor-pointer transition-all hover:shadow-md ${
+                  className={`group relative p-5 rounded-xl border-2 cursor-pointer transition-all duration-300 hover:shadow-card-hover hover:scale-[1.02] ${
                     item.alertType === 'overdue'
-                      ? 'bg-red-50 border-red-500 hover:bg-red-100'
-                      : 'bg-yellow-50 border-yellow-500 hover:bg-yellow-100'
+                      ? 'bg-red-50/50 border-red-200 hover:bg-red-50 hover:border-red-300'
+                      : 'bg-yellow-50/50 border-yellow-200 hover:bg-yellow-50 hover:border-yellow-300'
                   }`}
                 >
-                  <div className="flex items-center gap-4 flex-1">
-                    {/* 图标和状态 */}
-                    <div className="flex-shrink-0">
+                  {/* 状态指示器 */}
+                  <div className="absolute top-4 right-4">
+                    <div className={`w-3 h-3 rounded-full animate-pulse ${
+                      item.alertType === 'overdue' ? 'bg-red-500' : 'bg-yellow-500'
+                    }`}></div>
+                  </div>
+
+                  {/* 图标和类型标签 */}
+                  <div className="flex items-start gap-4 mb-4">
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-soft ${
+                      item.alertType === 'overdue' 
+                        ? 'bg-red-100 text-red-600' 
+                        : 'bg-yellow-100 text-yellow-600'
+                    }`}>
                       {item.alertType === 'overdue' ? (
-                        <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-                          <AlertCircle className="w-5 h-5 text-red-600" />
-                        </div>
+                        <AlertCircle className="w-6 h-6" />
                       ) : (
-                        <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
-                          <Clock className="w-5 h-5 text-yellow-600" />
-                        </div>
+                        <Clock className="w-6 h-6" />
                       )}
                     </div>
-
-                    {/* 内容 */}
+                    
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                          item.type === 'task' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'
-                        }`}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Badge variant={item.type === 'task' ? 'info' : 'secondary'} size="sm">
                           {item.type === 'task' ? '任务' : '项目'}
-                        </span>
+                        </Badge>
                         {item.planType && (
                           <span className="text-xs text-gray-500">{item.planType}</span>
                         )}
                       </div>
-                      <h4 className="text-sm font-medium text-gray-900 truncate" title={item.name}>
+                      <h4 className="font-semibold text-gray-900 mb-2 truncate" title={item.name}>
                         {item.name}
                       </h4>
-                      <div className="flex items-center gap-4 mt-2 text-xs text-gray-600">
+                      
+                      {/* 元信息 */}
+                      <div className="flex items-center gap-4 text-xs text-gray-600">
                         <div className="flex items-center gap-1">
                           <Calendar className="w-3 h-3" />
-                          <span>截止: {new Date(item.endDate).toLocaleDateString()}</span>
+                          <span>{new Date(item.endDate).toLocaleDateString()}</span>
                         </div>
                         <div className="flex items-center gap-1">
                           <UserIcon className="w-3 h-3" />
@@ -804,226 +859,295 @@ export function Dashboard({ userRole, currentUser, onLogout }: DashboardProps) {
                         </div>
                       </div>
                     </div>
+                  </div>
 
-                    {/* 进度条 */}
-                    <div className="flex-shrink-0 w-32">
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 bg-gray-200 rounded-full h-2">
-                          <div
-                            className={`h-2 rounded-full ${
-                              item.progress === 100 ? 'bg-green-600' : 'bg-blue-600'
-                            }`}
-                            style={{ width: `${item.progress || 0}%` }}
-                          />
-                        </div>
-                        <span className="text-xs text-gray-600 w-10 text-right">{item.progress || 0}%</span>
-                      </div>
+                  {/* 进度条 */}
+                  <div className="mb-3">
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <span className="text-gray-600">进度</span>
+                      <span className="font-medium text-gray-900">{item.progress || 0}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div
+                        className={`h-2 rounded-full transition-all duration-500 ${
+                          item.progress === 100 ? 'bg-green-500' : 'bg-blue-500'
+                        }`}
+                        style={{ width: `${item.progress || 0}%` }}
+                      />
                     </div>
                   </div>
 
                   {/* 提醒标签 */}
-                  <div className="flex-shrink-0 ml-4">
+                  <div className="flex items-center justify-between">
+                    <div></div>
                     {item.alertType === 'overdue' ? (
-                      <div className="text-right">
-                        <div className="inline-flex items-center px-3 py-1 rounded-full bg-red-100 text-red-800 text-sm font-medium">
-                          已延期 {item.daysOverdue} 天
-                        </div>
-                      </div>
+                      <Badge variant="destructive" className="px-3 py-1">
+                        延期 {item.daysOverdue} 天
+                      </Badge>
                     ) : (
-                      <div className="text-right">
-                        <div className="inline-flex items-center px-3 py-1 rounded-full bg-yellow-100 text-yellow-800 text-sm font-medium">
-                          {item.daysRemaining === 0 ? '今日到期' : `还剩 ${item.daysRemaining} 天`}
-                        </div>
-                      </div>
+                      <Badge variant="warning" className="px-3 py-1">
+                        {item.daysRemaining === 0 ? '今日到期' : `${item.daysRemaining} 天后到期`}
+                      </Badge>
                     )}
                   </div>
                 </div>
               ))}
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       )}
 
-      {/* 年度策略和季度措施 - 并列显示，高度增加到44vh */}
-      <style>{`
-        .strategy-scroll-container::-webkit-scrollbar {
-          width: 6px;
-        }
-        .strategy-scroll-container::-webkit-scrollbar-track {
-          background: rgba(255, 255, 255, 0.1);
-          border-radius: 3px;
-        }
-        .strategy-scroll-container::-webkit-scrollbar-thumb {
-          background: rgba(255, 255, 255, 0.3);
-          border-radius: 3px;
-        }
-        .strategy-scroll-container::-webkit-scrollbar-thumb:hover {
-          background: rgba(255, 255, 255, 0.5);
-        }
-        .strategy-scroll-container {
-          scrollbar-width: thin;
-          scrollbar-color: rgba(255, 255, 255, 0.3) rgba(255, 255, 255, 0.1);
-        }
-      `}</style>
-      <div className="grid grid-cols-2 gap-6 mb-6">
-        {/* 年度策略 - 显示所有策略 */}
-        <div 
-          className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-6 text-white" 
-          style={{ height: '44vh', display: 'flex', flexDirection: 'column' }}
-        >
-          <h3 className="text-white mb-4">{new Date().getFullYear()}年度经营策略</h3>
-          <div className="strategy-scroll-container flex-1 overflow-y-auto space-y-3 pr-2" style={{ 
-            WebkitOverflowScrolling: 'touch'
-          }}>
-            {dashboardData.annualStrategies.length === 0 ? (
-              <div className="bg-white/10 rounded-lg p-3 text-center text-white/70">
-                暂无年度策略数据
+      {/* 年度策略和季度措施 - 优化设计 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        {/* 年度策略 */}
+        <Card className="border-l-4 border-l-blue-500 shadow-card hover:shadow-card-hover transition-all duration-300">
+          <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-blue-500 rounded-xl flex items-center justify-center shadow-md">
+                <Target className="w-5 h-5 text-white" />
               </div>
-            ) : (
-              dashboardData.annualStrategies.map((strategy, index) => (
-                <div key={strategy._id} className="bg-white/10 rounded-lg p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 text-sm leading-relaxed">
-                      <span className="font-medium">策略{index + 1}、</span>
-                      <span className="whitespace-pre-wrap">{strategy.content}</span>
-                    </div>
-                    <div className="flex-shrink-0 text-xs bg-white/20 px-2 py-1 rounded whitespace-nowrap">
-                      {strategy.weight}%
+              <div className="flex-1">
+                <CardTitle className="text-gray-900">{new Date().getFullYear()}年度经营策略</CardTitle>
+                <p className="text-sm text-gray-600">企业年度核心战略方向</p>
+              </div>
+              <Badge variant="info" className="px-3 py-1">
+                战略规划
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="p-6">
+            <div className="space-y-4 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
+              {dashboardData.annualStrategies.length === 0 ? (
+                <EmptyState 
+                  title="暂无数据"
+                  description="当前没有可显示的内容"
+                />
+              ) : (
+                dashboardData.annualStrategies.map((strategy, index) => (
+                  <div key={strategy._id} className="group p-4 bg-gray-50 rounded-lg hover:bg-blue-50 transition-colors duration-200">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Badge variant="secondary" size="sm">策略 {index + 1}</Badge>
+                          <div className="flex-1 h-px bg-gray-200"></div>
+                        </div>
+                        <p className="text-sm text-gray-700 leading-relaxed">{strategy.content}</p>
+                      </div>
+                      <div className="flex-shrink-0">
+                        <div className="text-center">
+                          <div className="text-lg font-bold text-blue-600">{strategy.weight}%</div>
+                          <div className="text-xs text-gray-500">权重</div>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
+                ))
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
-        {/* 季度措施 - 显示所有措施 */}
-        <div 
-          className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl p-6 text-white" 
-          style={{ height: '44vh', display: 'flex', flexDirection: 'column' }}
-        >
-          <h3 className="text-white mb-4">Q{Math.floor(new Date().getMonth() / 3) + 1}季度经营措施</h3>
-          <div className="strategy-scroll-container flex-1 overflow-y-auto space-y-3 pr-2" style={{ 
-            WebkitOverflowScrolling: 'touch'
-          }}>
-            {dashboardData.quarterlyMeasures.length === 0 ? (
-              <div className="bg-white/10 rounded-lg p-3 text-center text-white/70">
-                暂无季度措施数据
+        {/* 季度措施 */}
+        <Card className="border-l-4 border-l-purple-500 shadow-card hover:shadow-card-hover transition-all duration-300">
+          <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 border-b border-purple-100">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-purple-500 rounded-xl flex items-center justify-center shadow-md">
+                <Activity className="w-5 h-5 text-white" />
               </div>
-            ) : (
-              dashboardData.quarterlyMeasures.map((measure, index) => (
-                <div key={measure._id} className="bg-white/10 rounded-lg p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 text-sm leading-relaxed">
-                      <span className="font-medium">举措{index + 1}、</span>
-                      <span className="whitespace-pre-wrap">{measure.content}</span>
+              <div className="flex-1">
+                <CardTitle className="text-gray-900">Q{Math.floor(new Date().getMonth() / 3) + 1}季度经营措施</CardTitle>
+                <p className="text-sm text-gray-600">季度具体执行计划</p>
+              </div>
+              <Badge variant="secondary" className="px-3 py-1">
+                执行计划
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="p-6">
+            <div className="space-y-4 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
+              {dashboardData.quarterlyMeasures.length === 0 ? (
+                <EmptyState 
+                  title="暂无数据"
+                  description="当前没有可显示的内容"
+                />
+              ) : (
+                dashboardData.quarterlyMeasures.map((measure, index) => (
+                  <div key={measure._id} className="group p-4 bg-gray-50 rounded-lg hover:bg-purple-50 transition-colors duration-200">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Badge variant="secondary" size="sm">举措 {index + 1}</Badge>
+                          <div className="flex-1 h-px bg-gray-200"></div>
+                        </div>
+                        <p className="text-sm text-gray-700 leading-relaxed">{measure.content}</p>
+                      </div>
+                      <div className="flex-shrink-0">
+                        <div className="text-center">
+                          <div className="text-lg font-bold text-purple-600">{measure.progress}%</div>
+                          <div className="text-xs text-gray-500">进度</div>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex-shrink-0 text-xs bg-white/20 px-2 py-1 rounded whitespace-nowrap">
-                      {measure.progress}%
+                    {/* 进度条 */}
+                    <div className="mt-3">
+                      <div className="w-full bg-gray-200 rounded-full h-1.5">
+                        <div
+                          className="h-1.5 rounded-full bg-purple-500 transition-all duration-500"
+                          style={{ width: `${measure.progress || 0}%` }}
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
+                ))
+              )}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* 数据概览卡片 - 不可点击 */}
-      <div className="grid grid-cols-4 gap-6 mb-8">
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: #f1f5f9;
+          border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: #cbd5e1;
+          border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #94a3b8;
+        }
+      `}</style>
+
+      {/* 数据概览卡片 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {/* 本月任务 */}
-        <div className="bg-white rounded-lg p-6 border border-gray-200 pointer-events-none">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
-              <CheckSquare className="w-6 h-6 text-blue-600" />
+        <Card className="group hover:shadow-card-hover transition-all duration-300 border border-gray-200">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center shadow-soft group-hover:shadow-medium transition-all">
+                <CheckSquare className="w-6 h-6 text-blue-600" />
+              </div>
+              {parseFloat(dashboardData.monthlyTasks.growth) >= 0 ? (
+                <div className="flex items-center gap-1 text-sm text-success-600 bg-success-50 px-2 py-1 rounded-lg">
+                  <TrendingUp className="w-4 h-4" />
+                  <span>{dashboardData.monthlyTasks.growth}</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1 text-sm text-red-600 bg-red-50 px-2 py-1 rounded-lg">
+                  <TrendingDown className="w-4 h-4" />
+                  <span>{Math.abs(parseFloat(dashboardData.monthlyTasks.growth) || 0)}</span>
+                </div>
+              )}
             </div>
-            {parseFloat(dashboardData.monthlyTasks.growth) >= 0 ? (
-              <div className="flex items-center gap-1 text-sm text-green-600">
-                <TrendingUp className="w-4 h-4" />
-                <span>{dashboardData.monthlyTasks.growth}</span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-1 text-sm text-red-600">
-                <TrendingDown className="w-4 h-4" />
-                <span>{Math.abs(parseFloat(dashboardData.monthlyTasks.growth) || 0)}</span>
-              </div>
-            )}
-          </div>
-          <div className="text-2xl text-gray-900 mb-1">{dashboardData.monthlyTasks.total}</div>
-          <div className="text-sm text-gray-600">本月任务</div>
-          <div className="text-xs text-gray-500 mt-2">
-            已完成: {dashboardData.monthlyTasks.completed} | 完成率: {dashboardData.monthlyTasks.completionRate}%
-          </div>
-        </div>
+            <div className="text-3xl font-bold text-gray-900 mb-2">{dashboardData.monthlyTasks.total}</div>
+            <div className="text-sm font-medium text-gray-600 mb-3">本月任务</div>
+            <div className="flex items-center justify-between text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2">
+              <span>已完成: <span className="font-medium text-green-600">{dashboardData.monthlyTasks.completed}</span></span>
+              <span>完成率: <span className="font-medium text-blue-600">{dashboardData.monthlyTasks.completionRate}%</span></span>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* 跟进商机 */}
-        <div className="bg-white rounded-lg p-6 border border-gray-200 pointer-events-none">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center">
-              <TrendingUp className="w-6 h-6 text-green-600" />
+        <Card className="group hover:shadow-card-hover transition-all duration-300 border border-gray-200">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center shadow-soft group-hover:shadow-medium transition-all">
+                <TrendingUp className="w-6 h-6 text-green-600" />
+              </div>
+              {parseFloat(String(dashboardData.followingOpportunities.growth)) >= 0 ? (
+                <div className="flex items-center gap-1 text-sm text-success-600 bg-success-50 px-2 py-1 rounded-lg">
+                  <TrendingUp className="w-4 h-4" />
+                  <span>{dashboardData.followingOpportunities.growth}</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1 text-sm text-red-600 bg-red-50 px-2 py-1 rounded-lg">
+                  <TrendingDown className="w-4 h-4" />
+                  <span>{Math.abs(parseFloat(String(dashboardData.followingOpportunities.growth)) || 0)}</span>
+                </div>
+              )}
             </div>
-            {parseFloat(String(dashboardData.followingOpportunities.growth)) >= 0 ? (
-              <div className="flex items-center gap-1 text-sm text-green-600">
-                <TrendingUp className="w-4 h-4" />
-                <span>{dashboardData.followingOpportunities.growth}</span>
+            <div className="text-3xl font-bold text-gray-900 mb-2">{dashboardData.followingOpportunities.total}</div>
+            <div className="text-sm font-medium text-gray-600 mb-3">跟进商机</div>
+            <div className="text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2">
+              <div className="flex items-center justify-between">
+                <span>预计金额</span>
+                <span className="font-semibold text-green-600">{(dashboardData.followingOpportunities.totalAmount / 100000000).toFixed(2)}亿</span>
               </div>
-            ) : (
-              <div className="flex items-center gap-1 text-sm text-red-600">
-                <TrendingDown className="w-4 h-4" />
-                <span>{Math.abs(parseFloat(String(dashboardData.followingOpportunities.growth)) || 0)}</span>
-              </div>
-            )}
-          </div>
-          <div className="text-2xl text-gray-900 mb-1">{dashboardData.followingOpportunities.total}</div>
-          <div className="text-sm text-gray-600">跟进商机</div>
-          <div className="text-xs text-gray-500 mt-2">
-            预计金额: {(dashboardData.followingOpportunities.totalAmount / 100000000).toFixed(2)}亿
-          </div>
-        </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* 进行中项目 */}
-        <div className="bg-white rounded-lg p-6 border border-gray-200 pointer-events-none">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 bg-purple-50 rounded-lg flex items-center justify-center">
-              <FolderKanban className="w-6 h-6 text-purple-600" />
+        <Card className="group hover:shadow-card-hover transition-all duration-300 border border-gray-200">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center shadow-soft group-hover:shadow-medium transition-all">
+                <FolderKanban className="w-6 h-6 text-purple-600" />
+              </div>
+              {parseFloat(String(dashboardData.ongoingProjects.growth)) >= 0 ? (
+                <div className="flex items-center gap-1 text-sm text-success-600 bg-success-50 px-2 py-1 rounded-lg">
+                  <TrendingUp className="w-4 h-4" />
+                  <span>{dashboardData.ongoingProjects.growth}</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1 text-sm text-red-600 bg-red-50 px-2 py-1 rounded-lg">
+                  <TrendingDown className="w-4 h-4" />
+                  <span>{Math.abs(parseFloat(String(dashboardData.ongoingProjects.growth)) || 0)}</span>
+                </div>
+              )}
             </div>
-            {parseFloat(String(dashboardData.ongoingProjects.growth)) >= 0 ? (
-              <div className="flex items-center gap-1 text-sm text-green-600">
-                <TrendingUp className="w-4 h-4" />
-                <span>{dashboardData.ongoingProjects.growth}</span>
+            <div className="text-3xl font-bold text-gray-900 mb-2">{dashboardData.ongoingProjects.total}</div>
+            <div className="text-sm font-medium text-gray-600 mb-3">进行中项目</div>
+            <div className="text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2">
+              <div className="flex items-center justify-between">
+                <span>本月交付</span>
+                <span className="font-semibold text-purple-600">{(dashboardData.ongoingProjects.deliveredThisMonth / 10000).toFixed(0)}万</span>
               </div>
-            ) : (
-              <div className="flex items-center gap-1 text-sm text-red-600">
-                <TrendingDown className="w-4 h-4" />
-                <span>{Math.abs(parseFloat(String(dashboardData.ongoingProjects.growth)) || 0)}</span>
-              </div>
-            )}
-          </div>
-          <div className="text-2xl text-gray-900 mb-1">{dashboardData.ongoingProjects.total}</div>
-          <div className="text-sm text-gray-600">进行中项目</div>
-          <div className="text-xs text-gray-500 mt-2">
-            本月交付: {(dashboardData.ongoingProjects.deliveredThisMonth / 10000).toFixed(0)}万
-          </div>
-        </div>
+            </div>
+          </CardContent>
+        </Card>
 
-        {/* 订单承揽 - 显示完成率，不显示环比增长 */}
-        <div className="bg-white rounded-lg p-6 border border-gray-200 pointer-events-none">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 bg-orange-50 rounded-lg flex items-center justify-center">
-              <DollarSign className="w-6 h-6 text-orange-600" />
+        {/* 订单承揽 */}
+        <Card className="group hover:shadow-card-hover transition-all duration-300 border border-gray-200">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center shadow-soft group-hover:shadow-medium transition-all">
+                <DollarSign className="w-6 h-6 text-orange-600" />
+              </div>
+              <Badge variant="secondary" className="px-2 py-1">
+                年度目标
+              </Badge>
             </div>
-          </div>
-          <div className="text-2xl text-gray-900 mb-1">
-            {dashboardData.orderUndertaking.actual === '--' ? '--' : Number(dashboardData.orderUndertaking.actual).toFixed(0)}
-          </div>
-          <div className="text-sm text-gray-600">订单承揽(万)</div>
-          <div className="text-xs text-gray-500 mt-2">
-            {dashboardData.orderUndertaking.target === '--' 
-              ? '暂无年度目标数据' 
-              : `目标: ${Number(dashboardData.orderUndertaking.target).toFixed(0)}万 (${typeof dashboardData.orderUndertaking.completionRate === 'number' ? dashboardData.orderUndertaking.completionRate + '%' : dashboardData.orderUndertaking.completionRate})`
-            }
-          </div>
-        </div>
+            <div className="text-3xl font-bold text-gray-900 mb-2">
+              {dashboardData.orderUndertaking.actual === '--' ? '--' : Number(dashboardData.orderUndertaking.actual).toFixed(0)}
+            </div>
+            <div className="text-sm font-medium text-gray-600 mb-3">订单承揽(万)</div>
+            <div className="text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2">
+              {dashboardData.orderUndertaking.target === '--' 
+                ? '暂无年度目标数据' 
+                : (
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span>目标</span>
+                      <span className="font-medium">{Number(dashboardData.orderUndertaking.target).toFixed(0)}万</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>完成率</span>
+                      <span className="font-medium text-orange-600">
+                        {typeof dashboardData.orderUndertaking.completionRate === 'number' ? dashboardData.orderUndertaking.completionRate + '%' : dashboardData.orderUndertaking.completionRate}
+                      </span>
+                    </div>
+                  </div>
+                )
+              }
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* 任务数据区域 - 整合为一个大面板 */}

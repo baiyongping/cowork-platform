@@ -1,68 +1,46 @@
 // 云函数：获取任务列表
 const cloud = require('wx-server-sdk');
-cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
-
-const db = cloud.database();
-const _ = db.command;
 
 exports.main = async (event, context) => {
-  const wxContext = cloud.getWXContext();
-  const openId = wxContext.OPENID;
-
+  console.log('🔍 getTasks 函数被调用');
+  
   try {
-    // 1. 通过openid查询用户信息
-    const userRes = await db.collection('users')
-      .where({ wxOpenId: openId })
-      .field({ _id: true, name: true })
-      .get();
-
-    if (!userRes.data.length) {
+    // 初始化云开发
+    cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
+    const db = cloud.database();
+    
+    console.log('🔍 云开发初始化成功');
+    
+    // 获取微信上下文
+    const wxContext = cloud.getWXContext();
+    const openId = wxContext.OPENID;
+    
+    console.log('🔍 OpenID:', openId);
+    
+    if (!openId) {
       return {
         success: false,
-        message: '用户未绑定'
+        message: '用户未登录'
       };
     }
-
-    const userId = userRes.data[0]._id;
-    const userName = userRes.data[0].name;
-
-    // 2. 查询用户的任务
+    
+    // 🔧 简化：直接查询任务表，暂时不查询用户信息
+    console.log('🔍 开始查询任务...');
     const tasksRes = await db.collection('tasks')
       .where({
-        // 🔧 修复查询条件: isDeleted 为 false 或不存在
-        $or: [
-          { isDeleted: false },
-          { isDeleted: _.exists(false) }
-        ],
-        // 用户权限: owner 或 collaborators
-        $and: [
-          {
-            $or: [
-              { owner: userId },
-              { collaborators: userId }
-            ]
-          }
-        ]
+        _openid: openId
       })
-      .orderBy('createdAt', 'desc')
-      .limit(50)
+      .limit(10)
       .get();
-
-    const tasks = tasksRes.data.map(task => ({
-      _id: task._id,
-      name: task.name,
-      endDate: formatDate(task.endDate),
-      progress: task.progress || 0,
-      status: task.status,
-      statusText: getTaskStatusText(task.status)
-    }));
+    
+    console.log('🔍 查询到任务数量:', tasksRes.data.length);
 
     return {
       success: true,
-      tasks
+      tasks: tasksRes.data
     };
   } catch (err) {
-    console.error('查询任务失败:', err);
+    console.error('❌ 查询失败:', err);
     return {
       success: false,
       message: '查询失败',
@@ -70,20 +48,3 @@ exports.main = async (event, context) => {
     };
   }
 };
-
-function formatDate(date) {
-  if (!date) return '';
-  const d = new Date(date);
-  return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
-}
-
-function getTaskStatusText(status) {
-  const statusMap = {
-    '未开始': '待开始',
-    '进行中': '进行中',
-    '已完成': '已完成',
-    '延期': '已延期',
-    '取消': '已取消'
-  };
-  return statusMap[status] || status;
-}

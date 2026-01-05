@@ -5,7 +5,7 @@
   "type": "module",
   "description": "际华定制协同办公管理平台",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --mode development",
     "build": "vite build --mode production",
     "build:dev": "vite build --mode development",
     "build:check": "tsc && vite build",
@@ -15,7 +15,7 @@
     "init-issue-types": "node database/init-issue-types.js"
   },
   "dependencies": {
-    "@cloudbase/js-sdk": "^2.22.10",
+    "@cloudbase/js-sdk": "^2.24.3",
     "@radix-ui/react-accordion": "^1.2.3",
     "@radix-ui/react-alert-dialog": "^1.1.6",
     "@radix-ui/react-aspect-ratio": "^1.1.2",

@@ -8,7 +8,7 @@ import { OpportunityManagement } from './components/pages/OpportunityManagement'
 import { ProjectManagement } from './components/pages/ProjectManagement';
 import { GoalManagement } from './components/pages/GoalManagement';
 import BudgetManagement from './components/pages/BudgetManagement';
-import { MeetingManagement } from './components/pages/MeetingManagement';
+import MeetingManagement from './components/pages/MeetingManagement';
 import { PerformanceManagement } from './components/pages/PerformanceManagement';
 import { BusinessManagement } from './components/pages/BusinessManagement';
 import { SystemSettings } from './components/pages/SystemSettings';

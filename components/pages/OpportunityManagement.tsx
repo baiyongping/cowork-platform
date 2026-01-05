@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Filter, TrendingUp, DollarSign, Users, Calendar, CheckCircle, Edit, Trash2, ListTodo, Target, MessageSquare, UserCheck } from 'lucide-react';
+import { Plus, Search, Filter, TrendingUp, DollarSign, Users, Calendar, CheckCircle, Edit, Trash2, ListTodo, Target, MessageSquare, UserCheck, BarChart3, Star } from 'lucide-react';
 import { app, db, auth } from '../../lib/cloudbase';
 import CreateOpportunityModal from '../CreateOpportunityModal';
 import OpportunityDetailModal from '../OpportunityDetailModal';
@@ -7,6 +7,12 @@ import OpportunityRecycleBin from '../OpportunityRecycleBin';
 import { buildQueryConditions } from '../../utils/permission';
 import { usePermissionContext } from '../../contexts/PermissionContext';
 import { showAlert, showSuccess, showError } from '../../lib/dialog-utils';
+import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
+import { Badge } from '../ui/badge';
+import { Button } from '../ui/button';
+import { LoadingSpinner, LoadingCard } from '../ui/loading';
+import { EmptyState } from '../ui/empty-state';
+import { SearchIcon, FilterIcon } from '../ui/icons';
 import type { 
   Opportunity, 
   OpportunityStage, 
@@ -660,102 +666,124 @@ export function OpportunityManagement({ userRole, currentUserId, openOpportunity
   };
 
   return (
-    <div className="p-6 space-y-6">
-      {/* 页面标题 */}
+    <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
+      {/* 页面标题区 */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">商机管理</h1>
-          <p className="text-sm text-gray-500 mt-1">管理和跟进销售商机</p>
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
+            <Target className="h-6 w-6 text-white" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">商机管理</h1>
+            <p className="text-sm text-gray-600 mt-1">管理和跟进销售商机</p>
+          </div>
         </div>
         <div className="flex items-center gap-3">
-          {/* ✅ 回收站权限控制：需要delete权限 */}
+          {/* 回收站权限控制 */}
           {checkPermission('opportunities', 'delete') && (
-            <button
+            <Button
+              variant="secondary"
               onClick={() => setShowRecycleBin(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+              className="shadow-soft hover:shadow-medium"
             >
-              <Trash2 className="w-5 h-5" />
+              <Trash2 className="w-4 h-4" />
               回收站
-            </button>
+            </Button>
           )}
-          {/* ✅ 创建按钮权限控制 */}
+          {/* 创建按钮权限控制 */}
           {checkPermission('opportunities', 'create') && (
-            <button
+            <Button
               onClick={() => setShowCreateModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="shadow-soft hover:shadow-medium"
             >
-              <Plus className="w-5 h-5" />
-              <span>新建商机</span>
-            </button>
+              <Plus className="w-4 h-4" />
+              新建商机
+            </Button>
           )}
         </div>
       </div>
 
-      {/* 统计卡片 - 四个固定阶段 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* 统计卡片 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* 跟进线索 */}
-        <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 border border-blue-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-blue-600">跟进线索</p>
-              <p className="text-2xl font-bold text-blue-900 mt-1">{statistics.byStage['跟进线索']?.count || 0}</p>
-              <p className="text-xs text-blue-600 mt-1">
-                预计金额: {((statistics.byStage['跟进线索']?.amount || 0) / 100000000).toFixed(2)}亿
-              </p>
+        <Card className="group hover:shadow-card-hover transition-all duration-300 border-l-4 border-l-blue-500">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center shadow-soft group-hover:shadow-medium transition-all">
+                <Target className="w-6 h-6 text-blue-600" />
+              </div>
+              <Badge variant="info" className="px-2 py-1">线索</Badge>
             </div>
-            <div className="w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center">
-              <Target className="w-6 h-6 text-white" />
+            <div className="space-y-2">
+              <div className="text-3xl font-bold text-gray-900">{statistics.byStage['跟进线索']?.count || 0}</div>
+              <div className="text-sm font-medium text-gray-600">跟进线索</div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-gray-500">预计金额</span>
+                <span className="font-semibold text-blue-600">{((statistics.byStage['跟进线索']?.amount || 0) / 100000000).toFixed(2)}亿</span>
+              </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
         {/* 方案咨询 */}
-        <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4 border border-green-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-green-600">方案咨询</p>
-              <p className="text-2xl font-bold text-green-900 mt-1">{statistics.byStage['方案咨询']?.count || 0}</p>
-              <p className="text-xs text-green-600 mt-1">
-                预计金额: {((statistics.byStage['方案咨询']?.amount || 0) / 10000).toFixed(0)}万
-              </p>
+        <Card className="group hover:shadow-card-hover transition-all duration-300 border-l-4 border-l-green-500">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center shadow-soft group-hover:shadow-medium transition-all">
+                <MessageSquare className="w-6 h-6 text-green-600" />
+              </div>
+              <Badge variant="success" className="px-2 py-1">咨询</Badge>
             </div>
-            <div className="w-12 h-12 bg-green-500 rounded-lg flex items-center justify-center">
-              <MessageSquare className="w-6 h-6 text-white" />
+            <div className="space-y-2">
+              <div className="text-3xl font-bold text-gray-900">{statistics.byStage['方案咨询']?.count || 0}</div>
+              <div className="text-sm font-medium text-gray-600">方案咨询</div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-gray-500">预计金额</span>
+                <span className="font-semibold text-green-600">{((statistics.byStage['方案咨询']?.amount || 0) / 10000).toFixed(0)}万</span>
+              </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
         {/* 商务谈判 */}
-        <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4 border border-purple-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-purple-600">商务谈判</p>
-              <p className="text-2xl font-bold text-purple-900 mt-1">{statistics.byStage['商务谈判']?.count || 0}</p>
-              <p className="text-xs text-purple-600 mt-1">
-                预计金额: {((statistics.byStage['商务谈判']?.amount || 0) / 10000).toFixed(0)}万
-              </p>
+        <Card className="group hover:shadow-card-hover transition-all duration-300 border-l-4 border-l-purple-500">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center shadow-soft group-hover:shadow-medium transition-all">
+                <UserCheck className="w-6 h-6 text-purple-600" />
+              </div>
+              <Badge variant="secondary" className="px-2 py-1">谈判</Badge>
             </div>
-            <div className="w-12 h-12 bg-purple-500 rounded-lg flex items-center justify-center">
-              <UserCheck className="w-6 h-6 text-white" />
+            <div className="space-y-2">
+              <div className="text-3xl font-bold text-gray-900">{statistics.byStage['商务谈判']?.count || 0}</div>
+              <div className="text-sm font-medium text-gray-600">商务谈判</div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-gray-500">预计金额</span>
+                <span className="font-semibold text-purple-600">{((statistics.byStage['商务谈判']?.amount || 0) / 10000).toFixed(0)}万</span>
+              </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
         {/* 成交 */}
-        <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-lg p-4 border border-amber-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-amber-600">成交</p>
-              <p className="text-2xl font-bold text-amber-900 mt-1">{statistics.byStage['成交']?.count || 0}</p>
-              <p className="text-xs text-amber-600 mt-1">
-                成交金额: {((statistics.byStage['成交']?.amount || 0) / 10000).toFixed(0)}万
-              </p>
+        <Card className="group hover:shadow-card-hover transition-all duration-300 border-l-4 border-l-orange-500">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center shadow-soft group-hover:shadow-medium transition-all">
+                <CheckCircle className="w-6 h-6 text-orange-600" />
+              </div>
+              <Badge variant="warning" className="px-2 py-1">成交</Badge>
             </div>
-            <div className="w-12 h-12 bg-amber-500 rounded-lg flex items-center justify-center">
-              <CheckCircle className="w-6 h-6 text-white" />
+            <div className="space-y-2">
+              <div className="text-3xl font-bold text-gray-900">{statistics.byStage['成交']?.count || 0}</div>
+              <div className="text-sm font-medium text-gray-600">成交订单</div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-gray-500">成交金额</span>
+                <span className="font-semibold text-orange-600">{((statistics.byStage['成交']?.amount || 0) / 10000).toFixed(0)}万</span>
+              </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* 筛选栏 */}

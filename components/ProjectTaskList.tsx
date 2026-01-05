@@ -374,7 +374,11 @@ export default function ProjectTaskList({ projectId, onTaskUpdate }: ProjectTask
       {/* 编辑任务模态框 */}
       {showEditModal && selectedTask && (
         <EditTaskModal
-          task={selectedTask}
+          task={{
+            ...selectedTask,
+            owner: selectedTask.owner._id, // 将对象转换为字符串ID
+            collaborators: selectedTask.collaborators?.map(c => c._id) || [], // 将对象数组转换为字符串数组
+          } as Task}
           onClose={handleCloseEdit}
           onSuccess={() => {
             handleCloseEdit();

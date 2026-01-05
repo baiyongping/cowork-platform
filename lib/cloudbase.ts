@@ -46,6 +46,9 @@ export function isDbInitialized(): boolean {
 // 获取认证实例
 export const auth = app.auth();
 
+// 导出云函数调用方法
+export const callFunction = app.callFunction.bind(app);
+
 // 🔧 自动进行匿名登录（提供认证上下文）
 // 注意：这不影响我们的自定义用户系统，只是满足 SDK 的认证要求
 let authPromise: Promise<void> | null = null;

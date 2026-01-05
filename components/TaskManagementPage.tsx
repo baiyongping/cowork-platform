@@ -559,20 +559,57 @@ export default function TaskManagementPage({ openTaskId, onTaskOpened }: TaskMan
 
   const handleViewDetail = async (task: Task) => {
     try {
+      // 🔧 兼容旧数据：如果 owner 缺失，使用 createdBy 作为后备
+      let ownerId: string;
+      
+      // 🔍 处理 owner 可能是对象的情况
+      if (task.owner) {
+        ownerId = typeof task.owner === 'string' ? task.owner : (task.owner as any)._id;
+      } else if (task.createdBy) {
+        ownerId = typeof task.createdBy === 'string' ? task.createdBy : (task.createdBy as any)._id;
+      } else {
+        ownerId = '';
+      }
+      
+      console.log('✅ 提取的负责人ID:', ownerId);
+      
+      // 验证负责人ID是否有效
+      if (!ownerId || typeof ownerId !== 'string' || ownerId.trim() === '') {
+        console.error('❌ 任务负责人ID无效:', task);
+        await showError('任务数据异常：缺少负责人信息');
+        return;
+      }
+
       // 查询用户信息以填充 owner 和 collaborators
       const userCollection = db.collection('users');
       
       // 查询负责人信息
-      const ownerDoc = await userCollection.doc(task.owner).get();
-      const ownerData = ownerDoc.data as any;
+      const ownerRes = await userCollection.where({ _id: ownerId }).get();
+      const ownerData = ownerRes.data && ownerRes.data.length > 0 ? ownerRes.data[0] : null;
+      
+      console.log('👤 查询到的负责人信息:', ownerData);
+      
+      // 如果负责人不存在
+      if (!ownerData || !ownerData._id) {
+        console.error('❌ 负责人信息不存在 (ID:', ownerId, ')');
+        await showError('无法加载任务详情：负责人信息不存在');
+        return;
+      }
       
       // 查询协同人信息
       let collaboratorsData: any[] = [];
       if (task.collaborators && task.collaborators.length > 0) {
-        const collaboratorsRes = await userCollection.where({
-          _id: db.command.in(task.collaborators)
-        }).get();
-        collaboratorsData = collaboratorsRes.data;
+        // 过滤掉无效的协同人ID
+        const validCollaborators = task.collaborators.filter(
+          id => id && typeof id === 'string' && id.trim() !== ''
+        );
+        
+        if (validCollaborators.length > 0) {
+          const collaboratorsRes = await userCollection.where({
+            _id: db.command.in(validCollaborators)
+          }).get();
+          collaboratorsData = collaboratorsRes.data || [];
+        }
       }
       
       // 转换为 TaskWithPopulatedFields

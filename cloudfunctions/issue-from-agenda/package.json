@@ -1,0 +1,9 @@
+{
+  "name": "issue-from-agenda",
+  "version": "1.0.0",
+  "description": "从会议议程生成问题记录",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

@@ -226,7 +226,7 @@ export default function OpportunityRecycleBin({ onClose, onRestore }: Opportunit
                             <Users className="w-4 h-4" />
                             {opp.customer}
                           </span>
-                          <span>产品：{opp.productType}</span>
+                          <span>产品：{opp.requirements?.[0]?.productType || '未设置'}</span>
                           <span>负责人：{opp.ownerName}</span>
                         </div>
 

@@ -21,7 +21,8 @@ export default function WechatBinding({ userId, token, onBindSuccess }: WechatBi
       setStatus('pending');
       setErrorMessage('');
 
-      const res = await window.cloudbase.callFunction({
+      const { callFunction } = await import('../lib/cloudbase');
+      const res = await callFunction({
         name: 'wechat-bind',
         data: {
           action: 'generateScene',
@@ -51,7 +52,8 @@ export default function WechatBinding({ userId, token, onBindSuccess }: WechatBi
 
     const pollInterval = setInterval(async () => {
       try {
-        const res = await window.cloudbase.callFunction({
+        const { callFunction } = await import('../lib/cloudbase');
+      const res = await callFunction({
           name: 'wechat-bind',
           data: {
             action: 'checkStatus',
