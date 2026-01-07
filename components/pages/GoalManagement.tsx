@@ -1307,8 +1307,8 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
       setLoading(true);
       console.log('💾 保存年度目标 - 开始:', annualGoalForm);
 
-      // 1️⃣ 保存/更新销售目标
-      const salesResult = await db.collection('salesGoals')
+      // 1️⃣ 保存/更新销售目标（使用下划线命名）
+      const salesResult = await db.collection('sales_goals')
         .where({
           year: annualGoalForm.year,
           type: 'annual'
@@ -1318,7 +1318,7 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
       if (salesResult.data && salesResult.data.length > 0) {
         // 更新现有销售目标
         const salesGoal = salesResult.data[0];
-        await db.collection('salesGoals').doc(salesGoal._id).update({
+        await db.collection('sales_goals').doc(salesGoal._id).update({
           orderTarget: annualGoalForm.orderTarget,
           revenueTarget: annualGoalForm.revenueTarget,
           updatedAt: new Date(),
@@ -1326,7 +1326,7 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
         console.log('✅ 销售目标更新成功');
       } else {
         // 创建新的销售目标
-        await db.collection('salesGoals').add({
+        await db.collection('sales_goals').add({
           year: annualGoalForm.year,
           orderTarget: annualGoalForm.orderTarget,
           orderActual: 0,
@@ -1341,8 +1341,8 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
         console.log('✅ 销售目标创建成功');
       }
 
-      // 2️⃣ 保存/更新商机目标
-      const opportunityResult = await db.collection('opportunityGoals')
+      // 2️⃣ 保存/更新商机目标（使用下划线命名）
+      const opportunityResult = await db.collection('opportunity_goals')
         .where({
           year: annualGoalForm.year,
           type: 'annual'
@@ -1352,7 +1352,7 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
       if (opportunityResult.data && opportunityResult.data.length > 0) {
         // 更新现有商机目标
         const opportunityGoal = opportunityResult.data[0];
-        await db.collection('opportunityGoals').doc(opportunityGoal._id).update({
+        await db.collection('opportunity_goals').doc(opportunityGoal._id).update({
           countTarget: annualGoalForm.countTarget,
           amountTarget: annualGoalForm.amountTarget,
           updatedAt: new Date(),
@@ -1360,7 +1360,7 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
         console.log('✅ 商机目标更新成功');
       } else {
         // 创建新的商机目标
-        await db.collection('opportunityGoals').add({
+        await db.collection('opportunity_goals').add({
           year: annualGoalForm.year,
           countTarget: annualGoalForm.countTarget,
           countActual: 0,
@@ -1664,16 +1664,16 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
   // 🔄 整合后的年度目标编辑函数
   const handleEditAnnualGoal = async () => {
     try {
-      // 获取当前年度的销售目标
-      const salesResult = await db.collection('salesGoals')
+      // 获取当前年度的销售目标（使用下划线命名）
+      const salesResult = await db.collection('sales_goals')
         .where({
           year: selectedYear,
           type: 'annual'
         })
         .get();
 
-      // 获取当前年度的商机目标
-      const opportunityResult = await db.collection('opportunityGoals')
+      // 获取当前年度的商机目标（使用下划线命名）
+      const opportunityResult = await db.collection('opportunity_goals')
         .where({
           year: selectedYear,
           type: 'annual'
