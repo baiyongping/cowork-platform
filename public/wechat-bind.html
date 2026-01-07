@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="format-detection" content="telephone=no">
+  <title>微信授权 - 际华协同办公</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'PingFang SC', 'Microsoft YaHei', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 400px;
+      width: 100%;
+      padding: 40px 30px;
+      text-align: center;
+    }
+
+    .logo {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+      font-weight: bold;
+      color: white;
+      box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+    }
+
+    .title {
+      font-size: 24px;
+      font-weight: 600;
+      color: #191919;
+      margin-bottom: 15px;
+    }
+
+    .description {
+      font-size: 15px;
+      color: #666666;
+      line-height: 1.6;
+      margin-bottom: 30px;
+    }
+
+    .loading-spinner {
+      width: 50px;
+      height: 50px;
+      border: 4px solid #E5E5E5;
+      border-top-color: #667eea;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 20px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .loading-text {
+      color: #999999;
+      font-size: 14px;
+    }
+
+    .error-message {
+      background: #FFEBEE;
+      color: #C62828;
+      padding: 15px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      font-size: 14px;
+      border-left: 4px solid #C62828;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">际华</div>
+    <h1 class="title">微信授权</h1>
+    <div class="description">
+      <p>正在跳转到微信授权页面...</p>
+      <p style="color: #999; font-size: 13px; margin-top: 8px;">需要获取您的微信基本信息</p>
+    </div>
+    
+    <div id="loading-view">
+      <div class="loading-spinner"></div>
+      <div class="loading-text">正在准备授权...</div>
+    </div>
+
+    <div id="error-view" style="display: none;">
+      <div class="error-message" id="error-text"></div>
+    </div>
+  </div>
+
+  <script src="https://static.cloudbase.net/cloudbase-js-sdk/1.6.0/cloudbase.full.js"></script>
+  <script>
+    // 初始化 CloudBase
+    const app = cloudbase.init({
+      env: 'cowork-9gg9oocb516be5fb'
+    });
+
+    // 从 URL 获取 sceneId
+    const urlParams = new URLSearchParams(window.location.search);
+    const sceneId = urlParams.get('sceneId') || urlParams.get('scene');
+    const code = urlParams.get('code');  // 微信授权回调后会带 code 参数
+
+    // 检测是否在微信浏览器中
+    function isWechat() {
+      const ua = navigator.userAgent.toLowerCase();
+      return /micromessenger/.test(ua);
+    }
+
+    // 显示错误
+    function showError(message) {
+      document.getElementById('loading-view').style.display = 'none';
+      document.getElementById('error-view').style.display = 'block';
+      document.getElementById('error-text').textContent = message;
+    }
+
+    // 主流程
+    async function main() {
+      console.log('🔍 URL参数:', { sceneId, code });
+
+      // 1. 检查必要参数
+      if (!sceneId) {
+        showError('缺少场景ID参数');
+        return;
+      }
+
+      // 2. 检查是否在微信浏览器中
+      if (!isWechat()) {
+        showError('请在微信中打开此链接');
+        return;
+      }
+
+      // 3. 如果有 code，说明授权回调成功，跳转到确认页面
+      if (code) {
+        console.log('✓ 收到授权回调 code:', code);
+        
+        try {
+          // 用 code 换取 openid
+          console.log('📡 调用云函数换取 OpenID...');
+          const res = await app.callFunction({
+            name: 'wechat-oauth',
+            data: {
+              action: 'getOpenId',
+              code: code
+            }
+          });
+
+          console.log('📦 云函数返回:', res);
+
+          if (res.result.success) {
+            const openid = res.result.data.openid;
+            console.log('✓ 获取 OpenID 成功:', openid);
+
+            // 跳转到确认页面，携带 sceneId 和 openid
+            const confirmUrl = `${window.location.origin}/wechat-bind-confirm.html?sceneId=${sceneId}&openid=${openid}`;
+            console.log('🔀 跳转到确认页面:', confirmUrl);
+            window.location.href = confirmUrl;
+          } else {
+            showError(res.result.error || '获取微信信息失败');
+          }
+        } catch (error) {
+          console.error('❌ 换取 OpenID 失败:', error);
+          showError('获取微信信息失败，请稍后重试');
+        }
+
+        return;
+      }
+
+      // 4. 如果没有 code，需要先跳转到微信授权页面
+      console.log('📝 准备跳转到微信授权页面...');
+
+      try {
+        // 调用云函数获取授权 URL
+        const redirectUri = `${window.location.origin}/wechat-bind.html?sceneId=${sceneId}`;
+        console.log('📡 调用云函数获取授权URL, redirectUri:', redirectUri);
+
+        const res = await app.callFunction({
+          name: 'wechat-oauth',
+          data: {
+            action: 'getAuthUrl',
+            redirectUri: redirectUri,
+            scope: 'snsapi_base',  // 只获取 openid（静默授权）
+            state: sceneId
+          }
+        });
+
+        console.log('📦 云函数返回:', res);
+
+        if (res.result.success) {
+          const authUrl = res.result.data.authUrl;
+          console.log('✓ 获取授权URL成功:', authUrl);
+          console.log('🔀 即将跳转到微信授权页面...');
+
+          // 跳转到微信授权页面
+          setTimeout(() => {
+            window.location.href = authUrl;
+          }, 500);
+        } else {
+          showError(res.result.error || '获取授权链接失败');
+        }
+      } catch (error) {
+        console.error('❌ 获取授权URL失败:', error);
+        showError('网络错误，请稍后重试');
+      }
+    }
+
+    // 页面加载后执行
+    window.onload = () => {
+      console.log('🚀 页面加载完成，开始执行主流程');
+      main();
+    };
+  </script>
+</body>
+</html>

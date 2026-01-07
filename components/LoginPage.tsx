@@ -7,6 +7,7 @@ import { getStoragePublicURL } from '../constants/cloudbase';
 import { db } from '../lib/cloudbase';
 import { ConfirmDialog } from './ConfirmDialog';
 import WechatQRLogin from './WechatQRLogin';
+import WeChatLogin from './WeChatLogin';
 
 interface LoginPageProps {
   onLogin: (user: any, token: string) => void;
@@ -688,6 +689,30 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                 >
                   {loading ? '登录中...' : '登录'}
                 </button>
+
+                {/* 微信扫码登录分隔线 */}
+                <div className="mt-6">
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-gray-300"></div>
+                    </div>
+                    <div className="relative flex justify-center text-sm">
+                      <span className="px-2 bg-white text-gray-500">或</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 微信扫码登录按钮 */}
+                <div className="mt-6">
+                  <WeChatLogin
+                    onSuccess={() => {
+                      console.log('微信登录成功');
+                    }}
+                    onError={(error) => {
+                      setError(error.message || '微信登录失败，请重试');
+                    }}
+                  />
+                </div>
               </form>
             ) : (
               // 微信扫码登录

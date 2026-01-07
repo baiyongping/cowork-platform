@@ -10,19 +10,22 @@ interface WechatBindingProps {
 
 export default function WechatBinding({ userId, token, onBindSuccess }: WechatBindingProps) {
   const [sceneId, setSceneId] = useState<string>('');
+  const [h5Url, setH5Url] = useState<string>(''); // ✅ 新增：H5 绑定页面 URL
   const [status, setStatus] = useState<'init' | 'pending' | 'scanned' | 'success' | 'expired' | 'error'>('init');
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [isPolling, setIsPolling] = useState(false);
   const hasInitialized = useRef(false);
 
-  // 生成绑定Scene
+  // 生成绑定Scene和 H5 URL
   const generateScene = async () => {
     try {
       setStatus('pending');
       setErrorMessage('');
 
       const { callFunction } = await import('../lib/cloudbase');
-      const res = await callFunction({
+      
+      // 1️⃣ 生成 sceneId（存入数据库）
+      const sceneRes = await callFunction({
         name: 'wechat-bind',
         data: {
           action: 'generateScene',
@@ -31,14 +34,22 @@ export default function WechatBinding({ userId, token, onBindSuccess }: WechatBi
         }
       });
 
-      if (res.result.code === 200) {
-        const { sceneId } = res.result.data;
-        setSceneId(sceneId);
-        setIsPolling(true);
-      } else {
+      if (sceneRes.result.code !== 200) {
         setStatus('error');
-        setErrorMessage(res.result.message || '生成二维码失败');
+        setErrorMessage(sceneRes.result.message || '生成Scene失败');
+        return;
       }
+
+      const { sceneId } = sceneRes.result.data;
+      setSceneId(sceneId);
+
+      // 2️⃣ 生成 H5 绑定页面 URL（不再调用小程序码生成）
+      const h5BindUrl = `${window.location.origin}/wechat-bind?scene=${sceneId}`;
+      setH5Url(h5BindUrl);
+      
+      console.log('✓ 生成 H5 绑定链接:', h5BindUrl);
+      
+      setIsPolling(true);
     } catch (error: any) {
       console.error('生成二维码失败:', error);
       setStatus('error');
@@ -102,6 +113,7 @@ export default function WechatBinding({ userId, token, onBindSuccess }: WechatBi
   const handleRefresh = () => {
     setIsPolling(false);
     setSceneId('');
+    setH5Url(''); // ✅ 清除 H5 URL
     setStatus('init');
     setErrorMessage('');
     hasInitialized.current = false; // 重置标记
@@ -117,27 +129,28 @@ export default function WechatBinding({ userId, token, onBindSuccess }: WechatBi
 
       {/* 二维码区域 */}
       <div className="relative mb-6">
-        {status === 'pending' && sceneId && (
+        {status === 'pending' && h5Url && (
           <div className="bg-gray-50 p-6 rounded-lg border-2 border-gray-200">
+            {/* ✅ 使用 qrcode.react 生成普通 URL 二维码 */}
             <QRCodeSVG 
-              value={sceneId}
+              value={h5Url}
               size={200}
-              level="M"
+              level="H"
               includeMargin={true}
             />
           </div>
         )}
 
-        {status === 'scanned' && (
-          <div className="bg-blue-50 p-6 rounded-lg border-2 border-blue-300">
+        {status === 'scanned' && h5Url && (
+          <div className="bg-blue-50 p-6 rounded-lg border-2 border-blue-300 relative">
             <QRCodeSVG 
-              value={sceneId}
+              value={h5Url}
               size={200}
-              level="M"
+              level="H"
               includeMargin={true}
-              fgColor="#2563eb"
+              className="opacity-50"
             />
-            <div className="absolute inset-0 flex items-center justify-center bg-blue-500 bg-opacity-20 rounded-lg">
+            <div className="absolute inset-0 flex items-center justify-center">
               <div className="bg-white px-4 py-2 rounded-lg shadow-lg">
                 <Loader2 className="animate-spin h-8 w-8 text-blue-600" />
               </div>
@@ -201,7 +214,9 @@ export default function WechatBinding({ userId, token, onBindSuccess }: WechatBi
               {status === 'pending' ? '请使用微信扫描二维码' : '等待确认...'}
             </span>
           </div>
-          <p className="text-sm text-gray-500">打开微信小程序扫码绑定账号</p>
+          <p className="text-sm text-gray-500">
+            打开微信扫一扫，在浏览器中确认绑定
+          </p>
           <p className="text-xs text-gray-400">二维码5分钟内有效</p>
         </div>
       )}

@@ -1,0 +1,10 @@
+{
+  "name": "generate-miniprogram-qr",
+  "version": "1.0.0",
+  "description": "生成微信小程序二维码/小程序码",
+  "main": "index.js",
+  "dependencies": {
+    "@cloudbase/node-sdk": "^2.5.0",
+    "axios": "^1.6.0"
+  }
+}

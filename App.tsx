@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { Bell, LogOut } from 'lucide-react';
 import { Sidebar } from './components/Sidebar';
@@ -16,6 +17,10 @@ import { AccountSettings } from './components/pages/AccountSettings';
 import IssueManagementPage from './components/IssueManagementPage';
 import { LoginPage } from './components/LoginPage';
 import { MessageCenter } from './components/MessageCenter';
+import { WechatBind } from './components/wechat/WechatBind';
+import { WechatBindConfirm } from './components/wechat/WechatBindConfirm';
+import { WechatBindSuccess } from './components/wechat/WechatBindSuccess';
+import WeChatCallback from './components/WeChatCallback';
 import { verifyToken } from './lib/auth-service';
 import { ensureAuth, app } from './lib/cloudbase';
 import { PermissionProvider } from './contexts/PermissionContext';
@@ -30,7 +35,8 @@ const devLog = (...args: any[]) => {
 
 type PageType = 'dashboard' | 'tasks' | 'issues' | 'opportunities' | 'projects' | 'goals' | 'budget' | 'meetings' | 'performance' | 'business' | 'settings' | 'account';
 
-export default function App() {
+// 主应用组件（包含侧边栏和页面内容）
+function MainApp() {
   const [currentPage, setCurrentPage] = useState<PageType>('dashboard');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -429,5 +435,25 @@ export default function App() {
       />
     </PermissionProvider>
     </DialogProvider>
+  );
+}
+
+// 路由包装组件
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        {/* 微信绑定相关路由（不需要侧边栏） */}
+        <Route path="/wechat-bind" element={<WechatBind />} />
+        <Route path="/wechat-bind-confirm" element={<WechatBindConfirm />} />
+        <Route path="/wechat-bind-success" element={<WechatBindSuccess />} />
+        
+        {/* 微信扫码登录回调路由 */}
+        <Route path="/wechat-callback" element={<WeChatCallback />} />
+        
+        {/* 主应用路由 */}
+        <Route path="/*" element={<MainApp />} />
+      </Routes>
+    </BrowserRouter>
   );
 }

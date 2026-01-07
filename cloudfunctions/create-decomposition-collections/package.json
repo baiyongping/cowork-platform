@@ -1,0 +1,9 @@
+{
+  "name": "create-decomposition-collections",
+  "version": "1.0.0",
+  "description": "创建目标分解多表功能所需的数据库集合(一次性运行)",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

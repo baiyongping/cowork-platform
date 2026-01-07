@@ -69,6 +69,8 @@ const CreateMeetingModal: React.FC<CreateMeetingModalProps> = ({
     duration: meeting?.duration || 60,
     location: meeting?.location || '',
     attendees: meeting?.attendees || [] as string[],
+    host: meeting?.host || '',         // 🔧 新增：会议主持人
+    recorder: meeting?.recorder || '', // 🔧 新增：会议记录人
     description: meeting?.description || ''
   });
   
@@ -106,6 +108,20 @@ const CreateMeetingModal: React.FC<CreateMeetingModalProps> = ({
   
   // 🔧 新增：任务筛选条件
   const [taskOwnerFilter, setTaskOwnerFilter] = useState<string>(''); // 任务负责人筛选
+
+  // 🔧 新增：商机选择模态框
+  const [showOpportunityModal, setShowOpportunityModal] = useState(false);
+  const [availableOpportunities, setAvailableOpportunities] = useState<any[]>([]);
+  const [selectedOpportunityIds, setSelectedOpportunityIds] = useState<string[]>([]);
+  const [opportunityStageFilter, setOpportunityStageFilter] = useState<string>(''); // 商机阶段筛选
+  const [opportunityStages, setOpportunityStages] = useState<string[]>([]); // 商机阶段列表
+
+  // 🔧 新增：项目选择模态框
+  const [showProjectModal, setShowProjectModal] = useState(false);
+  const [availableProjects, setAvailableProjects] = useState<any[]>([]);
+  const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
+  const [projectPhaseFilter, setProjectPhaseFilter] = useState<string>(''); // 项目阶段筛选
+  const [projectPhases, setProjectPhases] = useState<string[]>([]); // 项目阶段列表
 
   // 参会员工选择器状态
   const [showAttendeeSelector, setShowAttendeeSelector] = useState(false);
@@ -145,12 +161,18 @@ const CreateMeetingModal: React.FC<CreateMeetingModalProps> = ({
 
   // 根据议题类型加载相关业务数据
   useEffect(() => {
-    if (currentAgenda.type !== 'other' && currentAgenda.type !== 'task') {
+    if (currentAgenda.type !== 'other' && currentAgenda.type !== 'task' && currentAgenda.type !== 'opportunity' && currentAgenda.type !== 'project') {
       loadRelatedData(currentAgenda.type);
     } else if (currentAgenda.type === 'task') {
       // 任务类型：清空关联数据，等待用户选择时间范围
       setRelatedDataList([]);
       setTaskTimeRange(null);
+    } else if (currentAgenda.type === 'opportunity') {
+      // 商机类型：清空关联数据，等待用户打开选择器
+      setRelatedDataList([]);
+    } else if (currentAgenda.type === 'project') {
+      // 项目类型：清空关联数据，等待用户打开选择器
+      setRelatedDataList([]);
     }
   }, [currentAgenda.type]);
 
@@ -451,6 +473,117 @@ const CreateMeetingModal: React.FC<CreateMeetingModalProps> = ({
     }
   };
 
+  // 🔧 新增：打开商机选择模态框
+  const handleOpenOpportunityModal = async () => {
+    try {
+      setLoadingData(true);
+      
+      // 1. 加载商机阶段列表
+      const stagesResult = await db.collection('type_settings')
+        .where({ type: 'opportunity' })
+        .get();
+      
+      let stages: string[] = [];
+      if (stagesResult.data && stagesResult.data.length > 0) {
+        const values = stagesResult.data[0].values;
+        if (values && values.length > 0) {
+          if (typeof values[0] === 'string') {
+            stages = values;
+          } else {
+            stages = values.filter((item: any) => item.enabled).map((item: any) => item.value);
+          }
+        }
+      }
+      setOpportunityStages(stages.length > 0 ? stages : ['跟进线索', '方案咨询', '商务谈判']);
+      
+      // 2. 加载商机列表
+      const currentUserStr = localStorage.getItem('current_user');
+      const currentUser = currentUserStr ? JSON.parse(currentUserStr) : {};
+      const userId = currentUser.userId || currentUser._id;
+      const userRoles = currentUser.roles || [];
+      const isAdmin = userRoles.includes('admin') || currentUser.role === 'admin';
+      
+      console.log('🔍 [CreateMeeting] 当前用户:', userId, '是否管理员:', isAdmin);
+      
+      // 查询所有商机（排除已删除的）
+      const opportunitiesResult = await db.collection('opportunities')
+        .where({
+          isDeleted: db.command.neq(true)
+        })
+        .orderBy('updatedAt', 'desc')
+        .get();
+      
+      console.log('🔍 [CreateMeeting] 查询到的商机:', opportunitiesResult.data.length);
+      
+      // 权限过滤
+      let filteredData = opportunitiesResult.data;
+      if (!isAdmin) {
+        filteredData = opportunitiesResult.data.filter((opp: any) => {
+          return opp.owner === userId || 
+                 (opp.collaborators && opp.collaborators.includes(userId)) ||
+                 opp.isPublic === true;
+        });
+      }
+      
+      console.log('🔍 [CreateMeeting] 过滤后的商机:', filteredData.length);
+      
+      // 3. 关联查询负责人信息
+      const ownerIds = [...new Set(filteredData.map((opp: any) => opp.owner).filter(Boolean))];
+      const usersResult = await db.collection('users')
+        .where({
+          _id: db.command.in(ownerIds)
+        })
+        .get();
+      
+      const ownerMap = new Map(usersResult.data.map((user: any) => [user._id, user.name]));
+      
+      // 4. 处理商机数据
+      const opportunities = filteredData.map((opp: any) => ({
+        _id: opp._id,
+        customer: opp.customer || '未知客户',
+        contact: opp.contact || '-',
+        amount: opp.amount || 0,
+        stage: opp.stage || '跟进线索',
+        owner: ownerMap.get(opp.owner) || '未知',
+        ownerId: opp.owner,
+        updatedAt: opp.updatedAt,
+        description: opp.description || ''
+      }));
+      
+      console.log('✅ [CreateMeeting] 处理后的商机:', opportunities.length);
+      setAvailableOpportunities(opportunities);
+      setSelectedOpportunityIds(currentAgenda.relatedIds); // 回显已选商机
+      setOpportunityStageFilter(''); // 重置阶段筛选
+      setShowOpportunityModal(true);
+    } catch (error: any) {
+      console.error('❌ 获取商机失败:', error);
+      toastError('获取商机失败：' + (error.message || '未知错误'));
+    } finally {
+      setLoadingData(false);
+    }
+  };
+  
+  // 🔧 新增：确认选择商机
+  const handleConfirmOpportunities = () => {
+    const selectedData = availableOpportunities.filter(opp => selectedOpportunityIds.includes(opp._id));
+    setCurrentAgenda({ 
+      ...currentAgenda, 
+      relatedIds: selectedOpportunityIds,
+      relatedData: selectedData
+    });
+    setRelatedDataList(selectedData);
+    setShowOpportunityModal(false);
+  };
+  
+  // 🔧 新增：切换商机选择
+  const handleOpportunityToggle = (oppId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedOpportunityIds([...selectedOpportunityIds, oppId]);
+    } else {
+      setSelectedOpportunityIds(selectedOpportunityIds.filter(id => id !== oppId));
+    }
+  };
+
   // 加载项目列表
   const loadProjects = async () => {
     const result = await callFunction({
@@ -459,6 +592,117 @@ const CreateMeetingModal: React.FC<CreateMeetingModalProps> = ({
     });
     if (result.result) {
       setRelatedDataList(Array.isArray(result.result) ? result.result : []);
+    }
+  };
+
+  // 🔧 新增：打开项目选择模态框
+  const handleOpenProjectModal = async () => {
+    try {
+      setLoadingData(true);
+      
+      // 1. 加载项目阶段列表
+      const phasesResult = await db.collection('type_settings')
+        .where({ type: 'projectStatus' })
+        .get();
+      
+      let phases: string[] = [];
+      if (phasesResult.data && phasesResult.data.length > 0) {
+        const values = phasesResult.data[0].values;
+        if (values && values.length > 0) {
+          if (typeof values[0] === 'string') {
+            phases = values;
+          } else {
+            phases = values.filter((item: any) => item.enabled).map((item: any) => item.value);
+          }
+        }
+      }
+      setProjectPhases(phases.length > 0 ? phases : ['未开始', '准备期', '制造期', '交付期', '已完成', '暂停']);
+      
+      // 2. 加载项目列表
+      const currentUserStr = localStorage.getItem('current_user');
+      const currentUser = currentUserStr ? JSON.parse(currentUserStr) : {};
+      const userId = currentUser.userId || currentUser._id;
+      const userRoles = currentUser.roles || [];
+      const isAdmin = userRoles.includes('admin') || currentUser.role === 'admin';
+      
+      console.log('🔍 [CreateMeeting] 当前用户:', userId, '是否管理员:', isAdmin);
+      
+      // 查询所有项目（排除已删除的）
+      const projectsResult = await db.collection('projects')
+        .where({
+          isDeleted: db.command.neq(true)
+        })
+        .orderBy('updatedAt', 'desc')
+        .get();
+      
+      console.log('🔍 [CreateMeeting] 查询到的项目:', projectsResult.data.length);
+      
+      // 权限过滤
+      let filteredData = projectsResult.data;
+      if (!isAdmin) {
+        filteredData = projectsResult.data.filter((proj: any) => {
+          return proj.owner === userId || 
+                 (proj.members && proj.members.includes(userId)) ||
+                 proj.isPublic === true;
+        });
+      }
+      
+      console.log('🔍 [CreateMeeting] 过滤后的项目:', filteredData.length);
+      
+      // 3. 关联查询负责人信息
+      const ownerIds = [...new Set(filteredData.map((proj: any) => proj.owner).filter(Boolean))];
+      const usersResult = await db.collection('users')
+        .where({
+          _id: db.command.in(ownerIds)
+        })
+        .get();
+      
+      const ownerMap = new Map(usersResult.data.map((user: any) => [user._id, user.name]));
+      
+      // 4. 处理项目数据
+      const projects = filteredData.map((proj: any) => ({
+        _id: proj._id,
+        name: proj.name || '未命名项目',
+        customer: proj.customer || '-',
+        contractAmount: proj.contractAmount || 0,
+        status: proj.status || '未开始',
+        owner: ownerMap.get(proj.owner) || '未知',
+        ownerId: proj.owner,
+        updatedAt: proj.updatedAt,
+        description: proj.description || ''
+      }));
+      
+      console.log('✅ [CreateMeeting] 处理后的项目:', projects.length);
+      setAvailableProjects(projects);
+      setSelectedProjectIds(currentAgenda.relatedIds); // 回显已选项目
+      setProjectPhaseFilter(''); // 重置阶段筛选
+      setShowProjectModal(true);
+    } catch (error: any) {
+      console.error('❌ 获取项目失败:', error);
+      toastError('获取项目失败：' + (error.message || '未知错误'));
+    } finally {
+      setLoadingData(false);
+    }
+  };
+  
+  // 🔧 新增：确认选择项目
+  const handleConfirmProjects = () => {
+    const selectedData = availableProjects.filter(proj => selectedProjectIds.includes(proj._id));
+    setCurrentAgenda({ 
+      ...currentAgenda, 
+      relatedIds: selectedProjectIds,
+      relatedData: selectedData
+    });
+    setRelatedDataList(selectedData);
+    setShowProjectModal(false);
+  };
+  
+  // 🔧 新增：切换项目选择
+  const handleProjectToggle = (projId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedProjectIds([...selectedProjectIds, projId]);
+    } else {
+      setSelectedProjectIds(selectedProjectIds.filter(id => id !== projId));
     }
   };
 
@@ -998,17 +1242,21 @@ const CreateMeetingModal: React.FC<CreateMeetingModalProps> = ({
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   会议类型 <span className="text-red-500">*</span>
+                  {isEditMode && <span className="ml-2 text-xs text-gray-500">（创建后不可修改）</span>}
                 </label>
                 <div className="grid grid-cols-2 gap-3">
                   {MEETING_TYPES.map((type) => (
                     <button
                       key={type.value}
                       type="button"
-                      onClick={() => handleMeetingTypeChange(type.value)}
+                      onClick={() => !isEditMode && handleMeetingTypeChange(type.value)}
+                      disabled={isEditMode}
                       className={`p-4 rounded-lg border-2 transition-all ${
                         formData.type === type.value
                           ? 'border-blue-500 bg-blue-50 text-blue-700'
-                          : 'border-gray-200 hover:border-blue-300'
+                          : isEditMode 
+                            ? 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-60'
+                            : 'border-gray-200 hover:border-blue-300'
                       }`}
                     >
                       <div className="font-semibold">{type.label}</div>
@@ -1142,6 +1390,50 @@ const CreateMeetingModal: React.FC<CreateMeetingModalProps> = ({
                     </div>
                   )}
                 </div>
+              </div>
+
+              {/* 会议主持人（从参会人员中选择） */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  会议主持人
+                </label>
+                <select
+                  value={formData.host}
+                  onChange={(e) => setFormData({ ...formData, host: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">请选择主持人</option>
+                  {formData.attendees.map((attendeeName) => (
+                    <option key={attendeeName} value={attendeeName}>
+                      {attendeeName}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  💡 默认从参会人员中选择
+                </p>
+              </div>
+
+              {/* 会议记录人（从参会人员中选择） */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  会议记录人
+                </label>
+                <select
+                  value={formData.recorder}
+                  onChange={(e) => setFormData({ ...formData, recorder: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">请选择记录人</option>
+                  {formData.attendees.map((attendeeName) => (
+                    <option key={attendeeName} value={attendeeName}>
+                      {attendeeName}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  💡 默认从参会人员中选择
+                </p>
               </div>
             </div>
           </Card>
@@ -1429,29 +1721,66 @@ const CreateMeetingModal: React.FC<CreateMeetingModalProps> = ({
                     </div>
                   )}
                   
+                  {/* 🔧 新增：商机分析：显示商机选择按钮 */}
+                  {currentAgenda.type === 'opportunity' && (
+                    <div className="mb-3">
+                      <Button
+                        type="button"
+                        onClick={handleOpenOpportunityModal}
+                        variant="default"
+                        className="w-full"
+                        disabled={loadingData}
+                      >
+                        {loadingData ? '加载中...' : '选择商机'}
+                      </Button>
+                    </div>
+                  )}
+                  
+                  {/* 🔧 新增：项目进展：显示项目选择按钮 */}
+                  {currentAgenda.type === 'project' && (
+                    <div className="mb-3">
+                      <Button
+                        type="button"
+                        onClick={handleOpenProjectModal}
+                        variant="default"
+                        className="w-full"
+                        disabled={loadingData}
+                      >
+                        {loadingData ? '加载中...' : '选择项目'}
+                      </Button>
+                    </div>
+                  )}
+                  
                   {loadingData ? (
                     <div className="text-sm text-gray-500">加载中...</div>
                   ) : currentAgenda.type === 'task' && relatedDataList.length === 0 ? (
                     <div className="text-sm text-gray-500 p-4 bg-gray-50 rounded-lg">
                       暂无可关联的数据
                     </div>
-                  ) : currentAgenda.type === 'task' && relatedDataList.length > 0 ? (
+                  ) : (currentAgenda.type === 'task' || currentAgenda.type === 'opportunity' || currentAgenda.type === 'project') && relatedDataList.length > 0 ? (
                     <div className="space-y-2 p-4 bg-gray-50 rounded-lg">
                       <div className="text-sm font-medium text-gray-700 mb-2">
-                        已选任务 ({relatedDataList.length})
+                        已选{currentAgenda.type === 'task' ? '任务' : currentAgenda.type === 'opportunity' ? '商机' : '项目'} ({relatedDataList.length})
                       </div>
-                      {relatedDataList.map((task) => (
+                      {relatedDataList.map((item) => (
                         <div
-                          key={task._id}
+                          key={item._id}
                           className="flex items-center justify-between p-2 bg-white rounded border border-gray-200"
                         >
-                          <span className="text-sm text-gray-700">{task.name || task.title || '未命名'}</span>
+                          <span className="text-sm text-gray-700">
+                            {currentAgenda.type === 'task' 
+                              ? (item.name || item.title || '未命名')
+                              : currentAgenda.type === 'opportunity'
+                              ? (item.customer || '未知客户')
+                              : (item.name || '未命名项目')}
+                            {item.owner && <span className="text-gray-500 ml-2">({item.owner})</span>}
+                          </span>
                           <button
                             type="button"
                             onClick={() => {
-                              const newIds = currentAgenda.relatedIds.filter(id => id !== task._id);
+                              const newIds = currentAgenda.relatedIds.filter(id => id !== item._id);
                               setCurrentAgenda({ ...currentAgenda, relatedIds: newIds });
-                              setRelatedDataList(relatedDataList.filter(t => t._id !== task._id));
+                              setRelatedDataList(relatedDataList.filter(t => t._id !== item._id));
                             }}
                             className="text-red-500 hover:text-red-700"
                           >
@@ -1655,6 +1984,255 @@ const CreateMeetingModal: React.FC<CreateMeetingModalProps> = ({
                   type="button"
                   onClick={handleConfirmTasks}
                   disabled={selectedTaskIds.length === 0}
+                >
+                  确认选择
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🔧 新增：商机选择模态框 */}
+      {showOpportunityModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl mx-4 max-h-[80vh] flex flex-col">
+            {/* 标题栏 */}
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">选择商机</h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowOpportunityModal(false);
+                  setSelectedOpportunityIds([]);
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* 筛选条件区域 */}
+            <div className="px-6 py-3 border-b border-gray-200 bg-gray-50">
+              <div className="flex items-center gap-3">
+                <label className="text-sm font-medium text-gray-700 whitespace-nowrap">
+                  商机阶段:
+                </label>
+                <select
+                  value={opportunityStageFilter}
+                  onChange={(e) => setOpportunityStageFilter(e.target.value)}
+                  className="flex-1 px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">全部阶段</option>
+                  {opportunityStages.map(stage => (
+                    <option key={stage} value={stage}>{stage}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* 商机列表 */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {(() => {
+                // 根据筛选条件过滤商机列表
+                const filteredOpportunities = availableOpportunities.filter(opp => {
+                  if (opportunityStageFilter && opp.stage !== opportunityStageFilter) {
+                    return false;
+                  }
+                  return true;
+                });
+                
+                return filteredOpportunities.length === 0 ? (
+                  <div className="text-center text-gray-500 py-8">
+                    {opportunityStageFilter ? '该阶段暂无商机' : '暂无可选商机'}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {filteredOpportunities.map((opp) => (
+                      <label
+                        key={opp._id}
+                        className="flex items-start gap-3 p-3 hover:bg-gray-50 rounded-lg cursor-pointer border border-gray-200"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedOpportunityIds.includes(opp._id)}
+                          onChange={(e) => handleOpportunityToggle(opp._id, e.target.checked)}
+                          className="mt-1 rounded"
+                        />
+                        <div className="flex-1">
+                          <div className="text-sm font-medium text-gray-900">
+                            {opp.customer}
+                          </div>
+                          <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
+                            <span>联系人: {opp.contact}</span>
+                            <span>金额: {opp.amount}万元</span>
+                            <span className={`px-2 py-0.5 rounded ${
+                              opp.stage === '成交' ? 'bg-green-100 text-green-700' :
+                              opp.stage === '商务谈判' ? 'bg-blue-100 text-blue-700' :
+                              opp.stage === '方案咨询' ? 'bg-yellow-100 text-yellow-700' :
+                              'bg-gray-100 text-gray-700'
+                            }`}>
+                              {opp.stage}
+                            </span>
+                          </div>
+                          {opp.owner && (
+                            <div className="text-xs text-gray-500 mt-1">
+                              负责人: {opp.owner}
+                            </div>
+                          )}
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* 底部按钮 */}
+            <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+              <div className="text-sm text-gray-600">
+                已选择 {selectedOpportunityIds.length} 个商机
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setShowOpportunityModal(false);
+                    setSelectedOpportunityIds([]);
+                  }}
+                >
+                  取消
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleConfirmOpportunities}
+                  disabled={selectedOpportunityIds.length === 0}
+                >
+                  确认选择
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🔧 新增：项目选择模态框 */}
+      {showProjectModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl mx-4 max-h-[80vh] flex flex-col">
+            {/* 标题栏 */}
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">选择项目</h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowProjectModal(false);
+                  setSelectedProjectIds([]);
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* 筛选条件区域 */}
+            <div className="px-6 py-3 border-b border-gray-200 bg-gray-50">
+              <div className="flex items-center gap-3">
+                <label className="text-sm font-medium text-gray-700 whitespace-nowrap">
+                  项目阶段:
+                </label>
+                <select
+                  value={projectPhaseFilter}
+                  onChange={(e) => setProjectPhaseFilter(e.target.value)}
+                  className="flex-1 px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">全部阶段</option>
+                  {projectPhases.map(phase => (
+                    <option key={phase} value={phase}>{phase}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* 项目列表 */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {(() => {
+                // 根据筛选条件过滤项目列表
+                const filteredProjects = availableProjects.filter(proj => {
+                  if (projectPhaseFilter && proj.status !== projectPhaseFilter) {
+                    return false;
+                  }
+                  return true;
+                });
+                
+                return filteredProjects.length === 0 ? (
+                  <div className="text-center text-gray-500 py-8">
+                    {projectPhaseFilter ? '该阶段暂无项目' : '暂无可选项目'}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {filteredProjects.map((proj) => (
+                      <label
+                        key={proj._id}
+                        className="flex items-start gap-3 p-3 hover:bg-gray-50 rounded-lg cursor-pointer border border-gray-200"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedProjectIds.includes(proj._id)}
+                          onChange={(e) => handleProjectToggle(proj._id, e.target.checked)}
+                          className="mt-1 rounded"
+                        />
+                        <div className="flex-1">
+                          <div className="text-sm font-medium text-gray-900">
+                            {proj.name}
+                          </div>
+                          <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
+                            <span>客户: {proj.customer}</span>
+                            <span>合同额: {proj.contractAmount}万元</span>
+                            <span className={`px-2 py-0.5 rounded ${
+                              proj.status === '已完成' ? 'bg-green-100 text-green-700' :
+                              proj.status === '交付期' ? 'bg-blue-100 text-blue-700' :
+                              proj.status === '制造期' ? 'bg-yellow-100 text-yellow-700' :
+                              proj.status === '准备期' ? 'bg-purple-100 text-purple-700' :
+                              'bg-gray-100 text-gray-700'
+                            }`}>
+                              {proj.status}
+                            </span>
+                          </div>
+                          {proj.owner && (
+                            <div className="text-xs text-gray-500 mt-1">
+                              负责人: {proj.owner}
+                            </div>
+                          )}
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* 底部按钮 */}
+            <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+              <div className="text-sm text-gray-600">
+                已选择 {selectedProjectIds.length} 个项目
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setShowProjectModal(false);
+                    setSelectedProjectIds([]);
+                  }}
+                >
+                  取消
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleConfirmProjects}
+                  disabled={selectedProjectIds.length === 0}
                 >
                   确认选择
                 </Button>

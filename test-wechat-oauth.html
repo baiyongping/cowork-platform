@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>微信开放平台连接测试</title>
+  <script src="https://web-9gikcbug35bad3a8-1304825656.tcloudbaseapp.com/cloudbase-js-sdk/2.10.2/cloudbase.full.js"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+    }
+    .container {
+      background: white;
+      border-radius: 12px;
+      padding: 30px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 30px;
+      text-align: center;
+    }
+    .test-section {
+      margin-bottom: 30px;
+      padding: 20px;
+      background: #f8f9fa;
+      border-radius: 8px;
+    }
+    .test-section h2 {
+      color: #667eea;
+      margin-top: 0;
+      font-size: 18px;
+    }
+    button {
+      background: #667eea;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      margin-right: 10px;
+      margin-bottom: 10px;
+      transition: all 0.3s;
+    }
+    button:hover {
+      background: #5568d3;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .result {
+      margin-top: 15px;
+      padding: 15px;
+      border-radius: 6px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .success {
+      background: #d4edda;
+      border: 1px solid #c3e6cb;
+      color: #155724;
+    }
+    .error {
+      background: #f8d7da;
+      border: 1px solid #f5c6cb;
+      color: #721c24;
+    }
+    .info {
+      background: #d1ecf1;
+      border: 1px solid #bee5eb;
+      color: #0c5460;
+    }
+    .status {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-left: 10px;
+    }
+    .status.pending { background: #ffc107; color: #333; }
+    .status.success { background: #28a745; color: white; }
+    .status.error { background: #dc3545; color: white; }
+    input {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔗 微信开放平台连接测试</h1>
+    
+    <!-- 测试1: 初始化CloudBase -->
+    <div class="test-section">
+      <h2>📋 测试 1: 初始化 CloudBase <span id="status1" class="status pending">待测试</span></h2>
+      <button onclick="test1()">运行测试</button>
+      <div id="result1"></div>
+    </div>
+
+    <!-- 测试2: 生成授权URL -->
+    <div class="test-section">
+      <h2>🔗 测试 2: 生成微信授权 URL <span id="status2" class="status pending">待测试</span></h2>
+      <label>回调地址:</label>
+      <input id="redirectUri" type="text" value="https://jihuadz.xin/wechat-bind?scene=test123" placeholder="https://jihuadz.xin/wechat-bind?scene=test123">
+      <button onclick="test2()">生成授权URL</button>
+      <div id="result2"></div>
+    </div>
+
+    <!-- 测试3: 验证URL格式 -->
+    <div class="test-section">
+      <h2>✅ 测试 3: 验证 URL 格式 <span id="status3" class="status pending">待测试</span></h2>
+      <button onclick="test3()">验证URL</button>
+      <div id="result3"></div>
+    </div>
+
+    <!-- 测试4: 手动测试（需要code） -->
+    <div class="test-section">
+      <h2>🔑 测试 4: 换取 Access Token <span id="status4" class="status pending">需授权码</span></h2>
+      <p style="color: #666; font-size: 14px;">
+        ⚠️ 此测试需要先完成测试2，访问生成的授权URL扫码授权后，从回调URL中获取 code 参数
+      </p>
+      <label>授权码 (code):</label>
+      <input id="authCode" type="text" placeholder="从回调URL中复制 code 参数">
+      <button onclick="test4()">换取Token</button>
+      <div id="result4"></div>
+    </div>
+
+    <!-- 快速检查清单 -->
+    <div class="test-section" style="background: #e7f3ff;">
+      <h2>📝 快速检查清单</h2>
+      <ul style="line-height: 2;">
+        <li><input type="checkbox"> 云函数 <code>wechat-oauth</code> 已部署</li>
+        <li><input type="checkbox"> 环境变量 <code>WECHAT_OPEN_APPID</code> 已配置</li>
+        <li><input type="checkbox"> 环境变量 <code>WECHAT_OPEN_SECRET</code> 已配置</li>
+        <li><input type="checkbox"> 微信开放平台回调域名已配置: <code>jihuadz.xin</code></li>
+        <li><input type="checkbox"> 生成的URL使用 <code>qrconnect</code> 端点</li>
+        <li><input type="checkbox"> Scope 参数为 <code>snsapi_login</code></li>
+      </ul>
+    </div>
+  </div>
+
+  <script>
+    let app, authUrl;
+
+    // 初始化CloudBase
+    function initCloudBase() {
+      if (app) return app;
+      
+      app = cloudbase.init({
+        env: 'cowork-9gg9oocb516be5fb' // 生产环境ID
+      });
+      
+      return app;
+    }
+
+    // 显示结果
+    function showResult(elementId, content, type = 'info') {
+      const element = document.getElementById(elementId);
+      element.innerHTML = `<div class="result ${type}">${content}</div>`;
+    }
+
+    // 更新状态
+    function updateStatus(statusId, status) {
+      const element = document.getElementById(statusId);
+      element.className = `status ${status}`;
+      element.textContent = status === 'success' ? '✅ 通过' : status === 'error' ? '❌ 失败' : '⏳ 测试中';
+    }
+
+    // 测试1: 初始化CloudBase
+    async function test1() {
+      updateStatus('status1', 'pending');
+      try {
+        const app = initCloudBase();
+        showResult('result1', `✅ CloudBase 初始化成功\n\n环境ID: cowork-9gg9oocb516be5fb`, 'success');
+        updateStatus('status1', 'success');
+      } catch (error) {
+        showResult('result1', `❌ 初始化失败\n\n${error.message}`, 'error');
+        updateStatus('status1', 'error');
+      }
+    }
+
+    // 测试2: 生成授权URL
+    async function test2() {
+      updateStatus('status2', 'pending');
+      try {
+        const app = initCloudBase();
+        const redirectUri = document.getElementById('redirectUri').value;
+        
+        if (!redirectUri) {
+          throw new Error('请输入回调地址');
+        }
+
+        showResult('result2', '⏳ 正在调用云函数...', 'info');
+
+        const result = await app.callFunction({
+          name: 'wechat-oauth',
+          data: {
+            action: 'getAuthUrl',
+            redirectUri: redirectUri,
+            scope: 'snsapi_login'
+          }
+        });
+
+        console.log('云函数返回:', result);
+
+        if (!result.result?.success) {
+          throw new Error(result.result?.error || '生成授权URL失败');
+        }
+
+        authUrl = result.result.data.authUrl;
+        
+        const output = `✅ 授权 URL 生成成功！
+
+📋 完整 URL:
+${authUrl}
+
+🔍 URL 解析:
+- 端点: ${authUrl.includes('qrconnect') ? '✅ qrconnect (正确)' : '❌ oauth2/authorize (错误)'}
+- Scope: ${authUrl.includes('snsapi_login') ? '✅ snsapi_login (正确)' : '❌ 其他 (错误)'}
+- AppID: ${authUrl.match(/appid=([^&]+)/)?.[1] || '未找到'}
+
+📱 下一步:
+1. 点击下方按钮打开授权页面
+2. 使用微信扫描二维码
+3. 确认授权后，从回调URL中复制 code 参数到测试4`;
+
+        showResult('result2', output, 'success');
+        updateStatus('status2', 'success');
+
+        // 添加"打开授权页面"按钮
+        const result2 = document.getElementById('result2');
+        const openBtn = document.createElement('button');
+        openBtn.textContent = '🚀 打开微信授权页面';
+        openBtn.style.marginTop = '15px';
+        openBtn.onclick = () => window.open(authUrl, '_blank');
+        result2.appendChild(openBtn);
+
+      } catch (error) {
+        showResult('result2', `❌ 生成失败\n\n错误信息: ${error.message}\n\n请检查:\n1. 云函数 wechat-oauth 是否已部署\n2. 环境变量是否已配置`, 'error');
+        updateStatus('status2', 'error');
+      }
+    }
+
+    // 测试3: 验证URL格式
+    async function test3() {
+      updateStatus('status3', 'pending');
+      
+      if (!authUrl) {
+        showResult('result3', '⚠️ 请先运行测试2生成授权URL', 'info');
+        return;
+      }
+
+      try {
+        const checks = [];
+
+        // 检查1: 端点
+        const isCorrectEndpoint = authUrl.includes('qrconnect');
+        checks.push({
+          name: '授权端点',
+          pass: isCorrectEndpoint,
+          expected: 'qrconnect',
+          actual: isCorrectEndpoint ? 'qrconnect' : 'oauth2/authorize'
+        });
+
+        // 检查2: Scope
+        const hasCorrectScope = authUrl.includes('scope=snsapi_login');
+        checks.push({
+          name: 'Scope 参数',
+          pass: hasCorrectScope,
+          expected: 'snsapi_login',
+          actual: authUrl.match(/scope=([^&]+)/)?.[1] || '未找到'
+        });
+
+        // 检查3: AppID
+        const appid = authUrl.match(/appid=([^&]+)/)?.[1];
+        const hasAppId = !!appid;
+        checks.push({
+          name: 'AppID',
+          pass: hasAppId,
+          expected: 'wx79afc92f6fe01a31',
+          actual: appid || '未找到'
+        });
+
+        // 检查4: 回调地址
+        const redirectUri = decodeURIComponent(authUrl.match(/redirect_uri=([^&]+)/)?.[1] || '');
+        const hasRedirectUri = redirectUri.startsWith('https://jihuadz.xin');
+        checks.push({
+          name: '回调地址',
+          pass: hasRedirectUri,
+          expected: 'https://jihuadz.xin/*',
+          actual: redirectUri || '未找到'
+        });
+
+        const allPassed = checks.every(c => c.pass);
+
+        let output = `${allPassed ? '✅' : '⚠️'} URL 格式验证${allPassed ? '通过' : '失败'}\n\n`;
+        
+        checks.forEach(check => {
+          output += `${check.pass ? '✅' : '❌'} ${check.name}:\n`;
+          output += `   期望: ${check.expected}\n`;
+          output += `   实际: ${check.actual}\n\n`;
+        });
+
+        if (allPassed) {
+          output += '🎉 所有检查通过！URL 格式正确，可以进行扫码授权测试。';
+        } else {
+          output += '⚠️ 部分检查未通过，请检查云函数配置和环境变量。';
+        }
+
+        showResult('result3', output, allPassed ? 'success' : 'error');
+        updateStatus('status3', allPassed ? 'success' : 'error');
+
+      } catch (error) {
+        showResult('result3', `❌ 验证失败\n\n${error.message}`, 'error');
+        updateStatus('status3', 'error');
+      }
+    }
+
+    // 测试4: 换取Access Token
+    async function test4() {
+      updateStatus('status4', 'pending');
+      
+      const code = document.getElementById('authCode').value.trim();
+      
+      if (!code) {
+        showResult('result4', '⚠️ 请输入授权码\n\n获取方式:\n1. 运行测试2，打开授权页面\n2. 微信扫码授权\n3. 从回调URL中复制 code 参数', 'info');
+        return;
+      }
+
+      try {
+        const app = initCloudBase();
+        
+        showResult('result4', '⏳ 正在换取 Access Token...', 'info');
+
+        const result = await app.callFunction({
+          name: 'wechat-oauth',
+          data: {
+            action: 'getOpenId',
+            code: code
+          }
+        });
+
+        console.log('换取Token返回:', result);
+
+        if (!result.result?.success) {
+          throw new Error(result.result?.error || '换取Token失败');
+        }
+
+        const data = result.result.data;
+        
+        const output = `✅ Access Token 换取成功！
+
+📋 用户信息:
+- OpenID: ${data.openid}
+- UnionID: ${data.unionid || '未返回'}
+- Access Token: ${data.access_token?.substring(0, 20)}...
+- 有效期: ${data.expires_in} 秒
+- Scope: ${data.scope}
+
+🎉 连接测试完成！
+
+✅ 微信开放平台连接正常
+✅ 可以获取用户 OpenID
+✅ 授权流程运行正常`;
+
+        showResult('result4', output, 'success');
+        updateStatus('status4', 'success');
+
+      } catch (error) {
+        const errorMsg = error.message || '未知错误';
+        let tips = '';
+        
+        if (errorMsg.includes('40029') || errorMsg.includes('invalid code')) {
+          tips = '\n\n💡 提示: code 已过期或已使用\n- 每个 code 只能使用一次\n- 有效期为5分钟\n- 请重新扫码获取新的 code';
+        } else if (errorMsg.includes('40163')) {
+          tips = '\n\n💡 提示: code 已被使用\n- 请重新扫码获取新的 code';
+        }
+
+        showResult('result4', `❌ 换取失败\n\n错误信息: ${errorMsg}${tips}`, 'error');
+        updateStatus('status4', 'error');
+      }
+    }
+
+    // 页面加载时自动运行测试1
+    window.addEventListener('load', () => {
+      test1();
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="format-detection" content="telephone=no">
+  <title>绑定微信 - 际华协同办公</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'PingFang SC', 'Microsoft YaHei', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      color: #191919;
+    }
+
+    .container {
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 400px;
+      width: 100%;
+      overflow: hidden;
+      animation: slideUp 0.5s ease-out;
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 30px 20px;
+      text-align: center;
+      position: relative;
+    }
+
+    .logo {
+      width: 60px;
+      height: 60px;
+      margin: 0 auto 15px;
+      background: white;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      font-weight: bold;
+      color: #667eea;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .header-title {
+      color: white;
+      font-size: 22px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .header-subtitle {
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 14px;
+    }
+
+    .content {
+      padding: 30px 20px;
+    }
+
+    .wechat-icon {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto 20px;
+      background: linear-gradient(135deg, #09D66E 0%, #07C160 100%);
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 40px;
+      box-shadow: 0 8px 20px rgba(7, 193, 96, 0.3);
+    }
+
+    .title {
+      text-align: center;
+      font-size: 20px;
+      font-weight: 600;
+      color: #191919;
+      margin-bottom: 25px;
+    }
+
+    .account-card {
+      background: #F7F7F7;
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    .account-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 15px;
+      padding-bottom: 15px;
+      border-bottom: 1px solid #E5E5E5;
+    }
+
+    .avatar {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      margin-right: 15px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .user-info-header {
+      flex: 1;
+    }
+
+    .nickname {
+      font-size: 18px;
+      font-weight: 600;
+      color: #191919;
+      margin-bottom: 4px;
+    }
+
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid #E5E5E5;
+    }
+
+    .info-row:last-child {
+      border-bottom: none;
+    }
+
+    .label {
+      font-size: 14px;
+      color: #666666;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .label::before {
+      content: '';
+      width: 3px;
+      height: 14px;
+      background: #667eea;
+      border-radius: 2px;
+    }
+
+    .value {
+      font-size: 15px;
+      color: #191919;
+      font-weight: 500;
+    }
+
+    .notice {
+      background: #FFF9E6;
+      border-left: 3px solid #FFA800;
+      padding: 12px 15px;
+      margin-bottom: 25px;
+      border-radius: 8px;
+    }
+
+    .notice p {
+      font-size: 13px;
+      color: #7A6E00;
+      line-height: 1.6;
+    }
+
+    .notice-icon {
+      display: inline-block;
+      margin-right: 6px;
+    }
+
+    .buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 15px;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.3);
+      transform: translate(-50%, -50%);
+      transition: width 0.6s, height 0.6s;
+    }
+
+    .btn:active::before {
+      width: 300px;
+      height: 300px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #07C160 0%, #06AD56 100%);
+      color: white;
+      box-shadow: 0 4px 15px rgba(7, 193, 96, 0.4);
+    }
+
+    .btn-primary:hover {
+      box-shadow: 0 6px 20px rgba(7, 193, 96, 0.5);
+      transform: translateY(-2px);
+    }
+
+    .btn-primary:disabled {
+      background: #CCCCCC;
+      box-shadow: none;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-secondary {
+      background: white;
+      color: #666666;
+      border: 2px solid #E5E5E5;
+    }
+
+    .btn-secondary:hover {
+      border-color: #CCCCCC;
+      background: #FAFAFA;
+    }
+
+    .loading {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .error-message {
+      background: #FFEBEE;
+      color: #C62828;
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      font-size: 14px;
+      text-align: center;
+      border-left: 3px solid #C62828;
+    }
+
+    .success-message {
+      background: #E8F5E9;
+      color: #2E7D32;
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      font-size: 14px;
+      text-align: center;
+      border-left: 3px solid #2E7D32;
+    }
+
+    .loading-container {
+      text-align: center;
+      padding: 40px 20px;
+    }
+
+    .loading-spinner {
+      width: 50px;
+      height: 50px;
+      border: 4px solid #E5E5E5;
+      border-top-color: #667eea;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 20px;
+    }
+
+    .loading-text {
+      color: #666666;
+      font-size: 14px;
+    }
+
+    /* 成功动画 */
+    .success-animation {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto 20px;
+      border-radius: 50%;
+      background: #4CAF50;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: scaleIn 0.5s ease-out;
+    }
+
+    @keyframes scaleIn {
+      from {
+        transform: scale(0);
+        opacity: 0;
+      }
+      to {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+
+    .checkmark {
+      width: 30px;
+      height: 50px;
+      border: solid white;
+      border-width: 0 6px 6px 0;
+      transform: rotate(45deg);
+      animation: checkmark 0.5s ease-in-out 0.3s;
+    }
+
+    @keyframes checkmark {
+      0% {
+        height: 0;
+      }
+      100% {
+        height: 50px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo">际华</div>
+      <div class="header-title">际华协同办公</div>
+      <div class="header-subtitle">绑定微信账号</div>
+    </div>
+
+    <div class="content">
+      <!-- 加载中状态 -->
+      <div id="loading-view" class="loading-container">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">正在加载账号信息...</div>
+      </div>
+
+      <!-- 确认绑定视图 -->
+      <div id="confirm-view" style="display: none;">
+        <div class="wechat-icon">💬</div>
+        <h1 class="title">确认绑定微信账号</h1>
+
+        <div class="account-card">
+          <div class="account-header">
+            <div class="avatar" id="avatar-container">
+              <img id="avatar-img" src="" alt="头像" style="display: none;">
+            </div>
+            <div class="user-info-header">
+              <div class="nickname" id="nickname">加载中...</div>
+            </div>
+          </div>
+          
+          <div class="info-row">
+            <span class="label">姓名</span>
+            <span class="value" id="name">-</span>
+          </div>
+          <div class="info-row">
+            <span class="label">部门</span>
+            <span class="value" id="department">-</span>
+          </div>
+          <div class="info-row">
+            <span class="label">职位</span>
+            <span class="value" id="position">-</span>
+          </div>
+        </div>
+
+        <div class="notice">
+          <p><span class="notice-icon">⚠️</span>绑定后可使用微信扫码快速登录际华协同办公平台</p>
+        </div>
+
+        <div id="error-container"></div>
+
+        <div class="buttons">
+          <button class="btn btn-primary" id="confirm-btn" onclick="confirmBind()">
+            确认绑定
+          </button>
+          <button class="btn btn-secondary" onclick="cancel()">
+            取消
+          </button>
+        </div>
+      </div>
+
+      <!-- 成功视图 -->
+      <div id="success-view" style="display: none;">
+        <div class="success-animation">
+          <div class="checkmark"></div>
+        </div>
+        <div class="success-message">
+          ✅ 绑定成功！即将关闭...
+        </div>
+      </div>
+
+      <!-- 错误视图 -->
+      <div id="error-view" style="display: none;">
+        <div class="error-message" id="error-text"></div>
+        <div class="buttons">
+          <button class="btn btn-secondary" onclick="cancel()">
+            关闭
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://static.cloudbase.net/cloudbase-js-sdk/1.6.0/cloudbase.full.js"></script>
+  <script>
+    // 初始化 CloudBase
+    const app = cloudbase.init({
+      env: 'cowork-9gg9oocb516be5fb'
+    });
+
+    // 从 URL 获取 sceneId 和 openid
+    const urlParams = new URLSearchParams(window.location.search);
+    const sceneId = urlParams.get('sceneId');
+    const openid = urlParams.get('openid');
+    
+    // 验证必要参数
+    if (!sceneId || !openid) {
+      showError('缺少必要参数,请重新扫码');
+      throw new Error('Missing required parameters: sceneId or openid');
+    }
+
+    let sessionData = null;
+
+    // 页面加载时获取账号信息
+    async function loadAccountInfo() {
+      // sceneId 和 openid 已在上面验证过
+
+      try {
+        // 调用云函数获取 session 信息
+        const res = await app.callFunction({
+          name: 'wechat-bind',
+          data: {
+            action: 'getSessionInfo',
+            sceneId: sceneId
+          }
+        });
+
+        if (res.result.code === 200) {
+          sessionData = res.result.data;
+          displayAccountInfo(sessionData);
+          showView('confirm');
+        } else if (res.result.code === 410) {
+          showError('二维码已过期，请刷新二维码后重试');
+        } else {
+          showError(res.result.message || '加载失败');
+        }
+      } catch (error) {
+        console.error('加载账号信息失败:', error);
+        showError('网络错误，请稍后重试');
+      }
+    }
+
+    // 显示账号信息
+    function displayAccountInfo(data) {
+      // 设置头像
+      const avatarImg = document.getElementById('avatar-img');
+      const avatarContainer = document.getElementById('avatar-container');
+      if (data.avatar) {
+        avatarImg.src = data.avatar;
+        avatarImg.style.display = 'block';
+      } else {
+        // 显示默认头像（首字母）
+        avatarContainer.innerHTML = `<div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: white; font-size: 24px; font-weight: bold;">${data.name ? data.name.charAt(0) : '用'}</div>`;
+      }
+
+      // 设置昵称（优先显示nickname，否则显示name）
+      document.getElementById('nickname').textContent = data.nickname || data.name || '未设置';
+
+      // 设置其他信息
+      document.getElementById('name').textContent = data.name || '-';
+      document.getElementById('department').textContent = data.department || '-';
+      document.getElementById('position').textContent = data.position || '-';
+    }
+
+    // 确认绑定
+    async function confirmBind() {
+      const confirmBtn = document.getElementById('confirm-btn');
+      confirmBtn.disabled = true;
+      confirmBtn.innerHTML = '<span class="loading"></span>绑定中...';
+
+      const errorContainer = document.getElementById('error-container');
+      errorContainer.innerHTML = '';
+
+      try {
+        const res = await app.callFunction({
+          name: 'wechat-bind',
+          data: {
+            action: 'confirmBind',
+            sceneId: sceneId,
+            openid: openid
+          }
+        });
+
+        if (res.result.code === 200) {
+          // 绑定成功
+          showView('success');
+          // 2秒后关闭页面
+          setTimeout(() => {
+            if (typeof WeixinJSBridge !== 'undefined') {
+              WeixinJSBridge.call('closeWindow');
+            } else {
+              window.close();
+            }
+          }, 2000);
+        } else if (res.result.code === 409) {
+          // 已绑定其他账号
+          showError('该微信已绑定其他用户，请使用其他微信账号');
+          confirmBtn.disabled = false;
+          confirmBtn.innerHTML = '确认绑定';
+        } else if (res.result.code === 410) {
+          // 二维码过期
+          showError('二维码已过期，请刷新二维码后重试');
+          confirmBtn.disabled = false;
+          confirmBtn.innerHTML = '确认绑定';
+        } else {
+          // 其他错误
+          errorContainer.innerHTML = `<div class="error-message">${res.result.message || '绑定失败'}</div>`;
+          confirmBtn.disabled = false;
+          confirmBtn.innerHTML = '确认绑定';
+        }
+      } catch (error) {
+        console.error('绑定失败:', error);
+        errorContainer.innerHTML = '<div class="error-message">网络错误，请稍后重试</div>';
+        confirmBtn.disabled = false;
+        confirmBtn.innerHTML = '确认绑定';
+      }
+    }
+
+    // 取消
+    function cancel() {
+      if (typeof WeixinJSBridge !== 'undefined') {
+        WeixinJSBridge.call('closeWindow');
+      } else {
+        window.close();
+      }
+    }
+
+    // 显示视图
+    function showView(viewName) {
+      const views = ['loading', 'confirm', 'success', 'error'];
+      views.forEach(view => {
+        document.getElementById(`${view}-view`).style.display = 'none';
+      });
+      document.getElementById(`${viewName}-view`).style.display = 'block';
+    }
+
+    // 显示错误
+    function showError(message) {
+      document.getElementById('error-text').textContent = message;
+      showView('error');
+    }
+
+    // 页面加载
+    window.onload = () => {
+      loadAccountInfo();
+    };
+  </script>
+</body>
+</html>

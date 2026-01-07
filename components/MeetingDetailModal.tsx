@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Calendar, Clock, MapPin, Users, FileText, Edit, Trash2, Plus, CheckCircle, AlertCircle, Edit2 } from 'lucide-react';
 import { callFunction } from '@/lib/cloudbase';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
+import MeetingMinutesEditor from './MeetingMinutesEditor';
+import MeetingMinutesViewer from './MeetingMinutesViewer';
 
 interface Meeting {
   _id: string;
@@ -63,6 +65,17 @@ const MeetingDetailModal: React.FC<MeetingDetailModalProps> = ({
   const [editingMinutes, setEditingMinutes] = useState(false);
   const [minutesContent, setMinutesContent] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showMinutesEditor, setShowMinutesEditor] = useState(false);
+
+  // 🔧 同步 initialMeeting 的变化
+  useEffect(() => {
+    console.log('🔵 MeetingDetailModal: initialMeeting 变化', {
+      hasInitialMeeting: !!initialMeeting,
+      initialMeetingId: initialMeeting?._id,
+      currentMeetingId: meeting?._id
+    });
+    setMeeting(initialMeeting);
+  }, [initialMeeting]);
 
   const formatDate = (date: Date) => {
     return new Date(date).toLocaleString('zh-CN', {
@@ -190,9 +203,6 @@ const MeetingDetailModal: React.FC<MeetingDetailModalProps> = ({
                 <Badge variant="outline" className="bg-white/20 text-white border-white/30">
                   {meeting.type}
                 </Badge>
-                <Badge className={getStatusColor(meeting.status)}>
-                  {meeting.status}
-                </Badge>
                 <span className="text-sm text-white/90">
                   {formatDate(meeting.scheduledTime)}
                 </span>
@@ -275,10 +285,21 @@ const MeetingDetailModal: React.FC<MeetingDetailModalProps> = ({
 
                   <div className="flex items-start space-x-3">
                     <Users className="w-5 h-5 text-gray-400 mt-0.5" />
-                    <div>
-                      <div className="text-sm text-gray-500">参会人员</div>
-                      <div className="text-sm font-medium text-gray-900">
-                        {meeting.attendees.length} 人
+                    <div className="flex-1">
+                      <div className="text-sm text-gray-500 mb-2">参会人员 ({meeting.attendees?.length || 0} 人)</div>
+                      <div className="flex flex-wrap gap-2">
+                        {meeting.attendees && meeting.attendees.length > 0 ? (
+                          meeting.attendees.map((attendeeName, index) => (
+                            <span 
+                              key={index}
+                              className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                            >
+                              {attendeeName}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-sm text-gray-500">暂无参会人员</span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -291,43 +312,6 @@ const MeetingDetailModal: React.FC<MeetingDetailModalProps> = ({
                       </div>
                     </div>
                   )}
-                </div>
-              </Card>
-
-              <Card className="p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">会议状态</h3>
-                <div className="flex flex-wrap gap-2">
-                  {STATUS_OPTIONS.map(status => (
-                    <button
-                      key={status.value}
-                      onClick={() => handleStatusChange(status.value)}
-                      disabled={loading || meeting.status === status.value}
-                      className={`
-                        px-4 py-2 rounded-lg transition-all
-                        ${meeting.status === status.value
-                          ? status.color + ' ring-2 ring-blue-500'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }
-                        disabled:opacity-50 disabled:cursor-not-allowed
-                      `}
-                    >
-                      {status.label}
-                    </button>
-                  ))}
-                </div>
-              </Card>
-
-              <Card className="p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">参会人员</h3>
-                <div className="flex flex-wrap gap-2">
-                  {meeting.attendees.map((attendee, index) => (
-                    <span
-                      key={index}
-                      className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800"
-                    >
-                      {attendee}
-                    </span>
-                  ))}
                 </div>
               </Card>
             </div>
@@ -356,13 +340,25 @@ const MeetingDetailModal: React.FC<MeetingDetailModalProps> = ({
                             预计时长: {agenda.duration}分钟
                           </div>
                           {agenda.content && (
-                            <div className="text-sm text-gray-700 bg-white p-3 rounded border">
+                            <div className="text-sm text-gray-700 bg-white p-3 rounded border mb-2">
                               {agenda.content}
                             </div>
                           )}
                           {agenda.relatedIds && agenda.relatedIds.length > 0 && (
-                            <div className="text-xs text-gray-500 mt-2">
+                            <div className="text-xs text-gray-500 mb-2">
                               关联数据: {agenda.relatedIds.length} 项
+                            </div>
+                          )}
+                          {/* 议题结论 */}
+                          {agenda.conclusion && (
+                            <div className="mt-3 pt-3 border-t border-gray-200">
+                              <div className="text-sm font-medium text-gray-700 mb-1 flex items-center">
+                                <Edit2 className="w-3 h-3 mr-1" />
+                                议题结论
+                              </div>
+                              <div className="text-sm text-gray-700 bg-white p-3 rounded border">
+                                {agenda.conclusion}
+                              </div>
                             </div>
                           )}
                         </div>
@@ -488,56 +484,28 @@ const MeetingDetailModal: React.FC<MeetingDetailModalProps> = ({
 
           {/* 会议纪要 */}
           {activeTab === 'minutes' && (
-            <Card className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">会议纪要</h3>
-                {!editingMinutes ? (
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      setEditingMinutes(true);
-                      setMinutesContent(meeting.minutes || '');
-                    }}
-                  >
-                    <Edit2 className="w-4 h-4 mr-1" />
-                    编辑
-                  </Button>
-                ) : (
-                  <div className="flex space-x-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setEditingMinutes(false);
-                        setMinutesContent('');
-                      }}
-                    >
-                      取消
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={handleSaveMinutes}
-                      disabled={loading}
-                    >
-                      保存
-                    </Button>
-                  </div>
-                )}
-              </div>
-              {editingMinutes ? (
-                <textarea
-                  value={minutesContent}
-                  onChange={(e) => setMinutesContent(e.target.value)}
-                  rows={10}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                  placeholder="请输入会议纪要内容..."
+            <>
+              {/* 🔧 使用新的查看/编辑模式 */}
+              {!showMinutesEditor && meeting ? (
+                <MeetingMinutesViewer
+                  meeting={meeting}
+                  onEdit={() => setShowMinutesEditor(true)}
+                />
+              ) : showMinutesEditor && meeting ? (
+                <MeetingMinutesEditor
+                  meeting={meeting}
+                  onSave={() => {
+                    setShowMinutesEditor(false);
+                    onUpdate();
+                  }}
+                  onClose={() => setShowMinutesEditor(false)}
                 />
               ) : (
-                <div className="text-sm text-gray-600 whitespace-pre-wrap">
-                  {meeting.minutes || '暂无会议纪要'}
+                <div className="p-4 text-center text-red-600">
+                  错误：会议数据无效
                 </div>
               )}
-            </Card>
+            </>
           )}
         </div>
 
@@ -562,7 +530,7 @@ const MeetingDetailModal: React.FC<MeetingDetailModalProps> = ({
             <Button variant="outline" onClick={onClose}>
               关闭
             </Button>
-            {onEdit && (
+            {onEdit && meeting.status !== '已结束' && (
               <Button onClick={onEdit}>
                 <Edit className="w-4 h-4 mr-1" />
                 编辑会议
@@ -571,6 +539,21 @@ const MeetingDetailModal: React.FC<MeetingDetailModalProps> = ({
           </div>
         </div>
       </div>
+      
+      {/* 会议纪要编辑器 */}
+      {showMinutesEditor && meeting && (
+        <MeetingMinutesEditor
+          meeting={meeting as any}
+          onSave={(minutesData) => {
+            if (meeting) {
+              setMeeting({ ...meeting, minutesData });
+            }
+            setShowMinutesEditor(false);
+            onUpdate();
+          }}
+          onClose={() => setShowMinutesEditor(false)}
+        />
+      )}
     </div>
   );
 };

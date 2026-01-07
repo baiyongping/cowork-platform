@@ -1,7 +1,7 @@
 {
   "name": "jihua-oa-platform",
   "private": true,
-  "version": "3.7.0",
+  "version": "3.9.0",
   "type": "module",
   "description": "际华定制协同办公管理平台",
   "scripts": {
@@ -49,6 +49,7 @@
     "react-day-picker": "^8.10.1",
     "react-dom": "^18.2.0",
     "react-hot-toast": "^2.6.0",
+    "react-router-dom": "^7.11.0",
     "recharts": "^2.15.2",
     "tailwind-merge": "^2.2.0",
     "tdesign-icons-react": "^0.6.1",

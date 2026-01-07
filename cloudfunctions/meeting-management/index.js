@@ -67,9 +67,16 @@ exports.main = async (event, context) => {
     }
   } catch (error) {
     console.error(`[${action}] Error:`, error);
+    console.error(`[${action}] Error Stack:`, error.stack);
+    console.error(`[${action}] Error Details:`, {
+      message: error.message,
+      code: error.code,
+      name: error.name
+    });
     return {
       success: false,
       error: error.message,
+      message: error.message, // 🔧 添加 message 字段保持兼容性
       code: error.code || 'UNKNOWN_ERROR'
     };
   }
@@ -87,6 +94,8 @@ async function handleCreate(data, openid) {
     location,
     attendees,
     organizer,
+    host,        // 🔧 新增：会议主持人
+    recorder,    // 🔧 新增：会议记录人
     description,
     timeDimension, // 🔧 新增：时间维度字段
     agendas, // 🔧 新增：议题数组
@@ -166,6 +175,8 @@ async function handleCreate(data, openid) {
     location: location || '',
     attendees: attendees || [],
     organizer: organizer || openid,
+    host: host || '',          // 🔧 新增：会议主持人
+    recorder: recorder || '',  // 🔧 新增：会议记录人
     description: description || '',
     // 🔧 新增：议题数组（用于新的会议类型）
     agendas: agendas || [],
@@ -208,25 +219,67 @@ async function handleCreate(data, openid) {
  * 更新会议
  */
 async function handleUpdate(data, openid) {
-  const { _id, ...updates } = data;
+  console.log('[update] 🔵 收到更新请求，原始数据:', JSON.stringify(data, null, 2));
+  console.log('[update] 🔵 用户openid:', openid);
+  
+  // 🔧 修复：兼容多种参数格式
+  const id = data._id || data.meetingId || data.data?._id || data.data?.meetingId;
+  // 🔧 排除 _id、meetingId 和其他不应更新的字段
+  const { _id, meetingId, minutesData, agendas, ...updates } = data;
+  
+  console.log('[update] 📋 解析后的数据:', {
+    id,
+    hasMinutesData: !!minutesData,
+    hasAgendas: !!agendas,
+    updatesKeys: Object.keys(updates),
+    minutesDataKeys: minutesData ? Object.keys(minutesData) : [],
+    agendasCount: agendas ? agendas.length : 0
+  });
 
-  if (!_id) {
+  console.log('[update] 📋 解析后的数据:', {
+    id,
+    hasMinutesData: !!minutesData,
+    hasAgendas: !!agendas,
+    updatesKeys: Object.keys(updates)
+  });
+
+  if (!id) {
     throw new Error('会议ID不能为空');
   }
 
   // 检查会议是否存在
-  const meeting = await db.collection('meetings').doc(_id).get();
+  console.log('[update] 🔍 检查会议是否存在，ID:', id);
+  const meeting = await db.collection('meetings').doc(id).get();
+  console.log('[update] 📄 会议查询结果:', {
+    found: !!meeting.data,
+    dataKeys: meeting.data ? Object.keys(meeting.data) : []
+  });
+  
   if (!meeting.data) {
-    throw new Error('会议不存在');
+    throw new Error(`会议不存在，ID: ${id}`);
   }
 
-  // 验证权限（只有创建者和组织者可以修改）
-  if (meeting.data.createdBy !== openid && meeting.data.organizer !== openid) {
-    throw new Error('无权限修改此会议');
+  // 验证权限（只有创建者、组织者和记录人可以修改）
+  const isCreator = meeting.data.createdBy === openid;
+  const isOrganizer = meeting.data.organizer === openid;
+  const isRecorder = meeting.data.recorder === openid;
+  
+  console.log('[update] 🔐 权限验证:', {
+    openid,
+    createdBy: meeting.data.createdBy,
+    organizer: meeting.data.organizer,
+    recorder: meeting.data.recorder,
+    isCreator,
+    isOrganizer,
+    isRecorder
+  });
+  
+  if (!isCreator && !isOrganizer && !isRecorder) {
+    throw new Error(`无权限修改此会议。当前用户: ${openid}, 创建者: ${meeting.data.createdBy}, 组织者: ${meeting.data.organizer}, 记录人: ${meeting.data.recorder}`);
   }
 
   // 如果更新会议类型，验证类型有效性
-  if (updates.type) {
+  if (updates && updates.type) {
     const validMeetingTypes = ['周工作例会', '月度工作例会'];
     const validAgendaTypes = ['目标复盘', '任务汇报', '商机分析', '项目分析', '问题解决', '预算决策', '其它议题'];
     
@@ -263,23 +316,57 @@ async function handleUpdate(data, openid) {
     updatedBy: openid
   };
 
-  // 如果更新了scheduledTime，转换为Date对象
-  if (updateData.scheduledTime) {
-    updateData.scheduledTime = new Date(updateData.scheduledTime);
+  // 🔧 新增：如果提供了会议纪要数据，更新会议纪要
+  if (minutesData) {
+    console.log('[update] 📝 更新会议纪要数据:', minutesData);
+    updateData.minutesData = minutesData;
+    // 🔧 兼容旧数据：同时更新 minutes 字段
+    updateData.minutes = minutesData.summary || '';
   }
 
-  // 更新数据库
-  await db.collection('meetings').doc(_id).update({
-    data: updateData
+  // 🔧 新增：如果提供了议题数据（包含议题结论），更新议题
+  if (agendas) {
+    console.log('[update] 📋 更新议题数据:', agendas);
+    updateData.agendas = agendas;
+  }
+
+  // 特殊处理日期字段
+  if (updates.scheduledTime) {
+    updateData.scheduledTime = new Date(updates.scheduledTime);
+  }
+
+  // 执行更新
+  console.log('[update] 🔄 准备更新会议数据:', {
+    meetingId: id,
+    hasMinutesData: !!minutesData,
+    hasAgendas: !!agendas,
+    updateDataKeys: Object.keys(updateData),
+    updateDataSize: JSON.stringify(updateData).length
   });
 
-  console.log('[update] Meeting updated:', _id);
+  try {
+    const updateResult = await db.collection('meetings').doc(id).update({
+      data: updateData
+    });
+    console.log('[update] ✅ Meeting updated successfully:', {
+      id,
+      updateResult,
+      updatedFields: Object.keys(updateData)
+    });
+  } catch (dbError) {
+    console.error('[update] ❌ 数据库更新失败:', dbError);
+    throw new Error(`数据库更新失败: ${dbError.message}`);
+  }
+
+  // 🔧 修复：返回更新后的会议数据（包括 _id）
+  const updatedMeeting = await db.collection('meetings').doc(id).get();
 
   return {
     success: true,
+    message: '会议更新成功',
     data: {
-      _id,
-      ...updateData
+      _id: id,
+      ...updatedMeeting.data
     }
   };
 }
@@ -374,11 +461,11 @@ async function handleQuery(data, openid) {
     });
   }
 
-  // 查询数据
+  // 查询数据 - 🔧 修改排序为 updatedAt 倒序
   const [listResult, countResult] = await Promise.all([
     db.collection('meetings')
       .where(where)
-      .orderBy('scheduledTime', 'desc')
+      .orderBy('updatedAt', 'desc')
       .skip((page - 1) * limit)
       .limit(limit)
       .get(),
@@ -393,10 +480,17 @@ async function handleQuery(data, openid) {
     limit
   });
 
+  // 🔧 字段映射：将 attendees 映射为 participants（兼容性处理）
+  const mappedItems = listResult.data.map(meeting => ({
+    ...meeting,
+    participants: meeting.attendees || meeting.participants || [],
+    startTime: meeting.scheduledTime // 也映射时间字段
+  }));
+
   return {
     success: true,
     data: {
-      items: listResult.data,
+      items: mappedItems,
       total: countResult.total,
       page,
       limit,
@@ -424,9 +518,16 @@ async function handleDetail(data, openid) {
 
   console.log('[detail] Meeting detail:', _id);
 
+  // 🔧 字段映射：将 attendees 映射为 participants（兼容性处理）
+  const mappedData = {
+    ...result.data,
+    participants: result.data.attendees || result.data.participants || [],
+    startTime: result.data.scheduledTime // 也映射时间字段
+  };
+
   return {
     success: true,
-    data: result.data
+    data: mappedData
   };
 }
 
@@ -497,8 +598,12 @@ async function handleUpdateAgenda(data, openid) {
     throw new Error('会议不存在');
   }
 
-  // 验证权限
-  if (meeting.data.createdBy !== openid && meeting.data.organizer !== openid) {
+  // 验证权限（会议记录人也可以更新议题结论）
+  const isRecorder = meeting.data.recorder === openid;
+  const isOrganizer = meeting.data.organizer === openid;
+  const isCreator = meeting.data.createdBy === openid;
+  
+  if (!isRecorder && !isOrganizer && !isCreator) {
     throw new Error('无权限修改议题');
   }
 
@@ -512,7 +617,9 @@ async function handleUpdateAgenda(data, openid) {
 
   agendas[agendaIndex] = {
     ...agendas[agendaIndex],
-    ...updates
+    ...updates,
+    updatedAt: new Date(),
+    updatedBy: openid
   };
 
   // 更新会议

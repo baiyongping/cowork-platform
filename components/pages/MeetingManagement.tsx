@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Plus, Filter, Search, Clock, Users, MapPin, FileText, Trash2 } from 'lucide-react';
+import { Calendar, Plus, Filter, Search, Clock, Users, MapPin, FileText, Trash2, Play } from 'lucide-react';
 import { callFunction } from '../../lib/cloudbase';
 import CreateMeetingModal from '../CreateMeetingModal';
 import MeetingDetailModal from '../MeetingDetailModal';
 import MeetingRecycleBin from '../MeetingRecycleBin';
+import MeetingSessionModal from '../MeetingSessionModal';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -84,6 +85,8 @@ const MeetingManagement: React.FC = () => {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showRecycleBin, setShowRecycleBin] = useState(false);
   const [editingMeeting, setEditingMeeting] = useState<Meeting | null>(null);
+  const [showSessionModal, setShowSessionModal] = useState(false);
+  const [sessionMeeting, setSessionMeeting] = useState<Meeting | null>(null);
 
   useEffect(() => {
     loadMeetings();
@@ -142,18 +145,63 @@ const MeetingManagement: React.FC = () => {
     setShowCreateModal(true);
   };
 
+  // 召开会议
+  const handleStartMeeting = async (meeting: Meeting, e: React.MouseEvent) => {
+    e.stopPropagation(); // 阻止冒泡，避免触发卡片点击
+
+    try {
+      // 1. 更新会议状态为"进行中"
+      const result = await callFunction({
+        name: 'meeting-management',
+        data: {
+          action: 'update',
+          data: {
+            _id: meeting._id,
+            status: '进行中'
+          }
+        }
+      });
+
+      if (result.result.success) {
+        // 2. 打开会议进行窗口
+        setSessionMeeting({
+          ...meeting,
+          status: '进行中'
+        });
+        setShowSessionModal(true);
+        
+        // 3. 刷新列表
+        loadMeetings();
+      } else {
+        alert('召开会议失败：' + result.result.error);
+      }
+    } catch (error: any) {
+      console.error('召开会议失败:', error);
+      alert('召开会议失败：' + error.message);
+    }
+  };
+
+  // 会议结束后的回调
+  const handleMeetingFinished = () => {
+    setShowSessionModal(false);
+    setSessionMeeting(null);
+    loadMeetings();
+  };
+
   const getStatusColor = (status: string) => {
     const statusConfig = MEETING_STATUSES.find(s => s.value === status);
     return statusConfig?.color || 'bg-gray-100 text-gray-800';
   };
 
   const formatDate = (date: Date) => {
+    // 🔧 统一格式：YYYY年MM月DD日 HH:mm
     return new Date(date).toLocaleString('zh-CN', {
       year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
+      month: 'long',
+      day: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
+      hour12: false
     });
   };
 
@@ -356,6 +404,34 @@ const MeetingManagement: React.FC = () => {
                       </p>
                     </div>
                   )}
+
+                  {/* 召开会议/进入会议按钮 */}
+                  {meeting.status === '未开始' && (
+                    <div className="mt-4 pt-4 border-t border-gray-100">
+                      <Button
+                        onClick={(e) => handleStartMeeting(meeting, e)}
+                        className="w-full bg-green-600 hover:bg-green-700 text-white"
+                      >
+                        <Play className="w-4 h-4 mr-2" />
+                        召开会议
+                      </Button>
+                    </div>
+                  )}
+                  {meeting.status === '进行中' && (
+                    <div className="mt-4 pt-4 border-t border-gray-100">
+                      <Button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSessionMeeting(meeting);
+                          setShowSessionModal(true);
+                        }}
+                        className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                      >
+                        <Play className="w-4 h-4 mr-2" />
+                        进入会议
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </Card>
             ))}
@@ -422,6 +498,18 @@ const MeetingManagement: React.FC = () => {
         <MeetingRecycleBin
           onClose={() => setShowRecycleBin(false)}
           onRestore={() => loadMeetings()}
+        />
+      )}
+
+      {/* 会议进行窗口 */}
+      {showSessionModal && sessionMeeting && (
+        <MeetingSessionModal
+          meeting={sessionMeeting}
+          onClose={() => {
+            setShowSessionModal(false);
+            setSessionMeeting(null);
+          }}
+          onFinish={handleMeetingFinished}
         />
       )}
     </div>

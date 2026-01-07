@@ -1,12 +1,35 @@
 import { useState, useEffect } from 'react';
-import { Target, TrendingUp, Briefcase, ShoppingCart, Plus, X, Edit2, Trash2, Save, Download } from 'lucide-react';
+import { Target, TrendingUp, Briefcase, ShoppingCart, Plus, X, Edit2, Trash2, Save, Download, ChevronDown, ChevronUp, Settings } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { db } from '../../lib/cloudbase';
+import { db, callFunction } from '../../lib/cloudbase';
+
+// 导入 CloudBase command 用于数据库查询
+const _ = db.command;
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { usePermissionContext } from '../../contexts/PermissionContext';
 import { ConfirmDialog } from '../ConfirmDialog';
 import { showAlert, showConfirm, showSuccess, showError, showWarning, toastSuccess } from '../../lib/dialog-utils';
+import { SafeguardMeasure } from '../../types/safeguard';
+import { SafeguardInlineForm } from '../SafeguardInlineForm';
+import DecompositionDimensionSettingsWithTabs from '../DecompositionDimensionSettingsWithTabs';
+import GoalDecompositionManager from '../GoalDecompositionManager';
+import GoalDecompositionMultiTable from '../GoalDecompositionMultiTable';
+
+// 中文数字转换函数
+const toChineseNumber = (num: number): string => {
+  const chineseNumbers = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];
+  if (num <= 10) {
+    return chineseNumbers[num];
+  } else if (num < 20) {
+    return '十' + chineseNumbers[num - 10];
+  } else if (num < 100) {
+    const tens = Math.floor(num / 10);
+    const ones = num % 10;
+    return chineseNumbers[tens] + '十' + (ones > 0 ? chineseNumbers[ones] : '');
+  }
+  return String(num);
+};
 
 interface GoalManagementProps {
   userRole: 'admin' | 'employee';
@@ -64,7 +87,8 @@ interface QuarterlyMeasure {
   _id?: string;
   year: number;
   quarter: 'Q1' | 'Q2' | 'Q3' | 'Q4';
-  strategyId: string;
+  safeguardId: string; // 关联保障措施ID（原strategyId）
+  safeguardTitle?: string; // 保障措施标题
   content: string;
   owner: string;
   ownerId: string;
@@ -111,8 +135,9 @@ interface ProductOrderForecast {
 }
 
 export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened }: GoalManagementProps) {
-  const [selectedTab, setSelectedTab] = useState<'sales' | 'opportunity' | 'product' | 'strategy' | 'decomposition' | 'execution'>('sales');
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedTab, setSelectedTab] = useState<'sales' | 'opportunity' | 'product' | 'strategy' | 'decomposition' | 'execution' | 'dimensionSettings'>('sales');
+  const currentYear = new Date().getFullYear(); // 当前年份（固定）
+  const [selectedYear, setSelectedYear] = useState(currentYear);
   
   // 使用新的权限上下文
   const { checkPermission, loading: permissionLoading } = usePermissionContext();
@@ -120,14 +145,15 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
   // 🔧 自动选择第一个有权限的Tab
   useEffect(() => {
     if (!permissionLoading) {
-      const tabs: Array<'sales' | 'opportunity' | 'product' | 'strategy' | 'decomposition' | 'execution'> = ['sales', 'opportunity', 'product', 'strategy', 'decomposition', 'execution'];
+      const tabs: Array<'sales' | 'opportunity' | 'product' | 'strategy' | 'decomposition' | 'execution' | 'dimensionSettings'> = ['sales', 'opportunity', 'product', 'strategy', 'decomposition', 'execution', 'dimensionSettings'];
       const moduleMap = {
         sales: 'goal.salesGoal',
         opportunity: 'goal.opportunityGoal',
         product: 'goal.productOrder',
         strategy: 'goal.strategy',
         decomposition: 'goal.decomposition',
-        execution: 'goal.execution'
+        execution: 'goal.execution',
+        dimensionSettings: 'goal.execution' // 维度设置使用与执行力地图相同的权限
       };
       
       // 检查当前选中的Tab是否有权限
@@ -163,16 +189,22 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
   const [projectListTitle, setProjectListTitle] = useState('');
   const [loadingProjects, setLoadingProjects] = useState(false);
 
-  // 策略详情弹窗状态
-  const [showStrategyDetailModal, setShowStrategyDetailModal] = useState(false);
-  const [selectedStrategy, setSelectedStrategy] = useState<AnnualStrategy | null>(null);
-  const [relatedMeasures, setRelatedMeasures] = useState<QuarterlyMeasure[]>([]);
+  // 内联编辑状态
+  const [expandedStrategyId, setExpandedStrategyId] = useState<string | null>(null);
+  const [editingSafeguardId, setEditingSafeguardId] = useState<string | null>(null);
+  const [isAddingSafeguard, setIsAddingSafeguard] = useState(false);
+  const [editingQuarterlyId, setEditingQuarterlyId] = useState<string | null>(null);
 
   // 季度措施详情弹窗状态
   const [showMeasureDetailModal, setShowMeasureDetailModal] = useState(false);
   const [selectedMeasure, setSelectedMeasure] = useState<QuarterlyMeasure | null>(null);
   const [measureRelatedTasks, setMeasureRelatedTasks] = useState<any[]>([]);
 
+  // 注意：保障措施管理已统一到 StrategyDetailModal 中
+  
+  // 年度策略展开状态（用于显示保障措施）
+  const [expandedStrategies, setExpandedStrategies] = useState<Record<string, boolean>>({});
+  
   // 执行力地图状态
   const [executionTreeData, setExecutionTreeData] = useState<any>(null);
   const [executionStats, setExecutionStats] = useState({
@@ -184,6 +216,16 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
   });
   // 折叠状态管理：key为节点id，value为是否展开(true=展开，false=折叠)
   const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({});
+  
+  // 目标分解管理器状态
+  const [showDecompositionManager, setShowDecompositionManager] = useState(false);
+  const [decompositionGoal, setDecompositionGoal] = useState<{
+    id: string;
+    title: string;
+    type: 'sales' | 'opportunity';
+    targetValue: number;
+    unit: string;
+  } | null>(null);
 
   // 数据状态
   const [salesGoals, setSalesGoals] = useState<SalesGoal[]>([]);
@@ -197,6 +239,7 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
   const [hoveredForecastCell, setHoveredForecastCell] = useState<{productId: string, field: string} | null>(null);
   const [focusedForecastCell, setFocusedForecastCell] = useState<{productId: string, field: string} | null>(null);
   const [quarterlyMeasures, setQuarterlyMeasures] = useState<QuarterlyMeasure[]>([]);
+  const [safeguardMeasures, setSafeguardMeasures] = useState<SafeguardMeasure[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   
@@ -234,7 +277,7 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
     ownerId: '',
     weight: 0,
     quarter: 'Q1' as 'Q1' | 'Q2' | 'Q3' | 'Q4',
-    strategyId: '',
+    safeguardId: '', // 改为关联保障措施ID
     progress: 0, // 新增:进度字段
   });
 
@@ -325,6 +368,12 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
     }
   };
 
+
+  // 保存保障措施
+  // 注意：保障措施的增删改功能已统一到 StrategyDetailModal 中通过云函数实现
+
+  // 注意：保障措施删除功能已统一到 StrategyDetailModal 中
+
   // 加载商机目标
   const loadOpportunityGoals = async () => {
     try {
@@ -409,6 +458,8 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
     }
   };
 
+
+
   // 加载产品目标
   const loadProductForecasts = async () => {
     try {
@@ -450,6 +501,8 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
       setLoading(false);
     }
   };
+
+
   
   // 初始化产品目标数据（首次访问时自动创建）
   const initializeProductForecasts = async (year: number) => {
@@ -585,6 +638,36 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
     }
   };
 
+
+  // 加载保障措施
+  const loadSafeguardMeasures = async () => {
+    try {
+      setLoading(true);
+      const res = await db.collection('safeguardMeasures')
+        .where({ 
+          year: selectedYear,
+          isDeleted: _.neq(true)  // 🔧 关键修复：过滤已删除的保障措施
+        })
+        .orderBy('createdAt', 'desc')
+        .get();
+      
+      if (res.code) {
+        console.error('❌ CloudBase查询错误:', res.code, res.message);
+        setSafeguardMeasures([]);
+        return;
+      }
+      
+      const data = Array.isArray(res.data) ? res.data : [];
+      console.log('📦 加载保障措施数据:', data.length, '条（已过滤删除项）');
+      setSafeguardMeasures(data);
+    } catch (error) {
+      console.error('❌ 加载保障措施失败:', error);
+      setSafeguardMeasures([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // 加载季度措施(包含自动计算完成度)
   const loadQuarterlyMeasures = async () => {
     try {
@@ -646,6 +729,83 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
     }
   };
 
+
+
+  // ========== 保障措施内联编辑处理函数 ==========
+  
+  // 添加保障措施
+  const handleAddSafeguard = (strategyId: string) => {
+    setExpandedStrategyId(strategyId);
+    setIsAddingSafeguard(true);
+    setEditingSafeguardId(null);
+  };
+
+  // 编辑保障措施
+  const handleEditSafeguard = (safeguardId: string, strategyId: string) => {
+    setExpandedStrategyId(strategyId);
+    setEditingSafeguardId(safeguardId);
+    setIsAddingSafeguard(false);
+  };
+
+  // 取消保障措施编辑
+  const handleCancelSafeguardEdit = () => {
+    setEditingSafeguardId(null);
+    setIsAddingSafeguard(false);
+  };
+
+  // 保存保障措施
+  const handleSaveSafeguard = async (data: any) => {
+    try {
+      const isEditing = editingSafeguardId !== null;
+      const action = isEditing ? 'update' : 'create';
+      const submitData = isEditing ? { ...data, _id: editingSafeguardId } : data;
+      
+      const res = await callFunction({
+        name: 'safeguard-measures',
+        data: { action, data: submitData }
+      });
+
+      if (!res.result.success) {
+        throw new Error(res.result.message || '保存失败');
+      }
+
+      showSuccess(isEditing ? '更新成功' : '添加成功');
+      handleCancelSafeguardEdit();
+      loadSafeguardMeasures();
+    } catch (error: any) {
+      console.error('保存保障措施失败:', error);
+      showError(error.message || '保存失败');
+    }
+  };
+
+  // 删除保障措施
+  const handleDeleteSafeguard = async (safeguardId: string) => {
+    const confirmed = await showConfirm('确定要删除此保障措施吗？删除后关联的季度措施也会被删除。');
+    if (!confirmed) return;
+
+    try {
+      const res = await callFunction({
+        name: 'safeguard-measures',
+        data: {
+          action: 'delete',
+          data: { _id: safeguardId }
+        }
+      });
+
+      if (!res.result.success) {
+        throw new Error(res.result.message || '删除失败');
+      }
+
+      showSuccess('删除成功');
+      loadSafeguardMeasures();
+      loadQuarterlyMeasures();
+    } catch (error: any) {
+      console.error('删除保障措施失败:', error);
+      showError(error.message || '删除失败');
+    }
+  };
+
+
   // 加载目标分解数据
   const loadGoalDecomposition = async () => {
     try {
@@ -663,16 +823,21 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
     }
   };
 
+
+
   // 加载执行力地图数据
   const loadExecutionMapData = async () => {
     try {
       setLoading(true);
       
-      // 1. 加载年度策略
-      const strategiesRes = await db.collection('annual_strategies')
-        .where({ year: selectedYear })
+      // 1. 加载保障措施（过滤已删除）
+      const safeguardMeasuresRes = await db.collection('safeguardMeasures')
+        .where({ 
+          year: selectedYear,
+          isDeleted: _.neq(true)  // 🔧 关键修复：过滤已删除的保障措施
+        })
         .get();
-      const strategies = strategiesRes.data || [];
+      const safeguardMeasures = safeguardMeasuresRes.data || [];
       
       // 2. 加载所有季度措施
       const measuresRes = await db.collection('quarterly_measures')
@@ -746,18 +911,17 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
       const treeData = {
         name: `${selectedYear}年度执行力地图`,
         type: 'root',
-        children: strategies.map(strategy => {
-          // 获取该策略的季度措施
-          const strategyMeasures = measures.filter(m => m.strategyId === strategy._id);
+        children: safeguardMeasures.map(safeguard => {
+          // 获取该保障措施的季度措施
+          const safeguardQuarterlyMeasures = measures.filter(m => m.safeguardId === safeguard._id);
           
           return {
-            name: strategy.content,
-            type: 'strategy',
-            id: strategy._id,
-            status: strategy.status,
-            weight: strategy.weight,
-            owner: getOwnerName(strategy.owner, false), // 策略owner是用户名
-            children: strategyMeasures.map(measure => {
+            name: safeguard.content,
+            type: 'safeguard',
+            id: safeguard._id,
+            status: safeguard.status,
+            owner: getOwnerName(safeguard.owner, false),
+            children: safeguardQuarterlyMeasures.map(measure => {
               // 获取该措施的团队任务
               const measureTeamTasks = teamTasks.filter(t => t.relatedMeasure === measure._id);
               
@@ -830,6 +994,8 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
       setLoading(false);
     }
   };
+
+
 
   // 查询指定时间范围的商机列表（订单承揽）
   const loadOpportunitiesByPeriod = async (year: number, quarter?: 'Q1' | 'Q2' | 'Q3' | 'Q4') => {
@@ -1086,6 +1252,7 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
       loadProductForecasts();
     } else if (selectedTab === 'strategy') {
       loadAnnualStrategies();
+      loadSafeguardMeasures();
       loadQuarterlyMeasures();
     } else if (selectedTab === 'decomposition') {
       // 目标分解数据加载
@@ -1215,6 +1382,8 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
     }
   };
 
+
+
   // 保存商机目标
   const handleSaveOpportunityGoal = async () => {
     try {
@@ -1278,6 +1447,8 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
     }
   };
 
+
+
   // 保存策略/措施
   const handleSaveStrategy = async () => {
     try {
@@ -1318,6 +1489,7 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
         }
         // 关闭模态框前先加载数据，确保UI更新
         await loadAnnualStrategies();
+        await loadSafeguardMeasures();
       } else {
         // 季度措施
         if (editingItem) {
@@ -1325,7 +1497,7 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
             content: strategyForm.content,
             owner: strategyForm.owner,
             ownerId: strategyForm.ownerId,
-            strategyId: strategyForm.strategyId,
+            safeguardId: strategyForm.safeguardId, // 改为保障措施ID
             updatedAt: new Date(),
           });
           
@@ -1338,7 +1510,7 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
           const result = await db.collection('quarterly_measures').add({
             year: strategyForm.year,
             quarter: strategyForm.quarter,
-            strategyId: strategyForm.strategyId,
+            safeguardId: strategyForm.safeguardId, // 改为保障措施ID
             content: strategyForm.content,
             owner: strategyForm.owner,
             ownerId: strategyForm.ownerId,
@@ -1368,7 +1540,7 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
       setTimeout(() => {
         setShowStrategyModal(false);
         setEditingItem(null);
-        setStrategyForm({ year: selectedYear, content: '', owner: '', ownerId: '', weight: 0, quarter: 'Q1', strategyId: '', progress: 0 });
+        setStrategyForm({ year: selectedYear, content: '', owner: '', ownerId: '', weight: 0, quarter: 'Q1', safeguardId: '', progress: 0 });
       }, 100);
     } catch (error) {
       console.error('保存策略失败:', error);
@@ -1377,6 +1549,8 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
       setLoading(false);
     }
   };
+
+
 
   // 删除策略
   const handleDeleteStrategy = async (id: string, type: 'strategy' | 'measure') => {
@@ -1398,6 +1572,8 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
     }
   };
 
+
+
   // 更新策略状态
   const handleUpdateStrategyStatus = async (id: string, status: string, type: 'strategy' | 'measure') => {
     try {
@@ -1408,11 +1584,11 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
         updatedAt: new Date(),
       });
       
-      // 如果是措施状态更新，检查是否需要自动更新策略状态
+      // 如果是措施状态更新，检查是否需要自动更新保障措施状态
       if (type === 'measure') {
         const measure = quarterlyMeasures.find(m => m._id === id);
-        if (measure && measure.strategyId) {
-          await checkAndUpdateStrategyStatus(measure.strategyId);
+        if (measure && measure.safeguardId) {
+          await checkAndUpdateSafeguardStatus(measure.safeguardId);
         }
       }
       
@@ -1429,12 +1605,14 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
     }
   };
 
-  // 检查并自动更新策略状态
-  const checkAndUpdateStrategyStatus = async (strategyId: string) => {
+
+
+  // 检查并自动更新保障措施状态
+  const checkAndUpdateSafeguardStatus = async (safeguardId: string) => {
     try {
-      // 获取该策略的所有措施
+      // 获取该保障措施的所有季度措施
       const measuresRes = await db.collection('quarterly_measures')
-        .where({ strategyId })
+        .where({ safeguardId })
         .get();
       
       const measures = measuresRes.data as QuarterlyMeasure[];
@@ -1448,36 +1626,31 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
       const allCompleted = measures.every(m => m.status === '已完成');
       
       if (allCompleted) {
-        // 自动将策略状态更新为已完成
-        await db.collection('annual_strategies').doc(strategyId).update({
+        // 自动将保障措施状态更新为已完成
+        await db.collection('safeguardMeasures').doc(safeguardId).update({
           status: '已完成',
           updatedAt: new Date(),
         });
         
-        // 重新加载策略列表
-        loadAnnualStrategies();
+        // 重新加载保障措施列表
+        loadSafeguardMeasures();
       }
     } catch (error) {
-      console.error('自动更新策略状态失败:', error);
+      console.error('自动更新保障措施状态失败:', error);
     }
   };
 
-  // 查看策略详情（关联措施）
+  // 查看年度策略详情（包含保障措施）
   const handleViewStrategyDetail = async (strategy: AnnualStrategy) => {
     setSelectedStrategy(strategy);
     setShowStrategyDetailModal(true);
-    
-    try {
-      // 加载该策略的所有关联措施
-      const measuresRes = await db.collection('quarterly_measures')
-        .where({ strategyId: strategy._id })
-        .get();
-      
-      setRelatedMeasures(measuresRes.data as QuarterlyMeasure[]);
-    } catch (error) {
-      console.error('加载关联措施失败:', error);
-      setRelatedMeasures([]);
-    }
+  };
+
+  // 查看保障措施详情（关联季度措施）
+  const handleViewSafeguardDetail = async (safeguard: any) => {
+    // 注意：这个函数可能需要重新考虑，因为 StrategyDetailModal 期望的是 AnnualStrategy
+    // 暂时禁用这个功能，避免类型错误
+    console.warn('handleViewSafeguardDetail 功能需要重新设计');
   };
 
   // 查看措施详情（关联任务）
@@ -1591,7 +1764,7 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
           ownerId: item.ownerId,
           weight: item.weight,
           quarter: 'Q1',
-          strategyId: '',
+          safeguardId: '', // 改为保障措施ID
           progress: 0,
         });
       } else {
@@ -1603,7 +1776,7 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
           ownerId: item.ownerId,
           weight: 0,
           quarter: item.quarter,
-          strategyId: item.strategyId,
+          safeguardId: item.safeguardId, // 改为保障措施ID
           progress: item.progress || 0,
         });
       }
@@ -1616,7 +1789,7 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
         ownerId: '',
         weight: 0,
         quarter: quarter === 'annual' ? 'Q1' : quarter,
-        strategyId: '',
+        safeguardId: '', // 改为保障措施ID
         progress: 0,
       });
       setEditingItem(null);
@@ -1748,15 +1921,38 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-lg font-semibold text-gray-900">{selectedYear}年度销售目标</h3>
-            {checkPermission('goal.salesGoal', 'edit') && (
-              <button
-                onClick={() => handleEditSalesGoal(salesGoals?.find(g => g.type === 'annual') || null, 'annual')}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-              <Edit2 className="w-4 h-4" />
-              编辑目标
-            </button>
-            )}
+            <div className="flex items-center gap-2">
+              {checkPermission('goal.salesGoal', 'edit') && (
+                <>
+                  <button
+                    onClick={() => {
+                      const goal = salesGoals?.find(g => g.type === 'annual');
+                      if (goal && goal._id) {
+                        setDecompositionGoal({
+                          id: goal._id,
+                          title: `${selectedYear}年度销售目标`,
+                          type: 'sales',
+                          targetValue: goal.orderTarget,
+                          unit: '万元'
+                        });
+                        setShowDecompositionManager(true);
+                      }
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    <Target className="w-4 h-4" />
+                    目标分解
+                  </button>
+                  <button
+                    onClick={() => handleEditSalesGoal(salesGoals?.find(g => g.type === 'annual') || null, 'annual')}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                    编辑目标
+                  </button>
+                </>
+              )}
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-6">
             <div className="space-y-4">
@@ -1903,15 +2099,38 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-lg font-semibold text-gray-900">{selectedYear}年度商机挖掘目标</h3>
-            {checkPermission('goal.opportunityGoal', 'edit') && (
-              <button
-                onClick={() => handleEditOpportunityGoal(opportunityGoals?.find(g => g.type === 'annual') || null, 'annual')}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                <Edit2 className="w-4 h-4" />
-                编辑目标
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              {checkPermission('goal.opportunityGoal', 'edit') && (
+                <>
+                  <button
+                    onClick={() => {
+                      const goal = opportunityGoals?.find(g => g.type === 'annual');
+                      if (goal && goal._id) {
+                        setDecompositionGoal({
+                          id: goal._id,
+                          title: `${selectedYear}年度商机挖掘目标`,
+                          type: 'opportunity',
+                          targetValue: goal.amountTarget,
+                          unit: '万元'
+                        });
+                        setShowDecompositionManager(true);
+                      }
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    <Target className="w-4 h-4" />
+                    目标分解
+                  </button>
+                  <button
+                    onClick={() => handleEditOpportunityGoal(opportunityGoals?.find(g => g.type === 'annual') || null, 'annual')}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                    编辑目标
+                  </button>
+                </>
+              )}
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-8">
             {/* 商机挖掘数 */}
@@ -2413,94 +2632,332 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
           {annualStrategies.length === 0 ? (
             <div className="text-center py-8 text-gray-500">暂无年度策略，点击上方按钮新增</div>
           ) : (
-            annualStrategies.map((strategy) => {
-              // 计算该策略关联的季度举措数量和完成度
-              const relatedMeasures = quarterlyMeasures.filter(m => m.strategyId === strategy._id);
-              const measureCount = relatedMeasures.length;
+            annualStrategies.map((strategy, strategyIndex) => {
+              // 计算该策略关联的保障措施完成度
+              const relatedSafeguards = safeguardMeasures.filter(s => s.strategyId === strategy._id);
               
-              // 计算策略整体完成度
+              // 计算策略整体完成度 (基于保障措施的进度)
               let strategyCompletion = 0;
-              if (measureCount > 0) {
-                const totalProgress = relatedMeasures.reduce((sum, m) => sum + (m.progress || 0), 0);
-                strategyCompletion = Math.round(totalProgress / measureCount);
+              if (relatedSafeguards.length > 0) {
+                // 为每个保障措施计算其完成度 (基于关联的季度措施)
+                const safeguardProgresses = relatedSafeguards.map(safeguard => {
+                  const relatedQuarterly = quarterlyMeasures.filter(q => q.safeguardId === safeguard._id);
+                  if (relatedQuarterly.length === 0) return 0;
+                  
+                  // 保障措施进度 = 关联季度措施的平均进度
+                  const totalProgress = relatedQuarterly.reduce((sum, q) => sum + (q.progress || 0), 0);
+                  return Math.round(totalProgress / relatedQuarterly.length);
+                });
+                
+                // 策略完成度 = 所有保障措施的平均进度
+                const totalSafeguardProgress = safeguardProgresses.reduce((sum, p) => sum + p, 0);
+                strategyCompletion = Math.round(totalSafeguardProgress / relatedSafeguards.length);
               }
               
               const isCompleted = strategyCompletion === 100;
               
+              const isExpanded = expandedStrategies[strategy._id!] || false;
+              
               return (
               <div 
                 key={strategy._id} 
-                className="border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-50 hover:border-blue-300 transition-all"
-                onClick={() => handleViewStrategyDetail(strategy)}
+                className="border border-gray-200 rounded-lg overflow-hidden transition-all"
               >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h4 className="text-base font-semibold text-gray-900 flex items-center gap-2">
-                        {strategy.content}
-                        {isCompleted && (
-                          <span className="text-yellow-500" title="已完成">
-                            ⭐
-                          </span>
-                        )}
-                      </h4>
-                      <span className="text-xs px-2 py-1 bg-blue-50 text-blue-700 rounded">
-                        权重: {strategy.weight}%
-                      </span>
-                    </div>
-                    {/* 新增：举措数量和完成度 */}
-                    <div className="flex items-center gap-4 mt-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-gray-600">举措数量:</span>
-                        <span className="text-sm font-semibold text-blue-600">{measureCount}条</span>
-                      </div>
-                      <div className="flex items-center gap-2 flex-1">
-                        <span className="text-sm text-gray-600">完成度:</span>
-                        <div className="flex-1 max-w-xs">
-                          <div className="flex items-center gap-2">
-                            <div className="flex-1 bg-gray-200 rounded-full h-2">
-                              <div
-                                className={`h-2 rounded-full transition-all ${
-                                  strategyCompletion === 100 ? 'bg-green-600' :
-                                  strategyCompletion >= 60 ? 'bg-blue-600' :
-                                  strategyCompletion >= 30 ? 'bg-yellow-600' :
-                                  'bg-red-600'
-                                }`}
-                                style={{ width: `${strategyCompletion}%` }}
-                              />
-                            </div>
-                            <span className={`text-sm font-bold min-w-[45px] ${
-                              strategyCompletion === 100 ? 'text-green-600' :
-                              strategyCompletion >= 60 ? 'text-blue-600' :
-                              strategyCompletion >= 30 ? 'text-yellow-600' :
-                              'text-red-600'
-                            }`}>
-                              {strategyCompletion}%
+                {/* 策略头部 */}
+                <div className="p-4 bg-white hover:bg-gray-50 transition-colors">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                          <span className="text-blue-600">{toChineseNumber(strategyIndex + 1)}、</span>
+                          {strategy.content}
+                          {isCompleted && (
+                            <span className="text-yellow-500" title="已完成">
+                              ⭐
                             </span>
-                          </div>
-                        </div>
+                          )}
+                        </h4>
+                        <span className="text-xs px-2 py-1 bg-blue-50 text-blue-700 rounded">
+                          权重: {strategy.weight}%
+                        </span>
+                      </div>
+                      {/* 完成度 */}
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className="text-sm text-gray-600">完成度:</span>
+                        <span className="text-sm font-bold text-red-600">{strategyCompletion}%</span>
                       </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                    {checkPermission('goal.strategy', 'edit') && (
-                      <button 
-                        onClick={() => handleEditStrategy(strategy, 'annual')}
-                        className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                    <div className="flex items-center gap-2">
+                      {/* 展开/收起按钮 */}
+                      <button
+                        onClick={() => setExpandedStrategies(prev => ({
+                          ...prev,
+                          [strategy._id!]: !prev[strategy._id!]
+                        }))}
+                        className="flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                        title={isExpanded ? '收起保障措施' : '展开保障措施'}
                       >
-                        <Edit2 className="w-4 h-4" />
+                        {isExpanded ? (
+                          <>
+                            <ChevronUp className="w-4 h-4" />
+                            收起
+                          </>
+                        ) : (
+                          <>
+                            <ChevronDown className="w-4 h-4" />
+                            展开 ({relatedSafeguards.length})
+                          </>
+                        )}
                       </button>
-                    )}
-                    {checkPermission('goal.strategy', 'delete') && (
-                      <button 
-                        onClick={() => setDeleteConfirm({ show: true, id: strategy._id!, type: 'strategy' })}
-                        className="p-1 text-red-600 hover:bg-red-50 rounded"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
+                      {checkPermission('goal.strategy', 'create') && (
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleAddSafeguard(strategy._id!);
+                          }}
+                          className="flex items-center gap-1 px-3 py-1.5 text-sm text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                          title="新增保障措施"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          保障措施
+                        </button>
+                      )}
+                      {checkPermission('goal.strategy', 'edit') && (
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEditStrategy(strategy, 'annual');
+                          }}
+                          className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                      )}
+                      {checkPermission('goal.strategy', 'delete') && (
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteConfirm({ show: true, id: strategy._id!, type: 'strategy' });
+                          }}
+                          className="p-1 text-red-600 hover:bg-red-50 rounded"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
+
+                {/* 保障措施展开区域 */}
+                {isExpanded && relatedSafeguards.length > 0 && (
+                  <div className="border-t border-gray-200 bg-gray-50 p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Briefcase className="w-4 h-4 text-blue-600" />
+                      <h5 className="text-sm font-semibold text-gray-900">
+                        保障措施 ({relatedSafeguards.length}项)
+                      </h5>
+                    </div>
+                    <div className="space-y-3">
+                      {relatedSafeguards.map((safeguard, index) => {
+                        // 查找关联的季度措施
+                        const relatedQuarterlyMeasures = quarterlyMeasures.filter(
+                          m => m.safeguardId === safeguard._id
+                        );
+                        
+                        // 🔧 计算保障措施的实际进度 (基于关联季度措施的平均进度)
+                        let safeguardProgress = 0;
+                        if (relatedQuarterlyMeasures.length > 0) {
+                          const totalProgress = relatedQuarterlyMeasures.reduce((sum, m) => sum + (m.progress || 0), 0);
+                          safeguardProgress = Math.round(totalProgress / relatedQuarterlyMeasures.length);
+                        }
+                        
+                        return (
+                          <div 
+                            key={safeguard._id}
+                            className="bg-white border border-gray-200 rounded-lg p-3 hover:border-blue-300 hover:shadow-md transition-all duration-200"
+                          >
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div className="mb-2">
+                                  <div className="flex items-baseline gap-2">
+                                    <span className="text-xs font-semibold text-gray-500 flex-shrink-0">#{index + 1}</span>
+                                    <span className="text-sm text-gray-700 flex-1">
+                                      {safeguard.content || safeguard.description || '暂无内容描述'}
+                                    </span>
+                                    {safeguard.status !== '未开始' && safeguard.status !== '进行中' && (
+                                      <span className={`text-xs px-2 py-0.5 rounded flex-shrink-0 ${
+                                        safeguard.status === '已完成' ? 'bg-green-100 text-green-700' :
+                                        safeguard.status === '暂停' ? 'bg-orange-100 text-orange-700' :
+                                        'bg-gray-100 text-gray-700'
+                                      }`}>
+                                        {safeguard.status}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-6 text-xs text-gray-600 pl-5">
+                                  <div>
+                                    <span className="text-gray-500">责任人：</span>
+                                    <span className="font-medium">{safeguard.owner}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-gray-500">完成度：</span>
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-16 bg-gray-200 rounded-full h-1.5">
+                                        <div
+                                          className={`h-1.5 rounded-full transition-all duration-500 ${
+                                            safeguardProgress >= 80 ? 'bg-green-500' :
+                                            safeguardProgress >= 50 ? 'bg-orange-500' :
+                                            'bg-red-500'
+                                          }`}
+                                          style={{ width: `${safeguardProgress}%` }}
+                                        />
+                                      </div>
+                                      <span className={`font-semibold flex-shrink-0 ${
+                                        safeguardProgress >= 80 ? 'text-green-600' :
+                                        safeguardProgress >= 50 ? 'text-orange-600' :
+                                        'text-red-600'
+                                      }`}>
+                                        {safeguardProgress}%
+                                      </span>
+                                    </div>
+                                  </div>
+                                  {relatedQuarterlyMeasures.length > 0 && (
+                                    <div>
+                                      <span className="text-gray-500">关联季度措施：</span>
+                                      <span className="font-medium">{relatedQuarterlyMeasures.length}项</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1 ml-3">
+                                {checkPermission('goal.safeguard', 'edit') && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleEditSafeguard(safeguard._id!, strategy._id!);
+                                    }}
+                                    className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                                    title="编辑"
+                                  >
+                                    <Edit2 className="w-3 h-3" />
+                                  </button>
+                                )}
+                                {checkPermission('goal.safeguard', 'delete') && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteSafeguard(safeguard._id!);
+                                    }}
+                                    className="p-1 text-red-600 hover:bg-red-50 rounded"
+                                    title="删除"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* 季度措施内联显示 - 添加动画效果 */}
+                            {relatedQuarterlyMeasures.length > 0 && (
+                              <div className="mt-3 pt-3 border-t border-gray-100 pl-5 animate-slide-down">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <span className="text-xs font-medium text-blue-600">📋 关联季度措施</span>
+                                  <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{relatedQuarterlyMeasures.length}</span>
+                                </div>
+                                <div className="space-y-2">
+                                  {relatedQuarterlyMeasures.map((qMeasure) => (
+                                    <div key={qMeasure._id} className="bg-gradient-to-r from-blue-50 to-blue-50/30 border border-blue-200 rounded-lg p-3 hover:shadow-sm transition-all duration-200">
+                                      <div className="flex items-start justify-between gap-2">
+                                        <div className="flex-1 min-w-0">
+                                          <div className="flex items-center gap-2 mb-1">
+                                            <span className="inline-flex items-center px-2.5 py-0.5 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-md text-xs font-medium flex-shrink-0 shadow-sm">
+                                              {qMeasure.quarter}
+                                            </span>
+                                            <span className="text-sm text-gray-800 font-medium truncate">{qMeasure.content}</span>
+                                          </div>
+                                          <div className="flex items-center gap-4 text-xs text-gray-600 mt-2">
+                                            <span className="flex items-center gap-1">
+                                              <span className="text-gray-500">👤</span>
+                                              <span className="font-medium">{qMeasure.owner}</span>
+                                            </span>
+                                            <div className="flex-1 min-w-0">
+                                              <div className="flex items-center gap-2">
+                                                <div className="flex-1 bg-gray-200 rounded-full h-1.5 min-w-[60px]">
+                                                  <div
+                                                    className={`h-1.5 rounded-full transition-all duration-500 ${
+                                                      (qMeasure.progress || 0) >= 80 ? 'bg-green-500' :
+                                                      (qMeasure.progress || 0) >= 50 ? 'bg-orange-500' :
+                                                      'bg-red-500'
+                                                    }`}
+                                                    style={{ width: `${qMeasure.progress || 0}%` }}
+                                                  />
+                                                </div>
+                                                <span className={`font-bold text-xs flex-shrink-0 ${
+                                                  (qMeasure.progress || 0) >= 80 ? 'text-green-600' :
+                                                  (qMeasure.progress || 0) >= 50 ? 'text-orange-600' :
+                                                  'text-red-600'
+                                                }`}>
+                                                  {qMeasure.progress || 0}%
+                                                </span>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* 内联编辑表单 - 添加动画效果 */}
+                    {expandedStrategyId === strategy._id && (isAddingSafeguard || editingSafeguardId) && (
+                      <div className="mt-4 pt-4 border-t border-blue-200 bg-blue-50/30 rounded-lg p-4 animate-slide-down">
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className="text-sm font-medium text-blue-700">
+                            ✏️ {editingSafeguardId ? '编辑保障措施' : '新增保障措施'}
+                          </span>
+                        </div>
+                        <SafeguardInlineForm
+                          strategyId={strategy._id!}
+                          editing={editingSafeguardId ? relatedSafeguards.find(s => s._id === editingSafeguardId) : undefined}
+                          year={currentYear}
+                          users={users}
+                          onSubmit={handleSaveSafeguard}
+                          onCancel={handleCancelSafeguardEdit}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 无保障措施提示（且不在新增状态时才显示） */}
+                {isExpanded && relatedSafeguards.length === 0 && !isAddingSafeguard && (
+                  <div className="border-t border-gray-200 bg-gray-50 p-4">
+                    <p className="text-sm text-gray-500 text-center">暂无保障措施，点击上方"保障措施"按钮新增</p>
+                  </div>
+                )}
+                
+                {/* 新增状态的内联表单（在空列表时） - 添加动画效果 */}
+                {isExpanded && relatedSafeguards.length === 0 && isAddingSafeguard && expandedStrategyId === strategy._id && (
+                  <div className="border-t border-blue-200 bg-blue-50/30 p-4 rounded-b-lg animate-slide-down">
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="text-sm font-medium text-blue-700">✏️ 新增保障措施</span>
+                    </div>
+                    <SafeguardInlineForm
+                      strategyId={strategy._id!}
+                      year={currentYear}
+                      users={users}
+                      onSubmit={handleSaveSafeguard}
+                      onCancel={handleCancelSafeguardEdit}
+                    />
+                  </div>
+                )}
               </div>
             )})
           )}
@@ -2528,8 +2985,8 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
               {measures.length === 0 ? (
                 <div className="text-center py-6 text-gray-500">暂无{quarter}措施，点击上方按钮新增</div>
               ) : (
-                measures.map((measure) => {
-                  const relatedStrategy = annualStrategies?.find(s => s._id === measure.strategyId);
+                measures.map((measure, measureIndex) => {
+                  const relatedSafeguard = safeguardMeasures?.find(s => s._id === measure.safeguardId);
                   const measureProgress = measure.progress || 0;
                   const isCompleted = measureProgress === 100;
                   return (
@@ -2540,6 +2997,7 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
                     >
                       <div className="flex-1">
                         <div className="text-base font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                          <span className="text-blue-600">{measureIndex + 1}、</span>
                           {measure.content}
                           {isCompleted && (
                             <span className="text-yellow-500" title="已完成">
@@ -2548,10 +3006,10 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
                           )}
                         </div>
                         <div className="flex items-center justify-between text-sm mb-2">
-                          {relatedStrategy && (
+                          {relatedSafeguard && (
                             <div className="flex items-center gap-2 flex-1">
-                              <span className="text-gray-600">关联年度策略:</span>
-                              <span className="text-base font-bold text-indigo-700">{relatedStrategy.content}</span>
+                              <span className="text-xs text-gray-500">关联保障措施:</span>
+                              <span className="text-xs font-semibold text-indigo-600">{relatedSafeguard.content}</span>
                             </div>
                           )}
                           <div className="flex items-center gap-4">
@@ -2579,12 +3037,12 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
                             />
                           </div>
                           <span className={`text-sm font-bold min-w-[45px] ${
-                            measureProgress === 100 ? 'text-green-600' :
-                            measureProgress >= 60 ? 'text-blue-600' :
-                            measureProgress >= 30 ? 'text-yellow-600' :
+                            (measureProgress || 0) === 100 ? 'text-green-600' :
+                            (measureProgress || 0) >= 60 ? 'text-blue-600' :
+                            (measureProgress || 0) >= 30 ? 'text-yellow-600' :
                             'text-red-600'
                           }`}>
-                            {measureProgress}%
+                            {measureProgress || 0}%
                           </span>
                         </div>
                       </div>
@@ -2814,48 +3272,16 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
     }
   };
 
-  // 渲染目标分解
+  // 渲染目标分解（基于"维度设置"中定义的表）
   const renderGoalDecomposition = () => {
     return (
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        {/* 标题区 */}
-        <div className="bg-gradient-to-r from-purple-50 to-indigo-50 px-6 py-4 border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h4a1 1 0 011 1v7a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM14 5a1 1 0 011-1h4a1 1 0 011 1v7a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 16a1 1 0 011-1h4a1 1 0 011 1v3a1 1 0 01-1 1H5a1 1 0 01-1-1v-3zM14 16a1 1 0 011-1h4a1 1 0 011 1v3a1 1 0 01-1 1h-4a1 1 0 01-1-1v-3z" />
-                </svg>
-                目标分解
-              </h3>
-              <p className="text-sm text-gray-600 mt-1">
-                将年度目标分解为季度、月度可执行的子目标，明确责任人和考核指标
-              </p>
-            </div>
-            {checkPermission('goal.decomposition', 'edit') && (
-              <button
-                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                新增分解
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* 内容区 */}
-        <div className="p-6">
-          <div className="text-center py-12">
-            <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h4a1 1 0 011 1v7a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM14 5a1 1 0 011-1h4a1 1 0 011 1v7a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 16a1 1 0 011-1h4a1 1 0 011 1v3a1 1 0 01-1 1H5a1 1 0 01-1-1v-3zM14 16a1 1 0 011-1h4a1 1 0 011 1v3a1 1 0 01-1 1h-4a1 1 0 01-1-1v-3z" />
-            </svg>
-            <p className="text-gray-500 mb-2">目标分解功能开发中...</p>
-            <p className="text-sm text-gray-400">
-              即将为您呈现完整的目标分解体系
-            </p>
-          </div>
-        </div>
-      </div>
+      <GoalDecompositionMultiTable
+        goalTypeId={selectedYear.toString()}
+        goalTypeName={`${selectedYear}年度目标`}
+        selectedYear={selectedYear}  // 🆕 传递年度参数
+        onBack={() => {}}
+        onConfigureClick={() => setSelectedTab('dimensionSettings')}
+      />
     );
   };
 
@@ -3295,6 +3721,17 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
     );
   };
 
+  // 渲染维度设置（使用原分解维度参数设置组件）
+  const renderDimensionSettings = () => {
+    return (
+      <div className="space-y-4">
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <DecompositionDimensionSettingsWithTabs />
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="p-8">
       <div className="mb-8">
@@ -3402,6 +3839,21 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
             执行力地图
           </button>
         )}
+        {checkPermission('goal.execution', 'view') && (
+          <button
+            onClick={() => setSelectedTab('dimensionSettings')}
+            className={`flex items-center gap-2 px-6 py-3 font-medium transition-colors relative ${
+              selectedTab === 'dimensionSettings' 
+                ? 'text-blue-600 border-b-2 border-blue-600' 
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+            </svg>
+            维度设置
+          </button>
+        )}
       </div>
 
       {/* Content */}
@@ -3415,6 +3867,7 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
           {selectedTab === 'strategy' && renderStrategies()}
           {selectedTab === 'decomposition' && renderGoalDecomposition()}
           {selectedTab === 'execution' && renderExecutionMap()}
+          {selectedTab === 'dimensionSettings' && renderDimensionSettings()}
         </>
       )}
 
@@ -3621,15 +4074,17 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
               </div>
               {selectedQuarter !== 'annual' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">关联年度策略</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">关联保障措施</label>
                   <select 
-                    value={strategyForm.strategyId}
-                    onChange={(e) => setStrategyForm({ ...strategyForm, strategyId: e.target.value })}
+                    value={strategyForm.safeguardId}
+                    onChange={(e) => setStrategyForm({ ...strategyForm, safeguardId: e.target.value })}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="">请选择策略</option>
-                    {annualStrategies.map(strategy => (
-                      <option key={strategy._id} value={strategy._id}>{strategy.content}</option>
+                    <option value="">请选择保障措施</option>
+                    {safeguardMeasures.map(measure => (
+                      <option key={measure._id} value={measure._id}>
+                        {measure.content} ({measure.owner})
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -3884,88 +4339,6 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
         </div>
       )}
 
-      {/* Strategy Detail Modal - 策略详情弹窗 */}
-      {showStrategyDetailModal && selectedStrategy && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-3xl max-h-[80vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-xl font-bold text-gray-900">{selectedStrategy.content}</h2>
-                <p className="text-sm text-gray-600 mt-1">
-                  {selectedStrategy.year}年度 · 负责人: {selectedStrategy.owner} · 权重: {selectedStrategy.weight}%
-                </p>
-              </div>
-              <button onClick={() => setShowStrategyDetailModal(false)}>
-                <X className="w-6 h-6 text-gray-400 hover:text-gray-600" />
-              </button>
-            </div>
-
-            <div className="mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">关联季度经营措施</h3>
-              {relatedMeasures.length === 0 ? (
-                <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg">
-                  暂无关联的季度措施
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {relatedMeasures.map((measure) => (
-                    <div key={measure._id} className="flex items-center gap-4 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <span className="text-xs px-2 py-1 bg-blue-50 text-blue-700 rounded font-medium">
-                            {measure.quarter}
-                          </span>
-                          <div className="text-sm font-medium text-gray-900">{measure.content}</div>
-                        </div>
-                        <div className="flex items-center gap-3 text-xs text-gray-500">
-                          <span>负责人: {measure.owner}</span>
-                          <span>·</span>
-                          <span>{measure.year}年</span>
-                        </div>
-                      </div>
-                      <div className={`px-3 py-1 rounded text-xs font-medium ${
-                        measure.status === '进行中' ? 'bg-blue-50 text-blue-700' :
-                        measure.status === '已完成' ? 'bg-green-50 text-green-700' :
-                        measure.status === '暂停' ? 'bg-yellow-50 text-yellow-700' :
-                        'bg-gray-100 text-gray-700'
-                      }`}>
-                        {measure.status}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              
-              {relatedMeasures.length > 0 && (
-                <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="font-medium text-gray-900">完成进度:</span>
-                    <span className="text-blue-700 font-semibold">
-                      {relatedMeasures.filter(m => m.status === '已完成').length} / {relatedMeasures.length}
-                    </span>
-                    <span className="text-gray-600">个措施已完成</span>
-                  </div>
-                  {relatedMeasures.every(m => m.status === '已完成') && (
-                    <div className="mt-2 text-xs text-green-700 font-medium">
-                      ✓ 所有措施已完成，该策略将自动标记为"已完成"
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div className="flex justify-end mt-6">
-              <button
-                onClick={() => setShowStrategyDetailModal(false)}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
-              >
-                关闭
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Measure Detail Modal - 措施详情弹窗 */}
       {showMeasureDetailModal && selectedMeasure && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -4092,6 +4465,25 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
             </div>
           </div>
         </div>
+      )}
+
+      {/* 保障措施模态框 */}
+      {/* 保障措施管理已统一到 StrategyDetailModal 中 */}
+
+      {/* 目标分解管理器 */}
+      {showDecompositionManager && decompositionGoal && (
+        <GoalDecompositionManager
+          goalId={decompositionGoal.id}
+          goalTitle={decompositionGoal.title}
+          goalType={decompositionGoal.type}
+          targetValue={decompositionGoal.targetValue}
+          unit={decompositionGoal.unit}
+          year={selectedYear}
+          onClose={() => {
+            setShowDecompositionManager(false);
+            setDecompositionGoal(null);
+          }}
+        />
       )}
 
       {/* 删除确认对话框 */}

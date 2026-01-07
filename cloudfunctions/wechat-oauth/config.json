@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "openapi": []
+  },
+  "env": {
+    "WECHAT_APPID": "wxe457da15d5f4c847",
+    "WECHAT_SECRET": "15a38745b1f8a957e04dc76197ddeb3e"
+  }
+}
