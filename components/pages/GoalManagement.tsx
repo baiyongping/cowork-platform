@@ -13,7 +13,6 @@ import { showAlert, showConfirm, showSuccess, showError, showWarning, toastSucce
 import { SafeguardMeasure } from '../../types/safeguard';
 import { SafeguardInlineForm } from '../SafeguardInlineForm';
 import DecompositionDimensionSettingsWithTabs from '../DecompositionDimensionSettingsWithTabs';
-import GoalDecompositionManager from '../GoalDecompositionManager';
 import GoalDecompositionMultiTable from '../GoalDecompositionMultiTable';
 
 // 中文数字转换函数
@@ -170,8 +169,8 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
   }, [permissionLoading, checkPermission]);
   
   // 模态框状态
-  const [showSalesGoalModal, setShowSalesGoalModal] = useState(false);
-  const [showOpportunityGoalModal, setShowOpportunityGoalModal] = useState(false);
+  // 🔄 整合后的年度目标模态框
+  const [showAnnualGoalModal, setShowAnnualGoalModal] = useState(false);
   const [showStrategyModal, setShowStrategyModal] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [selectedQuarter, setSelectedQuarter] = useState<'annual' | 'Q1' | 'Q2' | 'Q3' | 'Q4'>('annual');
@@ -216,16 +215,6 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
   });
   // 折叠状态管理：key为节点id，value为是否展开(true=展开，false=折叠)
   const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({});
-  
-  // 目标分解管理器状态
-  const [showDecompositionManager, setShowDecompositionManager] = useState(false);
-  const [decompositionGoal, setDecompositionGoal] = useState<{
-    id: string;
-    title: string;
-    type: 'sales' | 'opportunity';
-    targetValue: number;
-    unit: string;
-  } | null>(null);
 
   // 数据状态
   const [salesGoals, setSalesGoals] = useState<SalesGoal[]>([]);
@@ -253,21 +242,15 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
     type: 'strategy' | 'measure' | null;
   }>({ show: false, id: null, type: null });
 
-  // 表单状态
-  const [salesForm, setSalesForm] = useState({
+  // 🔄 整合后的年度目标表单
+  const [annualGoalForm, setAnnualGoalForm] = useState({
     year: 2025,
+    // 销售目标
     orderTarget: 0,
     revenueTarget: 0,
-    type: 'annual' as 'annual' | 'quarterly',
-    quarter: 'Q1' as 'Q1' | 'Q2' | 'Q3' | 'Q4',
-  });
-
-  const [opportunityForm, setOpportunityForm] = useState({
-    year: 2025,
+    // 商机目标
     countTarget: 0,
-    amountTarget: 0,
-    type: 'annual' as 'annual' | 'quarterly',
-    quarter: 'Q1' as 'Q1' | 'Q2' | 'Q3' | 'Q4',
+    amountTarget: 0
   });
 
   const [strategyForm, setStrategyForm] = useState({
@@ -1246,8 +1229,7 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
   useEffect(() => {
     if (selectedTab === 'sales') {
       loadSalesGoals();
-    } else if (selectedTab === 'opportunity') {
-      loadOpportunityGoals();
+      loadOpportunityGoals(); // 同时加载商机目标
     } else if (selectedTab === 'product') {
       loadProductForecasts();
     } else if (selectedTab === 'strategy') {
@@ -1319,129 +1301,104 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
     }
   }, [openGoalId, annualStrategies, quarterlyMeasures, executionTreeData]);
 
-  // 保存销售目标
-  const handleSaveSalesGoal = async () => {
+  // 🔄 整合后的年度目标保存函数
+  const handleSaveAnnualGoal = async () => {
     try {
       setLoading(true);
-      
-      console.log('💾 保存销售目标 - 开始:', { editingItem, salesForm });
-      
-      if (editingItem) {
-        // 更新
-        const updateRes = await db.collection('sales_goals').doc(editingItem._id).update({
-          orderTarget: salesForm.orderTarget,
-          revenueTarget: salesForm.revenueTarget,
+      console.log('💾 保存年度目标 - 开始:', annualGoalForm);
+
+      // 1️⃣ 保存/更新销售目标
+      const salesResult = await db.collection('salesGoals')
+        .where({
+          year: annualGoalForm.year,
+          type: 'annual'
+        })
+        .get();
+
+      if (salesResult.data.length > 0) {
+        // 更新现有销售目标
+        const salesGoal = salesResult.data[0];
+        await db.collection('salesGoals').doc(salesGoal._id).update({
+          orderTarget: annualGoalForm.orderTarget,
+          revenueTarget: annualGoalForm.revenueTarget,
           updatedAt: new Date(),
         });
-        
-        if (updateRes.code) {
-          console.error('❌ 更新失败:', updateRes.code, updateRes.message);
-          alert('更新失败：' + updateRes.message);
-          return;
-        }
-        console.log('✅ 更新成功:', editingItem._id);
+        console.log('✅ 销售目标更新成功');
       } else {
-        // 新增
-        const result = await db.collection('sales_goals').add({
-          year: salesForm.year,
-          orderTarget: salesForm.orderTarget,
+        // 创建新的销售目标
+        await db.collection('salesGoals').add({
+          year: annualGoalForm.year,
+          orderTarget: annualGoalForm.orderTarget,
           orderActual: 0,
-          revenueTarget: salesForm.revenueTarget,
+          revenueTarget: annualGoalForm.revenueTarget,
           revenueActual: 0,
-          type: salesForm.type,
-          quarter: salesForm.type === 'quarterly' ? salesForm.quarter : null,
+          type: 'annual',
+          quarter: null,
           createdBy: currentUser._id,
           createdAt: new Date(),
           updatedAt: new Date(),
         });
-        
-        if (result.code) {
-          console.error('❌ 新增失败:', result.code, result.message);
-          alert('新增失败：' + result.message);
-          return;
-        }
-        console.log('✅ 新增成功:', result.id);
+        console.log('✅ 销售目标创建成功');
       }
 
-      console.log('🔄 重新加载数据...');
-      // 关闭模态框前先加载数据，确保UI更新
-      await loadSalesGoals();
-      console.log('✅ 数据加载完成，当前数据:', salesGoals);
-      
-      // 🔧 使用setTimeout确保状态更新后再关闭模态框
-      setTimeout(() => {
-        setShowSalesGoalModal(false);
-        setEditingItem(null);
-        setSalesForm({ year: selectedYear, orderTarget: 0, revenueTarget: 0, type: 'annual', quarter: 'Q1' });
-      }, 100);
-    } catch (error) {
-      console.error('❌ 保存销售目标失败:', error);
-      alert('保存失败，请重试');
-    } finally {
-      setLoading(false);
-    }
-  };
+      // 2️⃣ 保存/更新商机目标
+      const opportunityResult = await db.collection('opportunityGoals')
+        .where({
+          year: annualGoalForm.year,
+          type: 'annual'
+        })
+        .get();
 
-
-
-  // 保存商机目标
-  const handleSaveOpportunityGoal = async () => {
-    try {
-      setLoading(true);
-      
-      console.log('💾 保存商机目标 - 开始:', { editingItem, opportunityForm });
-      
-      if (editingItem) {
-        // 更新
-        const updateRes = await db.collection('opportunity_goals').doc(editingItem._id).update({
-          countTarget: opportunityForm.countTarget,
-          amountTarget: opportunityForm.amountTarget,
+      if (opportunityResult.data.length > 0) {
+        // 更新现有商机目标
+        const opportunityGoal = opportunityResult.data[0];
+        await db.collection('opportunityGoals').doc(opportunityGoal._id).update({
+          countTarget: annualGoalForm.countTarget,
+          amountTarget: annualGoalForm.amountTarget,
           updatedAt: new Date(),
         });
-        
-        if (updateRes.code) {
-          console.error('❌ 更新失败:', updateRes.code, updateRes.message);
-          alert('更新失败：' + updateRes.message);
-          return;
-        }
-        console.log('✅ 更新成功:', editingItem._id);
+        console.log('✅ 商机目标更新成功');
       } else {
-        // 新增
-        const result = await db.collection('opportunity_goals').add({
-          year: opportunityForm.year,
-          countTarget: opportunityForm.countTarget,
+        // 创建新的商机目标
+        await db.collection('opportunityGoals').add({
+          year: annualGoalForm.year,
+          countTarget: annualGoalForm.countTarget,
           countActual: 0,
-          amountTarget: opportunityForm.amountTarget,
+          amountTarget: annualGoalForm.amountTarget,
           amountActual: 0,
-          type: opportunityForm.type,
-          quarter: opportunityForm.type === 'quarterly' ? opportunityForm.quarter : null,
+          type: 'annual',
+          quarter: null,
           createdBy: currentUser._id,
           createdAt: new Date(),
           updatedAt: new Date(),
         });
-        
-        if (result.code) {
-          console.error('❌ 新增失败:', result.code, result.message);
-          alert('新增失败：' + result.message);
-          return;
-        }
-        console.log('✅ 新增成功:', result.id);
+        console.log('✅ 商机目标创建成功');
       }
 
-      console.log('🔄 重新加载数据...');
-      // 关闭模态框前先加载数据，确保UI更新
-      await loadOpportunityGoals();
-      console.log('✅ 数据加载完成，当前数据:', opportunityGoals);
-      
-      // 🔧 使用setTimeout确保状态更新后再关闭模态框
+      // 3️⃣ 重新加载数据
+      console.log('🔄 重新加载年度目标数据...');
+      await Promise.all([
+        loadSalesGoals(),
+        loadOpportunityGoals()
+      ]);
+      console.log('✅ 年度目标数据加载完成');
+
+      // 4️⃣ 关闭模态框
       setTimeout(() => {
-        setShowOpportunityGoalModal(false);
-        setEditingItem(null);
-        setOpportunityForm({ year: selectedYear, countTarget: 0, amountTarget: 0, type: 'annual', quarter: 'Q1' });
+        setShowAnnualGoalModal(false);
+        setAnnualGoalForm({
+          year: selectedYear,
+          orderTarget: 0,
+          revenueTarget: 0,
+          countTarget: 0,
+          amountTarget: 0
+        });
+        showSuccess('年度目标保存成功');
       }, 100);
+
     } catch (error) {
-      console.error('❌ 保存商机目标失败:', error);
-      alert('保存失败，请重试');
+      console.error('❌ 保存年度目标失败:', error);
+      showError('保存失败，请重试');
     } finally {
       setLoading(false);
     }
@@ -1704,51 +1661,42 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
     }
   };
 
-  // 打开编辑模态框
-  const handleEditSalesGoal = (goal: SalesGoal | null, type: 'annual' | 'quarterly', quarter?: 'Q1' | 'Q2' | 'Q3' | 'Q4') => {
-    if (goal) {
-      setSalesForm({
-        year: goal.year,
-        orderTarget: goal.orderTarget,
-        revenueTarget: goal.revenueTarget,
-        type: goal.type,
-        quarter: goal.quarter || 'Q1',
-      });
-      setEditingItem(goal);
-    } else {
-      setSalesForm({
-        year: selectedYear,
-        orderTarget: 0,
-        revenueTarget: 0,
-        type,
-        quarter: quarter || 'Q1',
-      });
-      setEditingItem(null);
-    }
-    setShowSalesGoalModal(true);
-  };
+  // 🔄 整合后的年度目标编辑函数
+  const handleEditAnnualGoal = async () => {
+    try {
+      // 获取当前年度的销售目标
+      const salesResult = await db.collection('salesGoals')
+        .where({
+          year: selectedYear,
+          type: 'annual'
+        })
+        .get();
 
-  const handleEditOpportunityGoal = (goal: OpportunityGoal | null, type: 'annual' | 'quarterly', quarter?: 'Q1' | 'Q2' | 'Q3' | 'Q4') => {
-    if (goal) {
-      setOpportunityForm({
-        year: goal.year,
-        countTarget: goal.countTarget,
-        amountTarget: goal.amountTarget,
-        type: goal.type,
-        quarter: goal.quarter || 'Q1',
-      });
-      setEditingItem(goal);
-    } else {
-      setOpportunityForm({
+      // 获取当前年度的商机目标
+      const opportunityResult = await db.collection('opportunityGoals')
+        .where({
+          year: selectedYear,
+          type: 'annual'
+        })
+        .get();
+
+      const salesGoal = salesResult.data[0] as SalesGoal | undefined;
+      const opportunityGoal = opportunityResult.data[0] as OpportunityGoal | undefined;
+
+      // 加载数据到表单
+      setAnnualGoalForm({
         year: selectedYear,
-        countTarget: 0,
-        amountTarget: 0,
-        type,
-        quarter: quarter || 'Q1',
+        orderTarget: salesGoal?.orderTarget || 0,
+        revenueTarget: salesGoal?.revenueTarget || 0,
+        countTarget: opportunityGoal?.countTarget || 0,
+        amountTarget: opportunityGoal?.amountTarget || 0
       });
-      setEditingItem(null);
+
+      setShowAnnualGoalModal(true);
+    } catch (error) {
+      console.error('加载年度目标失败:', error);
+      showError('加载年度目标失败,请稍后重试');
     }
-    setShowOpportunityGoalModal(true);
   };
 
   const handleEditStrategy = (item: AnnualStrategy | QuarterlyMeasure | null, quarter: 'annual' | 'Q1' | 'Q2' | 'Q3' | 'Q4') => {
@@ -1912,349 +1860,220 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
   };
 
   const renderSalesGoals = () => {
-    const annualGoal = getAnnualSalesGoal();
-    const quarterlyGoals = getQuarterlySalesGoals();
+    const annualSalesGoal = getAnnualSalesGoal();
+    const annualOpportunityGoal = getAnnualOpportunityGoal();
+    const quarterlySalesGoals = getQuarterlySalesGoals();
+    const quarterlyOpportunityGoals = getQuarterlyOpportunityGoals();
 
     return (
       <div className="space-y-6">
-        {/* 年度目标概览 */}
+        {/* 年度销售目标（合并销售+商机） */}
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-lg font-semibold text-gray-900">{selectedYear}年度销售目标</h3>
             <div className="flex items-center gap-2">
-              {checkPermission('goal.salesGoal', 'edit') && (
-                <>
-                  <button
-                    onClick={() => {
-                      const goal = salesGoals?.find(g => g.type === 'annual');
-                      if (goal && goal._id) {
-                        setDecompositionGoal({
-                          id: goal._id,
-                          title: `${selectedYear}年度销售目标`,
-                          type: 'sales',
-                          targetValue: goal.orderTarget,
-                          unit: '万元'
-                        });
-                        setShowDecompositionManager(true);
-                      }
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                  >
-                    <Target className="w-4 h-4" />
-                    目标分解
-                  </button>
-                  <button
-                    onClick={() => handleEditSalesGoal(salesGoals?.find(g => g.type === 'annual') || null, 'annual')}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                    编辑目标
-                  </button>
-                </>
+              {/* 🔄 整合后的年度目标编辑按钮 */}
+              {(checkPermission('goal.salesGoal', 'edit') || checkPermission('goal.opportunityGoal', 'edit')) && (
+                <button
+                  onClick={handleEditAnnualGoal}
+                  className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                >
+                  <Edit2 className="w-4 h-4" />
+                  编辑年度目标
+                </button>
               )}
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-600">订单承揽目标</span>
-                  <span className="text-sm text-gray-900">
-                    {annualGoal.orderActual.toFixed(2)}/{annualGoal.orderTarget}万
-                  </span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-3">
+          
+          <div className="grid grid-cols-4 gap-4">
+            {/* 订单承揽 */}
+            <div className="space-y-2">
+              <div className="text-sm text-gray-600 font-medium">订单承揽</div>
+              <div className="bg-blue-50 rounded-lg p-4">
+                <div className="text-2xl font-bold text-blue-600">{annualSalesGoal.orderActual.toFixed(2)}</div>
+                <div className="text-xs text-gray-500 mt-1">/ {annualSalesGoal.orderTarget} 万元</div>
+                <div className="w-full bg-blue-200 rounded-full h-2 mt-2">
                   <div
-                    className="bg-blue-600 h-3 rounded-full transition-all"
-                    style={{ width: `${Math.min(100, annualGoal.orderTarget > 0 ? (annualGoal.orderActual / annualGoal.orderTarget) * 100 : 0)}%` }}
+                    className="bg-blue-600 h-2 rounded-full transition-all"
+                    style={{ width: `${Math.min(100, annualSalesGoal.orderTarget > 0 ? (annualSalesGoal.orderActual / annualSalesGoal.orderTarget) * 100 : 0)}%` }}
                   />
                 </div>
-                <div className="text-xs text-gray-500 mt-1">
-                  完成率: {annualGoal.orderTarget > 0 ? ((annualGoal.orderActual / annualGoal.orderTarget) * 100).toFixed(1) : 0}%
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-blue-50 rounded-lg p-4">
-                  <div className="text-xs text-blue-600 mb-1">年度目标</div>
-                  <div className="text-2xl font-bold text-blue-600">{annualGoal.orderTarget}</div>
-                  <div className="text-xs text-gray-600 mt-1">万元</div>
-                </div>
-                <div 
-                  className="bg-green-50 rounded-lg p-4 cursor-pointer hover:shadow-lg hover:bg-green-100 transition-all"
-                  onClick={() => loadOpportunitiesByPeriod(selectedYear)}
-                >
-                  <div className="text-xs text-green-600 mb-1">已完成</div>
-                  <div className="text-2xl font-bold text-green-600">{annualGoal.orderActual.toFixed(2)}</div>
-                  <div className="text-xs text-gray-600 mt-1">万元 (点击查看详情)</div>
+                <div className="text-xs text-blue-600 mt-1 font-semibold">
+                  {annualSalesGoal.orderTarget > 0 ? ((annualSalesGoal.orderActual / annualSalesGoal.orderTarget) * 100).toFixed(1) : 0}%
                 </div>
               </div>
             </div>
 
-            <div className="space-y-4">
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-600">销售收入目标</span>
-                  <span className="text-sm text-gray-900">
-                    {annualGoal.revenueActual.toFixed(2)}/{annualGoal.revenueTarget}万
-                  </span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-3">
+            {/* 销售收入 */}
+            <div className="space-y-2">
+              <div className="text-sm text-gray-600 font-medium">销售收入</div>
+              <div className="bg-purple-50 rounded-lg p-4">
+                <div className="text-2xl font-bold text-purple-600">{annualSalesGoal.revenueActual.toFixed(2)}</div>
+                <div className="text-xs text-gray-500 mt-1">/ {annualSalesGoal.revenueTarget} 万元</div>
+                <div className="w-full bg-purple-200 rounded-full h-2 mt-2">
                   <div
-                    className="bg-green-600 h-3 rounded-full transition-all"
-                    style={{ width: `${Math.min(100, annualGoal.revenueTarget > 0 ? (annualGoal.revenueActual / annualGoal.revenueTarget) * 100 : 0)}%` }}
+                    className="bg-purple-600 h-2 rounded-full transition-all"
+                    style={{ width: `${Math.min(100, annualSalesGoal.revenueTarget > 0 ? (annualSalesGoal.revenueActual / annualSalesGoal.revenueTarget) * 100 : 0)}%` }}
                   />
                 </div>
-                <div className="text-xs text-gray-500 mt-1">
-                  完成率: {annualGoal.revenueTarget > 0 ? ((annualGoal.revenueActual / annualGoal.revenueTarget) * 100).toFixed(1) : 0}%
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-purple-50 rounded-lg p-4">
-                  <div className="text-xs text-purple-600 mb-1">年度目标</div>
-                  <div className="text-2xl font-bold text-purple-600">{annualGoal.revenueTarget}</div>
-                  <div className="text-xs text-gray-600 mt-1">万元</div>
-                </div>
-                <div 
-                  className="bg-orange-50 rounded-lg p-4 cursor-pointer hover:shadow-lg hover:bg-orange-100 transition-all"
-                  onClick={() => loadProjectsByPeriod(selectedYear)}
-                >
-                  <div className="text-xs text-orange-600 mb-1">已完成</div>
-                  <div className="text-2xl font-bold text-orange-600">{annualGoal.revenueActual.toFixed(2)}</div>
-                  <div className="text-xs text-gray-600 mt-1">万元 (点击查看详情)</div>
+                <div className="text-xs text-purple-600 mt-1 font-semibold">
+                  {annualSalesGoal.revenueTarget > 0 ? ((annualSalesGoal.revenueActual / annualSalesGoal.revenueTarget) * 100).toFixed(1) : 0}%
                 </div>
               </div>
             </div>
-          </div>
-        </div>
 
-        {/* 季度目标分解图表 */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-6">季度目标完成情况</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={quarterlyGoals}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="quarter" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="orderTarget" fill="#93c5fd" name="订单目标" />
-              <Bar dataKey="orderActual" fill="#3b82f6" name="订单实际" />
-              <Bar dataKey="revenueTarget" fill="#d8b4fe" name="收入目标" />
-              <Bar dataKey="revenueActual" fill="#a855f7" name="收入实际" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* 季度详细数据 */}
-        <div className="grid grid-cols-4 gap-4">
-          {quarterlyGoals.map((q: any) => (
-            <div key={q.quarter} className="bg-white rounded-lg border border-gray-200 p-4">
-              <div className="flex items-center justify-between mb-4">
-                <div className="text-base font-semibold text-gray-900">{q.quarter}</div>
-                {checkPermission('goal.salesGoal', 'edit') && (
-                  <button 
-                    onClick={() => handleEditSalesGoal(salesGoals?.find(g => g.quarter === q.quarter) || null, 'quarterly', q.quarter)}
-                    className="text-sm text-blue-600 hover:text-blue-700"
-                  >
-                    编辑
-                  </button>
-                )}
-              </div>
-              <div className="space-y-3">
-                <div 
-                  className="cursor-pointer hover:bg-blue-50 rounded-lg p-2 -mx-2 transition-colors"
-                  onClick={() => loadOpportunitiesByPeriod(selectedYear, q.quarter)}
-                >
-                  <div className="text-xs text-gray-500 mb-1">订单承揽</div>
-                  <div className="text-lg font-semibold text-gray-900">{q.orderActual.toFixed(2)}/{q.orderTarget}万</div>
-                  <div className="text-xs text-blue-600">
-                    {q.orderTarget > 0 ? `${((q.orderActual / q.orderTarget) * 100).toFixed(0)}%` : '-'} (点击查看)
-                  </div>
-                </div>
-                <div 
-                  className="cursor-pointer hover:bg-purple-50 rounded-lg p-2 -mx-2 transition-colors"
-                  onClick={() => loadProjectsByPeriod(selectedYear, q.quarter)}
-                >
-                  <div className="text-xs text-gray-500 mb-1">销售收入</div>
-                  <div className="text-lg font-semibold text-gray-900">{q.revenueActual.toFixed(2)}/{q.revenueTarget}万</div>
-                  <div className="text-xs text-purple-600">
-                    {q.revenueTarget > 0 ? `${((q.revenueActual / q.revenueTarget) * 100).toFixed(0)}%` : '-'} (点击查看)
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  };
-
-  const renderOpportunityGoals = () => {
-    const annualGoal = getAnnualOpportunityGoal();
-    const quarterlyGoals = getQuarterlyOpportunityGoals();
-
-    return (
-      <div className="space-y-6">
-        {/* 年度商机目标 */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-semibold text-gray-900">{selectedYear}年度商机挖掘目标</h3>
-            <div className="flex items-center gap-2">
-              {checkPermission('goal.opportunityGoal', 'edit') && (
-                <>
-                  <button
-                    onClick={() => {
-                      const goal = opportunityGoals?.find(g => g.type === 'annual');
-                      if (goal && goal._id) {
-                        setDecompositionGoal({
-                          id: goal._id,
-                          title: `${selectedYear}年度商机挖掘目标`,
-                          type: 'opportunity',
-                          targetValue: goal.amountTarget,
-                          unit: '万元'
-                        });
-                        setShowDecompositionManager(true);
-                      }
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                  >
-                    <Target className="w-4 h-4" />
-                    目标分解
-                  </button>
-                  <button
-                    onClick={() => handleEditOpportunityGoal(opportunityGoals?.find(g => g.type === 'annual') || null, 'annual')}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                    编辑目标
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-8">
             {/* 商机挖掘数 */}
-            <div 
-              className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-6 cursor-pointer hover:shadow-lg transition-shadow"
-              onClick={() => loadOpportunitiesByPeriod(selectedYear)}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <div className="text-sm font-medium text-blue-800">商机挖掘数</div>
-                <div className="text-xs text-blue-600 font-semibold">
-                  {annualGoal.countTarget > 0 ? `${((annualGoal.countActual / annualGoal.countTarget) * 100).toFixed(1)}%` : '-'}
+            <div className="space-y-2">
+              <div className="text-sm text-gray-600 font-medium">商机挖掘数</div>
+              <div className="bg-green-50 rounded-lg p-4">
+                <div className="text-2xl font-bold text-green-600">{annualOpportunityGoal.countActual}</div>
+                <div className="text-xs text-gray-500 mt-1">/ {annualOpportunityGoal.countTarget} 个</div>
+                <div className="w-full bg-green-200 rounded-full h-2 mt-2">
+                  <div
+                    className="bg-green-600 h-2 rounded-full transition-all"
+                    style={{ width: `${Math.min(100, annualOpportunityGoal.countTarget > 0 ? (annualOpportunityGoal.countActual / annualOpportunityGoal.countTarget) * 100 : 0)}%` }}
+                  />
                 </div>
-              </div>
-              <div className="mb-4">
-                <div className="text-3xl font-bold text-gray-900">
-                  <span className="text-blue-600">{annualGoal.countActual}</span>
-                  <span className="text-gray-400 text-xl mx-2">/</span>
-                  <span className="text-gray-700">{annualGoal.countTarget > 0 ? annualGoal.countTarget : '-'}</span>
-                  <span className="text-lg text-gray-500 ml-2">个</span>
+                <div className="text-xs text-green-600 mt-1 font-semibold">
+                  {annualOpportunityGoal.countTarget > 0 ? ((annualOpportunityGoal.countActual / annualOpportunityGoal.countTarget) * 100).toFixed(1) : 0}%
                 </div>
-              </div>
-              <div className="w-full bg-white/50 rounded-full h-3 overflow-hidden">
-                <div
-                  className="bg-gradient-to-r from-blue-500 to-blue-600 h-3 rounded-full transition-all duration-500 shadow-sm"
-                  style={{ width: `${annualGoal.countTarget > 0 ? (annualGoal.countActual / annualGoal.countTarget) * 100 : 0}%` }}
-                />
               </div>
             </div>
 
             {/* 商机预期金额 */}
-            <div 
-              className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-6 cursor-pointer hover:shadow-lg transition-shadow"
-              onClick={() => loadOpportunitiesByPeriod(selectedYear)}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <div className="text-sm font-medium text-green-800">商机预期金额</div>
-                <div className="text-xs text-green-600 font-semibold">
-                  {annualGoal.amountTarget > 0 ? `${((annualGoal.amountActual / annualGoal.amountTarget) * 100).toFixed(1)}%` : '-'}
+            <div className="space-y-2">
+              <div className="text-sm text-gray-600 font-medium">商机预期金额</div>
+              <div className="bg-orange-50 rounded-lg p-4">
+                <div className="text-2xl font-bold text-orange-600">{annualOpportunityGoal.amountActual}</div>
+                <div className="text-xs text-gray-500 mt-1">/ {annualOpportunityGoal.amountTarget} 万元</div>
+                <div className="w-full bg-orange-200 rounded-full h-2 mt-2">
+                  <div
+                    className="bg-orange-600 h-2 rounded-full transition-all"
+                    style={{ width: `${Math.min(100, annualOpportunityGoal.amountTarget > 0 ? (annualOpportunityGoal.amountActual / annualOpportunityGoal.amountTarget) * 100 : 0)}%` }}
+                  />
                 </div>
-              </div>
-              <div className="mb-4">
-                <div className="text-3xl font-bold text-gray-900">
-                  <span className="text-green-600">{annualGoal.amountActual}</span>
-                  <span className="text-gray-400 text-xl mx-2">/</span>
-                  <span className="text-gray-700">{annualGoal.amountTarget > 0 ? annualGoal.amountTarget : '-'}</span>
-                  <span className="text-lg text-gray-500 ml-2">万</span>
+                <div className="text-xs text-orange-600 mt-1 font-semibold">
+                  {annualOpportunityGoal.amountTarget > 0 ? ((annualOpportunityGoal.amountActual / annualOpportunityGoal.amountTarget) * 100).toFixed(1) : 0}%
                 </div>
-              </div>
-              <div className="w-full bg-white/50 rounded-full h-3 overflow-hidden">
-                <div
-                  className="bg-gradient-to-r from-green-500 to-green-600 h-3 rounded-full transition-all duration-500 shadow-sm"
-                  style={{ width: `${annualGoal.amountTarget > 0 ? (annualGoal.amountActual / annualGoal.amountTarget) * 100 : 0}%` }}
-                />
               </div>
             </div>
           </div>
         </div>
 
-        {/* 季度目标 */}
+        {/* 季度目标（合并销售+商机） */}
         <div className="grid grid-cols-4 gap-4">
-          {quarterlyGoals.map((q: any) => (
-            <div 
-              key={q.quarter} 
-              className="bg-white rounded-lg border border-gray-200 p-4 cursor-pointer hover:shadow-lg hover:border-blue-300 transition-all"
-              onClick={() => loadOpportunitiesByPeriod(selectedYear, q.quarter)}
-            >
-              <div className="flex items-center justify-between mb-4">
-                <div className="text-base font-semibold text-gray-900">{q.quarter}</div>
-                {checkPermission('goal.opportunityGoal', 'edit') && (
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation(); // 阻止冒泡，避免触发卡片点击
-                      handleEditOpportunityGoal(opportunityGoals?.find(g => g.quarter === q.quarter) || null, 'quarterly', q.quarter);
-                    }}
-                    className="text-sm text-blue-600 hover:text-blue-700"
+          {quarterlySalesGoals.map((salesQ: any, index: number) => {
+            const oppQ = quarterlyOpportunityGoals[index];
+            return (
+              <div key={salesQ.quarter} className="bg-white rounded-lg border border-gray-200 p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="text-base font-semibold text-gray-900">{salesQ.quarter} 销售目标</div>
+                  <div className="flex items-center gap-1">
+                    {checkPermission('goal.salesGoal', 'edit') && (
+                      <button 
+                        onClick={() => handleEditSalesGoal(salesGoals?.find(g => g.quarter === salesQ.quarter) || null, 'quarterly', salesQ.quarter)}
+                        className="text-xs text-blue-600 hover:text-blue-700"
+                        title="编辑销售目标"
+                      >
+                        销售
+                      </button>
+                    )}
+                    {checkPermission('goal.opportunityGoal', 'edit') && (
+                      <button 
+                        onClick={() => handleEditOpportunityGoal(opportunityGoals?.find(g => g.quarter === oppQ.quarter) || null, 'quarterly', oppQ.quarter)}
+                        className="text-xs text-green-600 hover:text-green-700"
+                        title="编辑商机目标"
+                      >
+                        / 商机
+                      </button>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="space-y-3">
+                  {/* 订单承揽 */}
+                  <div 
+                    className="cursor-pointer hover:bg-blue-50 rounded-lg p-2 -mx-2 transition-colors"
+                    onClick={() => loadOpportunitiesByPeriod(selectedYear, salesQ.quarter)}
                   >
-                    编辑
-                  </button>
-                )}
-              </div>
-              <div className="space-y-3">
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="text-xs text-gray-500">商机挖掘数</div>
-                    <div className="text-xs text-gray-400">
-                      {q.countTarget > 0 ? `${((q.countActual / q.countTarget) * 100).toFixed(0)}%` : '-'}
+                    <div className="text-xs text-gray-500 mb-1">订单承揽</div>
+                    <div className="text-base font-semibold text-gray-900">
+                      <span className="text-blue-600">{salesQ.orderActual.toFixed(2)}</span>
+                      <span className="text-gray-400 text-sm mx-1">/</span>
+                      <span className="text-gray-600">{salesQ.orderTarget}</span>
+                      <span className="text-xs text-gray-500 ml-1">万</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-1.5 mt-1">
+                      <div
+                        className="bg-blue-600 h-1.5 rounded-full transition-all"
+                        style={{ width: `${salesQ.orderTarget > 0 ? (salesQ.orderActual / salesQ.orderTarget) * 100 : 0}%` }}
+                      />
                     </div>
                   </div>
-                  <div className="text-xl font-bold text-gray-900">
-                    <span className="text-blue-600">{q.countActual}</span>
-                    <span className="text-gray-400 text-base mx-1">/</span>
-                    <span className="text-gray-600">{q.countTarget > 0 ? q.countTarget : '-'}</span>
-                    <span className="text-sm text-gray-500 ml-1">个</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-                    <div
-                      className="bg-blue-600 h-2 rounded-full transition-all"
-                      style={{ width: `${q.countTarget > 0 ? (q.countActual / q.countTarget) * 100 : 0}%` }}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="text-xs text-gray-500">商机预期金额</div>
-                    <div className="text-xs text-gray-400">
-                      {q.amountTarget > 0 ? `${((q.amountActual / q.amountTarget) * 100).toFixed(0)}%` : '-'}
+
+                  {/* 销售收入 */}
+                  <div 
+                    className="cursor-pointer hover:bg-purple-50 rounded-lg p-2 -mx-2 transition-colors"
+                    onClick={() => loadProjectsByPeriod(selectedYear, salesQ.quarter)}
+                  >
+                    <div className="text-xs text-gray-500 mb-1">销售收入</div>
+                    <div className="text-base font-semibold text-gray-900">
+                      <span className="text-purple-600">{salesQ.revenueActual.toFixed(2)}</span>
+                      <span className="text-gray-400 text-sm mx-1">/</span>
+                      <span className="text-gray-600">{salesQ.revenueTarget}</span>
+                      <span className="text-xs text-gray-500 ml-1">万</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-1.5 mt-1">
+                      <div
+                        className="bg-purple-600 h-1.5 rounded-full transition-all"
+                        style={{ width: `${salesQ.revenueTarget > 0 ? (salesQ.revenueActual / salesQ.revenueTarget) * 100 : 0}%` }}
+                      />
                     </div>
                   </div>
-                  <div className="text-xl font-bold text-gray-900">
-                    <span className="text-green-600">{q.amountActual}</span>
-                    <span className="text-gray-400 text-base mx-1">/</span>
-                    <span className="text-gray-600">{q.amountTarget > 0 ? q.amountTarget : '-'}</span>
-                    <span className="text-sm text-gray-500 ml-1">万</span>
+
+                  {/* 商机挖掘数 */}
+                  <div 
+                    className="cursor-pointer hover:bg-green-50 rounded-lg p-2 -mx-2 transition-colors"
+                    onClick={() => loadOpportunitiesByPeriod(selectedYear, oppQ.quarter)}
+                  >
+                    <div className="text-xs text-gray-500 mb-1">商机挖掘数</div>
+                    <div className="text-base font-semibold text-gray-900">
+                      <span className="text-green-600">{oppQ.countActual}</span>
+                      <span className="text-gray-400 text-sm mx-1">/</span>
+                      <span className="text-gray-600">{oppQ.countTarget}</span>
+                      <span className="text-xs text-gray-500 ml-1">个</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-1.5 mt-1">
+                      <div
+                        className="bg-green-600 h-1.5 rounded-full transition-all"
+                        style={{ width: `${oppQ.countTarget > 0 ? (oppQ.countActual / oppQ.countTarget) * 100 : 0}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-                    <div
-                      className="bg-green-600 h-2 rounded-full transition-all"
-                      style={{ width: `${q.amountTarget > 0 ? (q.amountActual / q.amountTarget) * 100 : 0}%` }}
-                    />
+
+                  {/* 商机预期金额 */}
+                  <div 
+                    className="cursor-pointer hover:bg-orange-50 rounded-lg p-2 -mx-2 transition-colors"
+                    onClick={() => loadOpportunitiesByPeriod(selectedYear, oppQ.quarter)}
+                  >
+                    <div className="text-xs text-gray-500 mb-1">商机预期金额</div>
+                    <div className="text-base font-semibold text-gray-900">
+                      <span className="text-orange-600">{oppQ.amountActual}</span>
+                      <span className="text-gray-400 text-sm mx-1">/</span>
+                      <span className="text-gray-600">{oppQ.amountTarget}</span>
+                      <span className="text-xs text-gray-500 ml-1">万</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-1.5 mt-1">
+                      <div
+                        className="bg-orange-600 h-1.5 rounded-full transition-all"
+                        style={{ width: `${oppQ.amountTarget > 0 ? (oppQ.amountActual / oppQ.amountTarget) * 100 : 0}%` }}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     );
@@ -3770,19 +3589,6 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
             销售目标
           </button>
         )}
-        {checkPermission('goal.opportunityGoal', 'view') && (
-          <button
-            onClick={() => setSelectedTab('opportunity')}
-            className={`flex items-center gap-2 px-6 py-3 font-medium transition-colors relative ${
-              selectedTab === 'opportunity' 
-                ? 'text-blue-600 border-b-2 border-blue-600' 
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            <TrendingUp className="w-5 h-5" />
-            商机目标
-          </button>
-        )}
         {checkPermission('goal.productOrder', 'view') && (
           <button
             onClick={() => setSelectedTab('product')}
@@ -3862,7 +3668,6 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
       ) : (
         <>
           {selectedTab === 'sales' && renderSalesGoals()}
-          {selectedTab === 'opportunity' && renderOpportunityGoals()}
           {selectedTab === 'product' && renderProductOrderForecast()}
           {selectedTab === 'strategy' && renderStrategies()}
           {selectedTab === 'decomposition' && renderGoalDecomposition()}
@@ -3871,172 +3676,129 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
         </>
       )}
 
-      {/* Sales Goal Modal */}
-      {showSalesGoalModal && (
+      {/* 🔄 整合后的年度目标模态框 */}
+      {showAnnualGoalModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+          <div className="bg-white rounded-lg p-6 w-full max-w-2xl">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-gray-900">
-                {editingItem ? '编辑销售目标' : '设置销售目标'}
-              </h2>
-              <button onClick={() => { setShowSalesGoalModal(false); setEditingItem(null); }}>
+              <h2 className="text-xl font-bold text-gray-900">编辑年度目标</h2>
+              <button onClick={() => setShowAnnualGoalModal(false)}>
                 <X className="w-6 h-6 text-gray-400" />
               </button>
             </div>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">年度</label>
-                <select 
-                  value={salesForm.year}
-                  onChange={(e) => setSalesForm({ ...salesForm, year: Number(e.target.value) })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  disabled={!!editingItem}
-                >
-                  {[2025, 2026, 2027, 2028, 2029, 2030].map(year => (
-                    <option key={year} value={year}>{year}</option>
-                  ))}
-                </select>
-              </div>
-              {salesForm.type === 'quarterly' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">季度</label>
-                  <select 
-                    value={salesForm.quarter}
-                    onChange={(e) => setSalesForm({ ...salesForm, quarter: e.target.value as any })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    disabled={!!editingItem}
-                  >
-                    <option value="Q1">Q1</option>
-                    <option value="Q2">Q2</option>
-                    <option value="Q3">Q3</option>
-                    <option value="Q4">Q4</option>
-                  </select>
-                </div>
-              )}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">订单承揽目标（万元）</label>
-                <input
-                  type="number"
-                  value={salesForm.orderTarget === 0 ? '' : salesForm.orderTarget}
-                  onChange={(e) => setSalesForm({ ...salesForm, orderTarget: e.target.value === '' ? 0 : Number(e.target.value) })}
-                  onFocus={(e) => { if (salesForm.orderTarget === 0) e.target.value = ''; }}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  min="0"
-                  placeholder="请输入订单承揽目标"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">销售收入目标（万元）</label>
-                <input
-                  type="number"
-                  value={salesForm.revenueTarget === 0 ? '' : salesForm.revenueTarget}
-                  onChange={(e) => setSalesForm({ ...salesForm, revenueTarget: e.target.value === '' ? 0 : Number(e.target.value) })}
-                  onFocus={(e) => { if (salesForm.revenueTarget === 0) e.target.value = ''; }}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  min="0"
-                  placeholder="请输入销售收入目标"
-                />
-              </div>
-            </div>
-            <div className="flex items-center justify-end gap-3 mt-6">
-              <button
-                onClick={() => { setShowSalesGoalModal(false); setEditingItem(null); }}
-                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                取消
-              </button>
-              <button
-                onClick={handleSaveSalesGoal}
-                disabled={loading}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-              >
-                {loading ? '保存中...' : '确定'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
-      {/* Opportunity Goal Modal */}
-      {showOpportunityGoalModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-gray-900">
-                {editingItem ? '编辑商机目标' : '设置商机目标'}
-              </h2>
-              <button onClick={() => { setShowOpportunityGoalModal(false); setEditingItem(null); }}>
-                <X className="w-6 h-6 text-gray-400" />
-              </button>
+            {/* 年度选择 */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">年度</label>
+              <input
+                type="text"
+                value={annualGoalForm.year}
+                disabled
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
+              />
             </div>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">年度</label>
-                <select 
-                  value={opportunityForm.year}
-                  onChange={(e) => setOpportunityForm({ ...opportunityForm, year: Number(e.target.value) })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  disabled={!!editingItem}
-                >
-                  {[2025, 2026, 2027, 2028, 2029, 2030].map(year => (
-                    <option key={year} value={year}>{year}</option>
-                  ))}
-                </select>
-              </div>
-              {opportunityForm.type === 'quarterly' && (
+
+            {/* 两栏布局 */}
+            <div className="grid grid-cols-2 gap-6">
+              {/* 左侧：销售目标 */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-blue-600 flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5" />
+                  销售目标
+                </h3>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">季度</label>
-                  <select 
-                    value={opportunityForm.quarter}
-                    onChange={(e) => setOpportunityForm({ ...opportunityForm, quarter: e.target.value as any })}
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    订单承揽目标（万元）
+                  </label>
+                  <input
+                    type="number"
+                    value={annualGoalForm.orderTarget === 0 ? '' : annualGoalForm.orderTarget}
+                    onChange={(e) => setAnnualGoalForm({ 
+                      ...annualGoalForm, 
+                      orderTarget: e.target.value === '' ? 0 : Number(e.target.value) 
+                    })}
+                    onFocus={(e) => { if (annualGoalForm.orderTarget === 0) e.target.value = ''; }}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    disabled={!!editingItem}
-                  >
-                    <option value="Q1">Q1</option>
-                    <option value="Q2">Q2</option>
-                    <option value="Q3">Q3</option>
-                    <option value="Q4">Q4</option>
-                  </select>
+                    min="0"
+                    placeholder="请输入订单承揽目标"
+                  />
                 </div>
-              )}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">商机挖掘数量目标（个）</label>
-                <input
-                  type="number"
-                  value={opportunityForm.countTarget === 0 ? '' : opportunityForm.countTarget}
-                  onChange={(e) => setOpportunityForm({ ...opportunityForm, countTarget: e.target.value === '' ? 0 : Number(e.target.value) })}
-                  onFocus={(e) => { if (opportunityForm.countTarget === 0) e.target.value = ''; }}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  min="0"
-                  placeholder="请输入商机数量目标"
-                />
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    销售收入目标（万元）
+                  </label>
+                  <input
+                    type="number"
+                    value={annualGoalForm.revenueTarget === 0 ? '' : annualGoalForm.revenueTarget}
+                    onChange={(e) => setAnnualGoalForm({ 
+                      ...annualGoalForm, 
+                      revenueTarget: e.target.value === '' ? 0 : Number(e.target.value) 
+                    })}
+                    onFocus={(e) => { if (annualGoalForm.revenueTarget === 0) e.target.value = ''; }}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    min="0"
+                    placeholder="请输入销售收入目标"
+                  />
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">商机预期金额目标（万元）</label>
-                <input
-                  type="number"
-                  value={opportunityForm.amountTarget === 0 ? '' : opportunityForm.amountTarget}
-                  onChange={(e) => setOpportunityForm({ ...opportunityForm, amountTarget: e.target.value === '' ? 0 : Number(e.target.value) })}
-                  onFocus={(e) => { if (opportunityForm.amountTarget === 0) e.target.value = ''; }}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  min="0"
-                  placeholder="请输入商机金额目标"
-                />
+
+              {/* 右侧：商机目标 */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-green-600 flex items-center gap-2">
+                  <Target className="w-5 h-5" />
+                  商机目标
+                </h3>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    商机挖掘数量目标（个）
+                  </label>
+                  <input
+                    type="number"
+                    value={annualGoalForm.countTarget === 0 ? '' : annualGoalForm.countTarget}
+                    onChange={(e) => setAnnualGoalForm({ 
+                      ...annualGoalForm, 
+                      countTarget: e.target.value === '' ? 0 : Number(e.target.value) 
+                    })}
+                    onFocus={(e) => { if (annualGoalForm.countTarget === 0) e.target.value = ''; }}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    min="0"
+                    placeholder="请输入商机数量目标"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    商机预期金额目标（万元）
+                  </label>
+                  <input
+                    type="number"
+                    value={annualGoalForm.amountTarget === 0 ? '' : annualGoalForm.amountTarget}
+                    onChange={(e) => setAnnualGoalForm({ 
+                      ...annualGoalForm, 
+                      amountTarget: e.target.value === '' ? 0 : Number(e.target.value) 
+                    })}
+                    onFocus={(e) => { if (annualGoalForm.amountTarget === 0) e.target.value = ''; }}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    min="0"
+                    placeholder="请输入商机金额目标"
+                  />
+                </div>
               </div>
             </div>
-            <div className="flex items-center justify-end gap-3 mt-6">
+
+            {/* 操作按钮 */}
+            <div className="flex items-center justify-end gap-3 mt-6 pt-6 border-t">
               <button
-                onClick={() => { setShowOpportunityGoalModal(false); setEditingItem(null); }}
-                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                onClick={() => setShowAnnualGoalModal(false)}
+                className="px-6 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 取消
               </button>
               <button
-                onClick={handleSaveOpportunityGoal}
+                onClick={handleSaveAnnualGoal}
                 disabled={loading}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? '保存中...' : '确定'}
+                {loading ? '保存中...' : '保存'}
               </button>
             </div>
           </div>
@@ -4469,22 +4231,6 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
 
       {/* 保障措施模态框 */}
       {/* 保障措施管理已统一到 StrategyDetailModal 中 */}
-
-      {/* 目标分解管理器 */}
-      {showDecompositionManager && decompositionGoal && (
-        <GoalDecompositionManager
-          goalId={decompositionGoal.id}
-          goalTitle={decompositionGoal.title}
-          goalType={decompositionGoal.type}
-          targetValue={decompositionGoal.targetValue}
-          unit={decompositionGoal.unit}
-          year={selectedYear}
-          onClose={() => {
-            setShowDecompositionManager(false);
-            setDecompositionGoal(null);
-          }}
-        />
-      )}
 
       {/* 删除确认对话框 */}
       <ConfirmDialog

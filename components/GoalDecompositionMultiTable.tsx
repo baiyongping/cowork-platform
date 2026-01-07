@@ -503,31 +503,38 @@ const GoalDecompositionMultiTable: React.FC<GoalDecompositionMultiTableProps> = 
                   </div>
                 </div>
 
-                {/* 分解表格 */}
-                <div className="p-6 overflow-x-auto">
+                {/* 分解表格 - 添加固定高度和滚动容器 */}
+                <div className="overflow-auto max-h-[600px]">
                   <table className="w-full border-collapse">
                     <thead>
                       {/* 一级表头（如果有二级维度）*/}
                       {(table.horizontalDimension.secondary || table.verticalDimension.secondary) && (
-                        <tr>
-                          {/* 左上角单元格 */}
+                        <tr className="bg-gray-50 border-b-2 border-gray-300">
+                          {/* 左上角单元格 - 纵轴一级维度 - 固定在左上角 */}
                           <th 
-                            className="border border-gray-300 bg-gray-100 px-4 py-3 text-center text-sm font-semibold text-gray-700 min-w-[120px] sticky left-0 z-20"
+                            className="border border-gray-200 bg-gray-50 px-3 py-3 text-center font-semibold text-gray-700 min-w-[80px] sticky left-0 top-0 z-30 whitespace-nowrap"
                             rowSpan={table.horizontalDimension.secondary ? 2 : 1}
                           >
                             {table.verticalDimension.primary.dimensionName}
-                            {table.verticalDimension.secondary && (
-                              <> × {table.verticalDimension.secondary.dimensionName}</>
-                            )}
                           </th>
                           
-                          {/* 一级横轴表头（如果有二级横轴维度）*/}
+                          {/* 纵轴二级维度（如果有）- 固定在左上角 */}
+                          {table.verticalDimension.secondary && (
+                            <th 
+                              className="border border-gray-200 bg-gray-50 px-3 py-3 text-center font-semibold text-gray-700 min-w-[80px] sticky left-[80px] top-0 z-30 whitespace-nowrap"
+                              rowSpan={table.horizontalDimension.secondary ? 2 : 1}
+                            >
+                              {table.verticalDimension.secondary.dimensionName}
+                            </th>
+                          )}
+                          
+                          {/* 一级横轴表头（如果有二级横轴维度）- 固定在顶部 */}
                           {table.horizontalDimension.secondary ? (
                             table.horizontalDimension.primary.values.map((col, colIndex) => (
                               <th
                                 key={colIndex}
                                 colSpan={table.horizontalDimension.secondary!.values.length}
-                                className="border border-gray-300 bg-blue-100 px-4 py-3 text-center text-sm font-semibold text-gray-700"
+                                className="border border-gray-200 bg-blue-50 px-3 py-3 text-center font-semibold text-gray-700 whitespace-nowrap sticky top-0 z-20"
                               >
                                 {col}
                               </th>
@@ -536,17 +543,17 @@ const GoalDecompositionMultiTable: React.FC<GoalDecompositionMultiTableProps> = 
                             table.horizontalDimension.primary.values.map((col, colIndex) => (
                               <th
                                 key={colIndex}
-                                className="border border-gray-300 bg-blue-50 px-4 py-3 text-center text-sm font-semibold text-gray-700 min-w-[150px]"
+                                className="border border-gray-200 bg-blue-50 px-3 py-3 text-center font-semibold text-gray-700 min-w-[100px] whitespace-nowrap sticky top-0 z-20"
                               >
                                 {col}
                               </th>
                             ))
                           )}
                           
-                          {/* 行汇总列头 */}
+                          {/* 行汇总列头 - 固定在顶部 */}
                           {table.showRowTotal && (
                             <th 
-                              className="border border-gray-300 bg-green-50 px-4 py-3 text-center text-sm font-semibold text-gray-700 min-w-[150px]"
+                              className="border border-gray-200 bg-green-50 px-3 py-3 text-center font-semibold text-gray-700 min-w-[100px] whitespace-nowrap sticky top-0 z-20"
                               rowSpan={table.horizontalDimension.secondary ? 2 : 1}
                             >
                               合计
@@ -555,14 +562,14 @@ const GoalDecompositionMultiTable: React.FC<GoalDecompositionMultiTableProps> = 
                         </tr>
                       )}
                       
-                      {/* 二级表头（如果有二级横轴维度）*/}
+                      {/* 二级表头（如果有二级横轴维度）- 固定在顶部 */}
                       {table.horizontalDimension.secondary && (
-                        <tr>
+                        <tr className="sticky top-[52px] z-20 bg-blue-50">
                           {table.horizontalDimension.primary.values.map((primaryCol, primaryIdx) =>
                             table.horizontalDimension.secondary!.values.map((secondaryCol, secondaryIdx) => (
                               <th
                                 key={`${primaryIdx}-${secondaryIdx}`}
-                                className="border border-gray-300 bg-blue-50 px-4 py-3 text-center text-sm font-semibold text-gray-700 min-w-[150px]"
+                                className="border border-gray-200 bg-blue-50 px-2 py-3 text-center text-sm font-medium text-gray-600 min-w-[100px] whitespace-nowrap"
                               >
                                 {secondaryCol}
                               </th>
@@ -571,22 +578,22 @@ const GoalDecompositionMultiTable: React.FC<GoalDecompositionMultiTableProps> = 
                         </tr>
                       )}
                       
-                      {/* 单层表头（如果没有二级维度）*/}
+                      {/* 单层表头（如果没有二级维度）- 固定在顶部和左侧 */}
                       {!table.horizontalDimension.secondary && !table.verticalDimension.secondary && (
-                        <tr>
-                          <th className="border border-gray-300 bg-gray-50 px-4 py-3 text-left text-sm font-semibold text-gray-700 min-w-[120px] sticky left-0 z-10">
+                        <tr className="bg-gray-50 border-b-2 border-gray-300">
+                          <th className="border border-gray-200 bg-gray-50 px-3 py-3 text-center font-semibold text-gray-700 min-w-[80px] sticky left-0 top-0 z-30 whitespace-nowrap">
                             {table.verticalDimension.primary.dimensionName}
                           </th>
                           {table.horizontalDimension.primary.values.map((col, colIndex) => (
                             <th
                               key={colIndex}
-                              className="border border-gray-300 bg-blue-50 px-4 py-3 text-center text-sm font-semibold text-gray-700 min-w-[150px]"
+                              className="border border-gray-200 bg-blue-50 px-3 py-3 text-center font-semibold text-gray-700 min-w-[100px] whitespace-nowrap sticky top-0 z-20"
                             >
                               {col}
                             </th>
                           ))}
                           {table.showRowTotal && (
-                            <th className="border border-gray-300 bg-green-50 px-4 py-3 text-center text-sm font-semibold text-gray-700 min-w-[150px]">
+                            <th className="border border-gray-200 bg-green-50 px-3 py-3 text-center font-semibold text-gray-700 min-w-[100px] whitespace-nowrap sticky top-0 z-20">
                               合计
                             </th>
                           )}
@@ -596,58 +603,154 @@ const GoalDecompositionMultiTable: React.FC<GoalDecompositionMultiTableProps> = 
                     <tbody>
                       {/* 数据行 */}
                       {(() => {
-                        // 生成行标签（一级或一级-二级组合）
-                        const rowLabels = table.verticalDimension.secondary
-                          ? table.verticalDimension.primary.values.flatMap(p =>
-                              table.verticalDimension.secondary!.values.map(s => `${p}-${s}`)
-                            )
-                          : table.verticalDimension.primary.values;
-                        
-                        // 生成列数量（一级或一级×二级）
-                        const colCount = table.horizontalDimension.secondary
-                          ? table.horizontalDimension.primary.values.length * table.horizontalDimension.secondary.values.length
-                          : table.horizontalDimension.primary.values.length;
-                        
-                        return rowLabels.map((row, rowIndex) => (
-                          <tr key={rowIndex} className="hover:bg-gray-50 transition-colors">
-                            <td className="border border-gray-300 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-700 sticky left-0 z-10">
-                              {row}
-                            </td>
-                            {Array.from({ length: colCount }).map((_, colIndex) => {
-                              const cellValue = getCellValue(table._id, rowIndex, colIndex);
-                              const isEditing = editingTableId === table._id;
-                              const displayValue = isEditing ? cellValue : formatNumberWithCommas(cellValue);
+                        // 判断是否有纵轴二级维度
+                        if (table.verticalDimension.secondary) {
+                          // 有纵轴二级维度：需要两列显示
+                          const primaryValues = table.verticalDimension.primary.values;
+                          const secondaryValues = table.verticalDimension.secondary.values;
+                          
+                          // 生成列数量
+                          const colCount = table.horizontalDimension.secondary
+                            ? table.horizontalDimension.primary.values.length * table.horizontalDimension.secondary.values.length
+                            : table.horizontalDimension.primary.values.length;
+                          
+                          let globalRowIndex = 0;
+                          
+                          return primaryValues.map((primaryValue, primaryIdx) => (
+                            secondaryValues.map((secondaryValue, secondaryIdx) => {
+                              const currentRowIndex = globalRowIndex++;
+                              const isFirstInGroup = secondaryIdx === 0;
                               
                               return (
-                                <td
-                                  key={colIndex}
-                                  className="border border-gray-300 px-2 py-2 bg-white"
-                                >
-                                  <input
-                                    type="text"
-                                    value={displayValue}
-                                    onChange={(e) => {
-                                      const rawValue = removeCommas(e.target.value);
-                                      handleCellChange(table._id, rowIndex, colIndex, rawValue);
-                                    }}
-                                    disabled={!isEditing}
-                                    className="w-full px-3 py-2 border-0 focus:ring-2 focus:ring-blue-500 rounded text-sm text-gray-900 bg-transparent hover:bg-blue-50/30 transition-colors disabled:cursor-not-allowed disabled:bg-gray-50 text-center"
-                                    placeholder={isEditing ? "输入数值" : ""}
-                                  />
-                                </td>
+                                <tr key={currentRowIndex} className="hover:bg-gray-50 transition-colors">
+                                  {/* 一级维度列（合并单元格）- 固定在最左侧 */}
+                                  {isFirstInGroup && (
+                                    <td 
+                                      rowSpan={secondaryValues.length}
+                                      className="border border-gray-200 bg-gray-50 px-3 py-3 text-center font-medium text-gray-700 sticky left-0 z-10 align-middle whitespace-nowrap"
+                                    >
+                                      {primaryValue}
+                                    </td>
+                                  )}
+                                  
+                                  {/* 二级维度列 - 固定在左侧第二列 */}
+                                  <td className="border border-gray-200 bg-gray-50 px-3 py-3 text-left font-medium text-gray-700 sticky left-[80px] z-10 whitespace-nowrap">
+                                    {secondaryValue}
+                                  </td>
+                                  
+                                  {/* 数据单元格 */}
+                                  {Array.from({ length: colCount }).map((_, colIndex) => {
+                                    const cellValue = getCellValue(table._id, currentRowIndex, colIndex);
+                                    const isEditing = editingTableId === table._id;
+                                    const displayValue = isEditing ? cellValue : formatNumberWithCommas(cellValue);
+                                    
+                                    return (
+                                      <td
+                                        key={colIndex}
+                                        className={`border border-gray-200 px-0 py-0 transition-all duration-200 ${
+                                          isEditing ? 'bg-yellow-50 hover:bg-amber-100' : 'bg-white'
+                                        }`}
+                                      >
+                                        <input
+                                          type="text"
+                                          value={displayValue}
+                                          onChange={(e) => {
+                                            const rawValue = removeCommas(e.target.value);
+                                            handleCellChange(table._id, currentRowIndex, colIndex, rawValue);
+                                          }}
+                                          onFocus={(e) => {
+                                            if (isEditing) {
+                                              e.target.parentElement?.classList.add('bg-amber-200', 'shadow-[inset_0_2px_4px_0_rgba(0,0,0,0.15)]');
+                                              e.target.parentElement?.classList.remove('bg-yellow-50', 'bg-amber-100');
+                                            }
+                                          }}
+                                          onBlur={(e) => {
+                                            e.target.parentElement?.classList.remove('bg-amber-200', 'shadow-[inset_0_2px_4px_0_rgba(0,0,0,0.15)]');
+                                            if (isEditing) {
+                                              e.target.parentElement?.classList.add('bg-yellow-50');
+                                            }
+                                          }}
+                                          disabled={!isEditing}
+                                          className="w-full h-full px-3 py-3 text-[15px] font-mono text-right focus:outline-none bg-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:cursor-default"
+                                          placeholder={isEditing ? "0" : ""}
+                                        />
+                                      </td>
+                                    );
+                                  })}
+                                  
+                                  {/* 行汇总单元格 */}
+                                  {table.showRowTotal && (
+                                    <td className="border border-gray-200 bg-green-50 px-3 py-3 text-right font-mono text-[15px] font-bold text-gray-900">
+                                      {calculateRowTotal(table._id, currentRowIndex, colCount).toLocaleString()}
+                                    </td>
+                                  )}
+                                </tr>
                               );
-                            })}
-                            {/* 行汇总单元格 */}
-                            {table.showRowTotal && (
-                              <td className="border border-gray-300 bg-green-50 px-4 py-3 text-center text-sm font-bold text-gray-900">
-                                {calculateRowTotal(table._id, rowIndex, colCount).toLocaleString()}
+                            })
+                          ));
+                        } else {
+                          // 没有纵轴二级维度：单列显示
+                          const rowLabels = table.verticalDimension.primary.values;
+                          
+                          const colCount = table.horizontalDimension.secondary
+                            ? table.horizontalDimension.primary.values.length * table.horizontalDimension.secondary.values.length
+                            : table.horizontalDimension.primary.values.length;
+                          
+                          return rowLabels.map((row, rowIndex) => (
+                            <tr key={rowIndex} className="hover:bg-gray-50 transition-colors">
+                              <td className="border border-gray-200 bg-gray-50 px-3 py-3 text-center font-medium text-gray-700 sticky left-0 z-10 whitespace-nowrap">
+                                {row}
                               </td>
-                            )}
-                          </tr>
-                        ));
+                              {Array.from({ length: colCount }).map((_, colIndex) => {
+                                const cellValue = getCellValue(table._id, rowIndex, colIndex);
+                                const isEditing = editingTableId === table._id;
+                                const displayValue = isEditing ? cellValue : formatNumberWithCommas(cellValue);
+                                
+                                return (
+                                  <td
+                                    key={colIndex}
+                                    className={`border border-gray-200 px-0 py-0 transition-all duration-200 ${
+                                      isEditing ? 'bg-yellow-50 hover:bg-amber-100' : 'bg-white'
+                                    }`}
+                                  >
+                                    <input
+                                      type="text"
+                                      value={displayValue}
+                                      onChange={(e) => {
+                                        const rawValue = removeCommas(e.target.value);
+                                        handleCellChange(table._id, rowIndex, colIndex, rawValue);
+                                      }}
+                                      onFocus={(e) => {
+                                        if (isEditing) {
+                                          e.target.parentElement?.classList.add('bg-amber-200', 'shadow-[inset_0_2px_4px_0_rgba(0,0,0,0.15)]');
+                                          e.target.parentElement?.classList.remove('bg-yellow-50', 'bg-amber-100');
+                                        }
+                                      }}
+                                      onBlur={(e) => {
+                                        e.target.parentElement?.classList.remove('bg-amber-200', 'shadow-[inset_0_2px_4px_0_rgba(0,0,0,0.15)]');
+                                        if (isEditing) {
+                                          e.target.parentElement?.classList.add('bg-yellow-50');
+                                        }
+                                      }}
+                                      disabled={!isEditing}
+                                      className="w-full h-full px-3 py-3 text-[15px] font-mono text-right focus:outline-none bg-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:cursor-default"
+                                      placeholder={isEditing ? "0" : ""}
+                                    />
+                                  </td>
+                                );
+                              })}
+                              {/* 行汇总单元格 */}
+                              {table.showRowTotal && (
+                                <td className="border border-gray-200 bg-green-50 px-3 py-3 text-right font-mono text-[15px] font-bold text-gray-900">
+                                  {calculateRowTotal(table._id, rowIndex, colCount).toLocaleString()}
+                                </td>
+                              )}
+                            </tr>
+                          ));
+                        }
                       })()}
                       
-                      {/* 列总计行 */}
+                      {/* 列总计行 - 固定在左侧 */}
                       {table.showColumnTotal && (() => {
                         const rowCount = table.verticalDimension.secondary
                           ? table.verticalDimension.primary.values.length * table.verticalDimension.secondary.values.length
@@ -658,20 +761,23 @@ const GoalDecompositionMultiTable: React.FC<GoalDecompositionMultiTableProps> = 
                           : table.horizontalDimension.primary.values.length;
                         
                         return (
-                          <tr className="bg-yellow-50">
-                            <td className="border border-gray-300 px-4 py-3 text-sm font-bold text-gray-900 sticky left-0 z-10">
+                          <tr className="bg-gray-50 border-t-2 border-gray-300">
+                            <td 
+                              colSpan={table.verticalDimension.secondary ? 2 : 1}
+                              className="border border-gray-200 bg-gray-50 px-3 py-3 text-center font-bold text-gray-900 sticky left-0 z-10 whitespace-nowrap"
+                            >
                               总计
                             </td>
                             {Array.from({ length: colCount }).map((_, colIndex) => (
                               <td
                                 key={colIndex}
-                                className="border border-gray-300 px-4 py-3 text-center text-sm font-bold text-gray-900"
+                                className="border border-gray-200 bg-blue-50 px-3 py-3 text-right font-mono text-[15px] font-bold text-gray-900"
                               >
                                 {calculateColumnTotal(table._id, colIndex, rowCount).toLocaleString()}
                               </td>
                             ))}
                             {table.showRowTotal && (
-                              <td className="border border-gray-300 bg-orange-100 px-4 py-3 text-center text-sm font-bold text-gray-900">
+                              <td className="border border-gray-200 bg-green-50 px-3 py-3 text-right font-mono text-[15px] font-bold text-gray-900">
                                 {calculateGrandTotal(table._id, rowCount, colCount).toLocaleString()}
                               </td>
                             )}
