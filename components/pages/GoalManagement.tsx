@@ -1315,7 +1315,7 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
         })
         .get();
 
-      if (salesResult.data.length > 0) {
+      if (salesResult.data && salesResult.data.length > 0) {
         // 更新现有销售目标
         const salesGoal = salesResult.data[0];
         await db.collection('salesGoals').doc(salesGoal._id).update({
@@ -1349,7 +1349,7 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
         })
         .get();
 
-      if (opportunityResult.data.length > 0) {
+      if (opportunityResult.data && opportunityResult.data.length > 0) {
         // 更新现有商机目标
         const opportunityGoal = opportunityResult.data[0];
         await db.collection('opportunityGoals').doc(opportunityGoal._id).update({
@@ -1680,8 +1680,8 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
         })
         .get();
 
-      const salesGoal = salesResult.data[0] as SalesGoal | undefined;
-      const opportunityGoal = opportunityResult.data[0] as OpportunityGoal | undefined;
+      const salesGoal = (salesResult.data && salesResult.data[0]) as SalesGoal | undefined;
+      const opportunityGoal = (opportunityResult.data && opportunityResult.data[0]) as OpportunityGoal | undefined;
 
       // 加载数据到表单
       setAnnualGoalForm({
