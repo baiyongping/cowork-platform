@@ -8,7 +8,7 @@ import { db, app } from '../../lib/cloudbase';
 import { getStoragePublicURL } from '../../constants/cloudbase';
 import { usePermissionContext } from '../../contexts/PermissionContext';
 import { showAlert, showConfirm, showSuccess, showError, showWarning } from '../../lib/dialog-utils';
-import { generateDefaultPermissions } from '../../constants/modules';
+import { generateDefaultPermissions, getPermissionModules, SYSTEM_MODULES } from '../../constants/modules'; // 🆕 导入统一配置
 
 interface TypeItem {
   value: string;
@@ -3618,36 +3618,29 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {Object.entries({
-                        tasks: '任务管理',
-                        opportunities: '商机管理',
-                        projects: '项目管理',
-                        goal: '目标管理',
-                        issues: '问题管理',
-                        budget: '预算管理',
-                        settings: '系统设置'
-                      }).map(([key, label]) => {
-                        // 目标管理有子模块
-                        if (key === 'goal') {
-                          const subModules = {
-                            salesGoal: '销售目标',
-                            opportunityGoal: '商机目标',
-                            strategy: '经营策略',
-                            decomposition: '目标分解',
-                            execution: '执行力地图'
-                          };
+                      {/* 🆕 使用统一配置生成模块列表 */}
+                      {getPermissionModules().map(module => {
+                        const key = module.id;
+                        const label = module.name;
+                        // 有子模块的情况
+                        if (module.children && module.children.length > 0) {
+                          // 🆕 从统一配置读取子模块
+                          const subModules = module.children.reduce((acc, child) => {
+                            acc[child.id] = child.name;
+                            return acc;
+                          }, {} as Record<string, string>);
                           
                           return (
                             <React.Fragment key={key}>
-                              {/* 目标管理主标题 */}
+                              {/* 模块主标题 */}
                               <tr className="bg-blue-50">
                                 <td colSpan={6} className="px-4 py-2 text-sm font-medium text-gray-900">
                                   {label}
                                 </td>
                               </tr>
-                              {/* 目标管理子模块 */}
+                              {/* 子模块 */}
                               {Object.entries(subModules).map(([subKey, subLabel]) => {
-                                const perms = role.permissions?.goal?.[subKey] || {};
+                                const perms = role.permissions?.[key]?.[subKey] || {};
                                 return (
                                   <tr key={`${key}-${subKey}`}>
                                     <td className="px-4 py-2 text-sm text-gray-900 pl-8">
@@ -3671,120 +3664,6 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                                   </tr>
                                 );
                               })}
-                            </React.Fragment>
-                          );
-                        }
-                        
-                        // 预算管理有子模块，需要特殊处理
-                        if (key === 'budget') {
-                          const subModules = {
-                            annual: '年度预算表',
-                            asset: '资产/采购预算',
-                            execution: '预算执行管理',
-                            parameters: '预算参数设置',
-                            hr: '人力费用管理'
-                          };
-                          
-                          return (
-                            <React.Fragment key={key}>
-                              {/* 预算管理主模块标题 */}
-                              <tr className="bg-purple-50">
-                                <td colSpan={6} className="px-4 py-2 text-sm font-semibold text-gray-700">
-                                  {label}
-                                </td>
-                              </tr>
-                              {/* 预算管理子模块 */}
-                              {Object.entries(subModules).map(([subKey, subLabel]) => {
-                                const perms = role.permissions?.budget?.[subKey] || {};
-                                return (
-                                  <tr key={`${key}-${subKey}`}>
-                                    <td className="px-4 py-2 text-sm text-gray-900 pl-8">
-                                      └ {subLabel}
-                                    </td>
-                                    <td className="px-4 py-2 text-center">
-                                      {perms.view ? <CheckCircle className="w-5 h-5 text-green-500 mx-auto" /> : <XCircle className="w-5 h-5 text-gray-300 mx-auto" />}
-                                    </td>
-                                    <td className="px-4 py-2 text-center">
-                                      {perms.create ? <CheckCircle className="w-5 h-5 text-green-500 mx-auto" /> : <XCircle className="w-5 h-5 text-gray-300 mx-auto" />}
-                                    </td>
-                                    <td className="px-4 py-2 text-center">
-                                      {perms.edit ? <CheckCircle className="w-5 h-5 text-green-500 mx-auto" /> : <XCircle className="w-5 h-5 text-gray-300 mx-auto" />}
-                                    </td>
-                                    <td className="px-4 py-2 text-center">
-                                      {perms.delete ? <CheckCircle className="w-5 h-5 text-green-500 mx-auto" /> : <XCircle className="w-5 h-5 text-gray-300 mx-auto" />}
-                                    </td>
-                                    <td className="px-4 py-2 text-center">
-                                      {perms.export ? <CheckCircle className="w-5 h-5 text-green-500 mx-auto" /> : <XCircle className="w-5 h-5 text-gray-300 mx-auto" />}
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </React.Fragment>
-                          );
-                        }
-                        
-                        // 系统设置有子模块，需要特殊处理
-                        if (key === 'settings') {
-                          const subModules = {
-                            userApproval: '用户审核',
-                            employees: '员工管理',
-                            departments: '部门管理',
-                            roles: '角色权限',
-                            typeSettings: '类型设置',
-                            operationLogs: '操作日志'
-                          };
-                          
-                          return (
-                            <React.Fragment key={key}>
-                              {/* 系统设置主模块标题 */}
-                              <tr className="bg-gray-50">
-                                <td colSpan={6} className="px-4 py-2 text-sm font-semibold text-gray-700">
-                                  {label}
-                                </td>
-                              </tr>
-                              {/* 系统设置子模块 */}
-                              {Object.entries(subModules).map(([subKey, subLabel]) => (
-                                <tr key={`${key}-${subKey}`}>
-                                  <td className="px-4 py-3 text-sm text-gray-900 pl-8">
-                                    └ {subLabel}
-                                  </td>
-                                  <td className="px-4 py-3 text-center">
-                                    {role.permissions[key]?.[subKey]?.view ? (
-                                      <CheckCircle className="w-5 h-5 text-green-500 mx-auto" />
-                                    ) : (
-                                      <XCircle className="w-5 h-5 text-gray-300 mx-auto" />
-                                    )}
-                                  </td>
-                                  <td className="px-4 py-3 text-center">
-                                    {role.permissions[key]?.[subKey]?.create ? (
-                                      <CheckCircle className="w-5 h-5 text-green-500 mx-auto" />
-                                    ) : (
-                                      <XCircle className="w-5 h-5 text-gray-300 mx-auto" />
-                                    )}
-                                  </td>
-                                  <td className="px-4 py-3 text-center">
-                                    {role.permissions[key]?.[subKey]?.edit ? (
-                                      <CheckCircle className="w-5 h-5 text-green-500 mx-auto" />
-                                    ) : (
-                                      <XCircle className="w-5 h-5 text-gray-300 mx-auto" />
-                                    )}
-                                  </td>
-                                  <td className="px-4 py-3 text-center">
-                                    {role.permissions[key]?.[subKey]?.delete ? (
-                                      <CheckCircle className="w-5 h-5 text-green-500 mx-auto" />
-                                    ) : (
-                                      <XCircle className="w-5 h-5 text-gray-300 mx-auto" />
-                                    )}
-                                  </td>
-                                  <td className="px-4 py-3 text-center">
-                                    {role.permissions[key]?.[subKey]?.export ? (
-                                      <CheckCircle className="w-5 h-5 text-green-500 mx-auto" />
-                                    ) : (
-                                      <XCircle className="w-5 h-5 text-gray-300 mx-auto" />
-                                    )}
-                                  </td>
-                                </tr>
-                              ))}
                             </React.Fragment>
                           );
                         }
