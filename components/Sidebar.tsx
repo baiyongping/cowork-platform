@@ -1,4 +1,4 @@
-import { LayoutDashboard, CheckSquare, TrendingUp, FolderKanban, Target, Settings, LogOut, UserCircle, DollarSign, Calendar, Award, Briefcase, ChevronUp, ChevronDown, ChevronsLeft, ChevronsRight, AlertCircle } from 'lucide-react';
+import { LayoutDashboard, CheckSquare, TrendingUp, FolderKanban, Target, Settings, LogOut, UserCircle, DollarSign, Calendar, Award, Briefcase, ChevronUp, ChevronDown, ChevronsLeft, ChevronsRight, AlertCircle, Shield } from 'lucide-react';
 import { useEffect, useState, useRef } from 'react';
 import { app, db } from '../lib/cloudbase';
 import { getStoragePublicURL } from '../constants/cloudbase';
@@ -6,7 +6,7 @@ import { usePermissionContext } from '../contexts/PermissionContext';
 import { APP_VERSION } from '../lib/version';
 import { useNotificationStore } from '../lib/notification-store';
 
-type PageType = 'dashboard' | 'tasks' | 'issues' | 'opportunities' | 'projects' | 'goals' | 'budget' | 'meetings' | 'performance' | 'business' | 'settings' | 'account' | 'modules';
+type PageType = 'dashboard' | 'tasks' | 'issues' | 'opportunities' | 'projects' | 'goals' | 'budget' | 'meetings' | 'performance' | 'business' | 'settings' | 'account' | 'modules' | 'role-permissions';
 
 interface SidebarProps {
   currentPage: PageType;
@@ -180,11 +180,6 @@ export function Sidebar({ currentPage, onPageChange, userRole, currentUser, onLo
       if (!item.requiresPermission) return true;
       return checkPermission(item.module!, 'view');
     }),
-    // 功能模块管理（只有管理员可见）
-    ...(userRole === 'admin' || currentUser?.username === 'admin'
-      ? [{ id: 'modules' as const, label: '功能模块', icon: Settings }]
-      : []
-    ),
     // 系统设置权限化
     ...(userRole === 'admin' || 
         checkPermission('settings.userApproval', 'view') ||

@@ -100,9 +100,9 @@ const FULL_PERMISSION: ModulePermission = {
  * 系统所有功能模块定义
  * ⚠️ 新增功能模块时,只需在此数组中添加配置即可自动同步到角色权限
  * 
- * 📝 版本: v3.0 - 统一配置方案
+ * 📝 版本: v3.1 - 统一配置方案
  * 🗓️ 更新日期: 2026-01-08
- * 📊 统计: 12个一级模块 (含dashboard和moduleManagement), 29个子模块
+ * 📊 统计: 11个一级模块 (含dashboard), 30个子模块 (含moduleManagement)
  * 
  * 🎯 使用场景分离:
  * - 角色权限配置: filter(m => m.needsPermission !== false)
@@ -389,22 +389,7 @@ export const SYSTEM_MODULES: ModuleDefinition[] = [
     ]
   },
   
-  // ========== 功能模块管理 (仅管理员) ==========
-  {
-    id: 'moduleManagement',
-    name: '功能模块',
-    description: '系统功能模块的启用、禁用和排序管理',
-    level: 1,
-    showInSidebar: true,
-    category: '管理功能',
-    needsPermission: false, // ⚡ 通过 adminOnly 控制
-    adminOnly: true, // ⚡ 仅管理员可见
-    route: '/module-management',
-    dbCollection: 'modulesConfig',
-    defaultEnabled: true,
-    defaultOrder: 10,
-    note: '仅管理员可见，用于管理所有功能模块'
-  },
+
   
   // ========== 个人信息 (6个子模块) ==========
   {
@@ -479,7 +464,7 @@ export const SYSTEM_MODULES: ModuleDefinition[] = [
     ]
   },
   
-  // ========== 系统设置 (6个子模块) ==========
+  // ========== 系统设置 (7个子模块) ==========
   {
     id: 'settings',
     name: '系统设置',
@@ -552,6 +537,18 @@ export const SYSTEM_MODULES: ModuleDefinition[] = [
         needsPermission: true,
         dbCollection: 'operation_logs',
         defaultPermission: VIEW_ONLY
+      },
+      {
+        id: 'moduleManagement',
+        name: '功能模块',
+        description: '系统功能模块的启用、禁用和排序管理',
+        level: 2,
+        parentCode: 'settings',
+        needsPermission: false, // ⚡ 通过 adminOnly 控制
+        adminOnly: true, // ⚡ 仅管理员可见
+        route: '/module-management',
+        dbCollection: 'modulesConfig',
+        note: '仅管理员可见，用于管理所有功能模块'
       }
     ]
   }

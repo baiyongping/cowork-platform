@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Building2, Shield, Tags, Plus, X, FileText, Calendar, Search, Download, UserCheck, ChevronDown, ChevronUp, Save, CheckCircle, XCircle, Trash2, User, Upload, Image as ImageIcon, UserPlus } from 'lucide-react';
+import { Users, Building2, Shield, Tags, Plus, X, FileText, Calendar, Search, Download, UserCheck, ChevronDown, ChevronUp, Save, CheckCircle, XCircle, Trash2, User, Upload, Image as ImageIcon, UserPlus, Settings } from 'lucide-react';
 import { UserApprovalPage } from '../UserApprovalPage';
 import EmployeeDetailModal from '../EmployeeDetailModal';
 import CreateEmployeeModal from '../CreateEmployeeModal';
 import { EmployeeTrash } from '../EmployeeTrash';
+import RolePermissions from './RolePermissions';
+import ModuleManagement from './ModuleManagement';
 import { db, app } from '../../lib/cloudbase';
 import { getStoragePublicURL } from '../../constants/cloudbase';
 import { usePermissionContext } from '../../contexts/PermissionContext';
@@ -23,7 +25,7 @@ interface SystemSettingsProps {
 }
 
 export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendingCountChange }: SystemSettingsProps) {
-  const [selectedTab, setSelectedTab] = useState<'approval' | 'team' | 'department' | 'role' | 'types' | 'logs'>('approval');
+  const [selectedTab, setSelectedTab] = useState<'approval' | 'team' | 'department' | 'rolePermissions' | 'types' | 'logs' | 'modules'>('approval');
   const [pendingCount, setPendingCount] = useState(0);
   const [currentUser, setCurrentUser] = useState<any>(propCurrentUser);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -34,14 +36,15 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
   // 🔧 自动选择第一个有权限的Tab
   useEffect(() => {
     if (!permissionLoading) {
-      const tabs: Array<'approval' | 'team' | 'department' | 'role' | 'types' | 'logs'> = ['approval', 'team', 'department', 'role', 'types', 'logs'];
+      const tabs: Array<'approval' | 'team' | 'department' | 'rolePermissions' | 'types' | 'logs' | 'modules'> = ['approval', 'team', 'department', 'rolePermissions', 'types', 'logs', 'modules'];
       const moduleMap = {
         approval: 'settings.userApproval',
         team: 'settings.employees',
         department: 'settings.departments',
-        role: 'settings.roles',
+        rolePermissions: 'settings.roles',
         types: 'settings.typeSettings',
-        logs: 'settings.operationLogs'
+        logs: 'settings.operationLogs',
+        modules: 'settings.modules'
       };
       
       // 检查当前选中的Tab是否有权限
@@ -602,13 +605,6 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
   useEffect(() => {
     if (selectedTab === 'logs') {
       loadLogs();
-    }
-  }, [selectedTab]);
-  
-  // 加载角色权限
-  useEffect(() => {
-    if (selectedTab === 'role') {
-      loadRolePermissions();
     }
   }, [selectedTab]);
   
@@ -3539,205 +3535,6 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
     </div>
   );
 
-  const renderRoleSettings = () => (
-    <div className="bg-white rounded-lg border border-gray-200">
-      <div className="px-6 py-4 border-b border-gray-200">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-gray-900">角色权限管理</h3>
-            <p className="text-sm text-gray-500 mt-1">配置不同角色的功能权限，数据权限自动按规则控制</p>
-          </div>
-          {checkPermission('settings.roles', 'create') && (
-            <button
-              onClick={handleAddRole}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-              新增角色
-            </button>
-          )}
-        </div>
-      </div>
-      {loadingRoles ? (
-        <div className="p-12 text-center text-gray-500">
-          加载中...
-        </div>
-      ) : (
-        <div className="p-6">
-          <div className="space-y-4">
-            {rolePermissions.map((role, index) => (
-              <div key={role._id || role.id || `role-${index}`} className="border border-gray-200 rounded-lg p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h4 className="text-lg text-gray-900">{role.name}</h4>
-                      <span className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded">
-                        {role.role}
-                      </span>
-                    </div>
-                    {role.description && (
-                      <p className="text-sm text-gray-600 mb-3">{role.description}</p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {checkPermission('settings.roles', 'edit') && (
-                      <button 
-                        onClick={() => handleEditRole(role)}
-                        className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
-                      >
-                        <Shield className="w-4 h-4" />
-                        编辑权限
-                      </button>
-                    )}
-                    {role.role !== 'admin' && checkPermission('settings.roles', 'delete') && (
-                      <button 
-                        onClick={() => {
-                          setSelectedRole(role);
-                          setShowDeleteRoleModal(true);
-                        }}
-                        className="text-sm text-red-600 hover:text-red-700 flex items-center gap-1"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        删除
-                      </button>
-                    )}
-                  </div>
-                </div>
-                
-                {/* 权限表格 */}
-                <div className="border border-gray-200 rounded-lg overflow-hidden">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">模块</th>
-                        <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">查看</th>
-                        <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">创建</th>
-                        <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">编辑</th>
-                        <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">删除</th>
-                        <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">导出</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {/* 🆕 使用统一配置生成模块列表 */}
-                      {getPermissionModules().map(module => {
-                        const key = module.id;
-                        const label = module.name;
-                        // 有子模块的情况
-                        if (module.children && module.children.length > 0) {
-                          // 🆕 从统一配置读取子模块
-                          const subModules = module.children.reduce((acc, child) => {
-                            acc[child.id] = child.name;
-                            return acc;
-                          }, {} as Record<string, string>);
-                          
-                          return (
-                            <React.Fragment key={key}>
-                              {/* 模块主标题 */}
-                              <tr className="bg-blue-50">
-                                <td colSpan={6} className="px-4 py-2 text-sm font-medium text-gray-900">
-                                  {label}
-                                </td>
-                              </tr>
-                              {/* 子模块 */}
-                              {Object.entries(subModules).map(([subKey, subLabel]) => {
-                                const perms = role.permissions?.[key]?.[subKey] || {};
-                                return (
-                                  <tr key={`${key}-${subKey}`}>
-                                    <td className="px-4 py-2 text-sm text-gray-900 pl-8">
-                                      └ {subLabel}
-                                    </td>
-                                    <td className="px-4 py-2 text-center">
-                                      {perms.view ? <CheckCircle className="w-5 h-5 text-green-500 mx-auto" /> : <XCircle className="w-5 h-5 text-gray-300 mx-auto" />}
-                                    </td>
-                                    <td className="px-4 py-2 text-center">
-                                      {perms.create ? <CheckCircle className="w-5 h-5 text-green-500 mx-auto" /> : <XCircle className="w-5 h-5 text-gray-300 mx-auto" />}
-                                    </td>
-                                    <td className="px-4 py-2 text-center">
-                                      {perms.edit ? <CheckCircle className="w-5 h-5 text-green-500 mx-auto" /> : <XCircle className="w-5 h-5 text-gray-300 mx-auto" />}
-                                    </td>
-                                    <td className="px-4 py-2 text-center">
-                                      {perms.delete ? <CheckCircle className="w-5 h-5 text-green-500 mx-auto" /> : <XCircle className="w-5 h-5 text-gray-300 mx-auto" />}
-                                    </td>
-                                    <td className="px-4 py-2 text-center">
-                                      {perms.export ? <CheckCircle className="w-5 h-5 text-green-500 mx-auto" /> : <XCircle className="w-5 h-5 text-gray-300 mx-auto" />}
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </React.Fragment>
-                          );
-                        }
-                        
-                        // 其他模块正常处理
-                        return (
-                          <tr key={key}>
-                            <td className="px-4 py-3 text-sm text-gray-900">{label}</td>
-                            <td className="px-4 py-3 text-center">
-                              {role.permissions[key]?.view ? (
-                                <CheckCircle className="w-5 h-5 text-green-500 mx-auto" />
-                              ) : (
-                                <XCircle className="w-5 h-5 text-gray-300 mx-auto" />
-                              )}
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              {role.permissions[key]?.create ? (
-                                <CheckCircle className="w-5 h-5 text-green-500 mx-auto" />
-                              ) : (
-                                <XCircle className="w-5 h-5 text-gray-300 mx-auto" />
-                              )}
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              {role.permissions[key]?.edit ? (
-                                <CheckCircle className="w-5 h-5 text-green-500 mx-auto" />
-                              ) : (
-                                <XCircle className="w-5 h-5 text-gray-300 mx-auto" />
-                              )}
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              {role.permissions[key]?.delete ? (
-                                <CheckCircle className="w-5 h-5 text-green-500 mx-auto" />
-                              ) : (
-                                <XCircle className="w-5 h-5 text-gray-300 mx-auto" />
-                              )}
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              {role.permissions[key]?.export ? (
-                                <CheckCircle className="w-5 h-5 text-green-500 mx-auto" />
-                              ) : (
-                                <XCircle className="w-5 h-5 text-gray-300 mx-auto" />
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-                
-                {/* 数据权限说明 */}
-                <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                  <p className="text-sm text-blue-900 font-medium mb-2">数据权限规则（自动应用）：</p>
-                  <ul className="text-xs text-blue-800 space-y-1">
-                    <li key="rule-1">• 自己创建的数据：可增删改查</li>
-                    <li key="rule-2">• 协作人数据：可查看和编辑（任务、商机、项目的协作人）</li>
-                    <li key="rule-3">• 下级数据：可查看所有下级及下级的下级的数据</li>
-                    <li key="rule-4">• 同部门公开数据：可查看同部门成员设为公开的数据</li>
-                  </ul>
-                </div>
-              </div>
-            ))}
-          </div>
-          
-          {rolePermissions.length === 0 && (
-            <div className="text-center py-12 text-gray-500">
-              暂无角色配置
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-
   const renderTypeSettings = () => (
     <div className="space-y-6">
       {/* 公司Logo设置 */}
@@ -4012,9 +3809,9 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
         
         {checkPermission('settings.roles', 'view') && (
           <button
-            onClick={() => setSelectedTab('role')}
+            onClick={() => setSelectedTab('rolePermissions')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-              selectedTab === 'role' ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50'
+              selectedTab === 'rolePermissions' ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50'
             }`}
           >
             <Shield className="w-5 h-5" />
@@ -4045,6 +3842,18 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
             操作日志
           </button>
         )}
+        
+        {(userRole === 'admin' || currentUser?.username === 'admin') && (
+          <button
+            onClick={() => setSelectedTab('modules')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+              selectedTab === 'modules' ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            <Settings className="w-5 h-5" />
+            功能模块管理
+          </button>
+        )}
       </div>
 
       {/* Content */}
@@ -4059,9 +3868,14 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
         />
       )}
       {selectedTab === 'department' && renderDepartmentSettings()}
-      {selectedTab === 'role' && renderRoleSettings()}
+      {selectedTab === 'rolePermissions' && <RolePermissions />}
       {selectedTab === 'types' && renderTypeSettings()}
       {selectedTab === 'logs' && renderLogSettings()}
+      {selectedTab === 'modules' && (
+        <div className="bg-white rounded-lg shadow">
+          <ModuleManagement />
+        </div>
+      )}
 
       {/* Edit Employee Modal */}
       {showEditModal && selectedEmployee && (
@@ -4173,42 +3987,64 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                   <p className="text-xs text-gray-500 mt-1">填写员工的职务名称</p>
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-700 mb-2">角色（可多选）</label>
+                  <label className="block text-sm text-gray-700 mb-2">
+                    角色（可多选，最多5个）
+                    <span className="ml-2 text-xs text-gray-500">
+                      已选择 {editForm.roles.length}/5
+                    </span>
+                  </label>
                   <div className="max-h-48 overflow-y-auto border border-gray-300 rounded-lg p-3 space-y-2">
                     {rolePermissions.length === 0 ? (
                       <p className="text-sm text-gray-500">暂无角色配置</p>
                     ) : (
-                      rolePermissions.map((roleItem) => (
-                        <label key={roleItem._id || roleItem.role} className="flex items-start gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
-                          <input
-                            type="checkbox"
-                            checked={editForm.roles.includes(roleItem.role)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setEditForm({
-                                  ...editForm,
-                                  roles: [...editForm.roles, roleItem.role]
-                                });
-                              } else {
-                                setEditForm({
-                                  ...editForm,
-                                  roles: editForm.roles.filter(r => r !== roleItem.role)
-                                });
-                              }
-                            }}
-                            className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500 mt-0.5"
-                          />
-                          <div className="flex-1">
-                            <div className="text-sm text-gray-900 font-medium">{roleItem.name}</div>
-                            {roleItem.description && (
-                              <div className="text-xs text-gray-500 mt-0.5">{roleItem.description}</div>
-                            )}
-                          </div>
-                        </label>
-                      ))
+                      rolePermissions.map((roleItem) => {
+                        const isChecked = editForm.roles.includes(roleItem.role);
+                        const canSelect = isChecked || editForm.roles.length < 5;
+                        
+                        return (
+                          <label 
+                            key={roleItem._id || roleItem.role} 
+                            className={`flex items-start gap-2 p-2 rounded ${
+                              canSelect 
+                                ? 'cursor-pointer hover:bg-gray-50' 
+                                : 'cursor-not-allowed opacity-50'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              disabled={!canSelect}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  // 添加角色（已经有 canSelect 限制）
+                                  setEditForm({
+                                    ...editForm,
+                                    roles: [...editForm.roles, roleItem.role]
+                                  });
+                                } else {
+                                  // 移除角色
+                                  setEditForm({
+                                    ...editForm,
+                                    roles: editForm.roles.filter(r => r !== roleItem.role)
+                                  });
+                                }
+                              }}
+                              className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500 mt-0.5"
+                            />
+                            <div className="flex-1">
+                              <div className="text-sm text-gray-900 font-medium">{roleItem.name}</div>
+                              {roleItem.description && (
+                                <div className="text-xs text-gray-500 mt-0.5">{roleItem.description}</div>
+                              )}
+                            </div>
+                          </label>
+                        );
+                      })
                     )}
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">可选择多个角色，最终权限为所有角色的并集</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    可选择多个角色（最多5个），最终权限为所有角色的并集
+                  </p>
                 </div>
                 <div>
                   <label className="block text-sm text-gray-700 mb-2">状态</label>

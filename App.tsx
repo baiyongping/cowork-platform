@@ -15,7 +15,7 @@ import { BusinessManagement } from './components/pages/BusinessManagement';
 import { SystemSettings } from './components/pages/SystemSettings';
 import { AccountSettings } from './components/pages/AccountSettings';
 import IssueManagementPage from './components/IssueManagementPage';
-import ModuleManagement from './components/pages/ModuleManagement';
+
 import { LoginPage } from './components/LoginPage';
 import { MessageCenter } from './components/MessageCenter';
 import { WechatBind } from './components/wechat/WechatBind';
@@ -35,7 +35,7 @@ const devLog = (...args: any[]) => {
   if (isDev) console.log(...args);
 };
 
-type PageType = 'dashboard' | 'tasks' | 'issues' | 'opportunities' | 'projects' | 'goals' | 'budget' | 'meetings' | 'performance' | 'business' | 'settings' | 'account' | 'modules';
+type PageType = 'dashboard' | 'tasks' | 'issues' | 'opportunities' | 'projects' | 'goals' | 'budget' | 'meetings' | 'performance' | 'business' | 'settings' | 'account';
 
 // 主应用组件（包含侧边栏和页面内容）
 function MainApp() {

@@ -109,6 +109,120 @@ exports.main = async (event, context) => {
       }
     }
 
+    // 获取用户权限（多角色权限并集）
+    if (action === 'getUserPermissions') {
+      if (!userId) {
+        return {
+          success: false,
+          message: '缺少userId参数'
+        };
+      }
+
+      try {
+        // 1. 查询用户信息
+        const userResult = await db.collection('users').doc(userId).get();
+        if (!userResult.data || userResult.data.length === 0) {
+          return {
+            success: false,
+            message: '用户不存在'
+          };
+        }
+
+        const user = userResult.data[0];
+        
+        // 2. 获取用户的所有角色（优先使用roles数组，兼容旧的role字段）
+        let userRoles = [];
+        if (user.roles && Array.isArray(user.roles) && user.roles.length > 0) {
+          userRoles = user.roles;
+        } else if (user.role) {
+          userRoles = [user.role];
+        } else {
+          // 没有角色，返回空权限
+          return {
+            success: true,
+            data: {
+              userId: userId,
+              roles: [],
+              permissions: {}
+            }
+          };
+        }
+
+        console.log('👤 用户角色:', {
+          userId,
+          username: user.username,
+          roles: userRoles
+        });
+
+        // 3. 查询所有角色的权限配置
+        const rolePermissionsResult = await db.collection('role_permissions')
+          .where({
+            role: db.command.in(userRoles)
+          })
+          .get();
+
+        if (!rolePermissionsResult.data || rolePermissionsResult.data.length === 0) {
+          console.warn('⚠️ 未找到角色权限配置:', userRoles);
+          return {
+            success: true,
+            data: {
+              userId: userId,
+              roles: userRoles,
+              permissions: {}
+            }
+          };
+        }
+
+        // 4. 合并所有角色的权限（取并集）
+        const mergedPermissions = {};
+        
+        rolePermissionsResult.data.forEach(roleConfig => {
+          const rolePermissions = roleConfig.permissions || {};
+          
+          // 遍历该角色的所有模块权限
+          Object.keys(rolePermissions).forEach(module => {
+            if (!mergedPermissions[module]) {
+              // 如果模块还不存在，直接添加
+              mergedPermissions[module] = { ...rolePermissions[module] };
+            } else {
+              // 如果模块已存在，合并权限（取并集，即只要有一个角色有权限就有权限）
+              const existingPerms = mergedPermissions[module];
+              const newPerms = rolePermissions[module];
+              
+              Object.keys(newPerms).forEach(action => {
+                // 取并集：只要有一个为true就为true
+                existingPerms[action] = existingPerms[action] || newPerms[action];
+              });
+            }
+          });
+        });
+
+        console.log('✅ 权限并集计算完成:', {
+          userId,
+          rolesCount: userRoles.length,
+          modulesCount: Object.keys(mergedPermissions).length
+        });
+
+        return {
+          success: true,
+          data: {
+            userId: userId,
+            username: user.username,
+            roles: userRoles,
+            rolesDetail: rolePermissionsResult.data.map(r => ({ role: r.role, name: r.name })),
+            permissions: mergedPermissions,
+            calculatedAt: new Date().toISOString()
+          }
+        };
+      } catch (error) {
+        console.error('❌ 获取用户权限失败:', error);
+        return {
+          success: false,
+          message: '获取权限失败: ' + error.message
+        };
+      }
+    }
+
     // 密码重置功能
     if (action === 'resetPassword') {
       if (!userId) {
