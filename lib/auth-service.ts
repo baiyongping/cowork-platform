@@ -79,7 +79,7 @@ export interface LoginResult {
 /**
  * 发送短信验证码
  */
-export async function sendVerificationCode(phone: string): Promise<{ success: boolean; message: string }> {
+export async function sendVerificationCode(phone: string): Promise<{ success: boolean; message: string; verificationCode?: string }> {
   try {
     // 验证手机号格式
     const phoneRegex = /^1[3-9]\d{9}$/;

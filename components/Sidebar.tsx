@@ -6,7 +6,7 @@ import { usePermissionContext } from '../contexts/PermissionContext';
 import { APP_VERSION } from '../lib/version';
 import { useNotificationStore } from '../lib/notification-store';
 
-type PageType = 'dashboard' | 'tasks' | 'issues' | 'opportunities' | 'projects' | 'goals' | 'budget' | 'meetings' | 'performance' | 'business' | 'settings' | 'account';
+type PageType = 'dashboard' | 'tasks' | 'issues' | 'opportunities' | 'projects' | 'goals' | 'budget' | 'meetings' | 'performance' | 'business' | 'settings' | 'account' | 'modules';
 
 interface SidebarProps {
   currentPage: PageType;
@@ -143,20 +143,49 @@ export function Sidebar({ currentPage, onPageChange, userRole, currentUser, onLo
     { id: 'meetings', label: moduleLabels[7], icon: Calendar, requiresPermission: true, module: 'meetings' },
     { id: 'performance', label: moduleLabels[8], icon: Award, requiresPermission: true, module: 'performance' },
     { id: 'business', label: moduleLabels[9], icon: Briefcase, requiresPermission: true, module: 'business' },
-    // 已删除: 个人信息菜单项(功能转移到底部个人信息显示区域)
   ] as const;
 
-  // ✅ v2.2.0: 基于权限过滤菜单
-  const menuItems = [
-    ...allMenuItems.filter(item => {
-      // 工作台始终显示
-      if (!item.requiresPermission) {
-        return true;
+  // 🎯 从数据库读取排序信息
+  const [moduleOrderMap, setModuleOrderMap] = useState<Map<string, number>>(new Map());
+  
+  useEffect(() => {
+    if (!currentUser) return;
+    
+    const loadModuleOrder = async () => {
+      try {
+        const result = await db.collection('moduleOrder')
+          .where({ level: 1 })  // 只读取一级模块
+          .get();
+        
+        if (result.data && Array.isArray(result.data)) {
+          const orderMap = new Map<string, number>();
+          result.data.forEach((item: any) => {
+            orderMap.set(item.moduleCode, item.order);
+          });
+          setModuleOrderMap(orderMap);
+          console.log('🎯 [Sidebar] 已加载模块排序:', orderMap.size, '个模块');
+        }
+      } catch (error) {
+        console.error('❌ [Sidebar] 加载模块排序失败:', error);
       }
-      // 检查是否有查看权限
+    };
+    
+    loadModuleOrder();
+  }, [currentUser]);
+
+  // ✅ v2.2.0: 基于权限过滤菜单 + 🎯 按数据库排序
+  const menuItems = [
+    // 先过滤出有权限的菜单项
+    ...allMenuItems.filter(item => {
+      if (!item.requiresPermission) return true;
       return checkPermission(item.module!, 'view');
     }),
-    // 🔧 系统设置权限化：只有拥有任一系统设置子模块权限的用户才能看到
+    // 功能模块管理（只有管理员可见）
+    ...(userRole === 'admin' || currentUser?.username === 'admin'
+      ? [{ id: 'modules' as const, label: '功能模块', icon: Settings }]
+      : []
+    ),
+    // 系统设置权限化
     ...(userRole === 'admin' || 
         checkPermission('settings.userApproval', 'view') ||
         checkPermission('settings.employees', 'view') ||
@@ -167,7 +196,12 @@ export function Sidebar({ currentPage, onPageChange, userRole, currentUser, onLo
       ? [{ id: 'settings' as const, label: '系统设置', icon: Settings }]
       : []
     ),
-  ];
+  ].sort((a, b) => {
+    // 🎯 按数据库中的 order 排序
+    const orderA = moduleOrderMap.get(a.id) ?? 999;
+    const orderB = moduleOrderMap.get(b.id) ?? 999;
+    return orderA - orderB;
+  });
 
   // 🎯 检测滚动状态
   const checkScrollIndicators = () => {

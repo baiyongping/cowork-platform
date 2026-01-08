@@ -1,7 +1,7 @@
 {
   "name": "jihua-oa-platform",
   "private": true,
-  "version": "3.9.0",
+  "version": "3.10.0",
   "type": "module",
   "description": "际华定制协同办公管理平台",
   "scripts": {
@@ -34,6 +34,8 @@
     "@radix-ui/react-switch": "^1.1.4",
     "@radix-ui/react-tabs": "^1.1.4",
     "@radix-ui/react-toast": "^1.2.6",
+    "@radix-ui/react-toggle": "^1.1.10",
+    "@radix-ui/react-toggle-group": "^1.1.11",
     "@radix-ui/react-tooltip": "^1.1.7",
     "@react-pdf/renderer": "^4.3.1",
     "class-variance-authority": "^0.7.1",
@@ -44,6 +46,7 @@
     "jspdf": "^3.0.4",
     "jspdf-autotable": "^5.0.2",
     "lucide-react": "^0.294.0",
+    "next-themes": "^0.4.6",
     "qrcode.react": "^4.2.0",
     "react": "^18.2.0",
     "react-day-picker": "^8.10.1",
@@ -51,6 +54,7 @@
     "react-hot-toast": "^2.6.0",
     "react-router-dom": "^7.11.0",
     "recharts": "^2.15.2",
+    "sonner": "^2.0.7",
     "tailwind-merge": "^2.2.0",
     "tdesign-icons-react": "^0.6.1",
     "tdesign-react": "^1.16.1",

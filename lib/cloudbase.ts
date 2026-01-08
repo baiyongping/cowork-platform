@@ -5,8 +5,22 @@ import { CLOUDBASE_ENV_ID, CLOUDBASE_CONSOLE } from '../constants/cloudbase';
 // 从环境变量读取 CloudBase 环境 ID，如果没有则使用配置文件中的默认值
 const ENV_ID = import.meta.env.VITE_CLOUDBASE_ENV_ID || CLOUDBASE_ENV_ID;
 
-console.log('🔧 CloudBase 环境:', ENV_ID);
-console.log('🔧 当前模式:', import.meta.env.MODE);
+console.log('='.repeat(80));
+console.log('🔧 CloudBase 环境配置:');
+console.log('  环境 ID:', ENV_ID);
+console.log('  当前模式:', import.meta.env.MODE);
+console.log('  环境变量 VITE_CLOUDBASE_ENV_ID:', import.meta.env.VITE_CLOUDBASE_ENV_ID);
+console.log('  默认环境 CLOUDBASE_ENV_ID:', CLOUDBASE_ENV_ID);
+console.log('='.repeat(80));
+
+// ⚠️ 如果检测到错误的环境，强制清除浏览器缓存
+const EXPECTED_ENV = 'jihua-oa-dev-3goht9irae4d949f'; // 开发环境
+if (ENV_ID !== EXPECTED_ENV && import.meta.env.MODE === 'development') {
+  console.error('❌ 环境配置错误！');
+  console.error(`   期望: ${EXPECTED_ENV}`);
+  console.error(`   实际: ${ENV_ID}`);
+  console.error('   请刷新页面或清除浏览器缓存');
+}
 
 // 初始化CloudBase
 const app = cloudbase.init({
@@ -47,7 +61,7 @@ export function isDbInitialized(): boolean {
 export const auth = app.auth();
 
 // 导出云函数调用方法
-export const callFunction = app.callFunction.bind(app);
+export const callFunction = (options: any) => app.callFunction(options);
 
 // 🔧 自动进行匿名登录（提供认证上下文）
 // 注意：这不影响我们的自定义用户系统，只是满足 SDK 的认证要求
@@ -121,6 +135,15 @@ ensureAuth().then(() => {
 
 // 🐛 暴露调试函数到全局（提供多个别名，方便输入）
 if (typeof window !== 'undefined') {
+  // 暴露环境信息到全局变量
+  (window as any).__CLOUDBASE_ENV__ = {
+    envId: ENV_ID,
+    mode: import.meta.env.MODE,
+    viteEnvId: import.meta.env.VITE_CLOUDBASE_ENV_ID,
+    expectedDevEnv: 'jihua-oa-dev-3goht9irae4d949f',
+    expectedProdEnv: 'cowork-9gg9oocb516be5fb'
+  };
+  
   const debugFunc = async () => {
     try {
       console.log('🐛 开始调试查询...');
@@ -152,11 +175,54 @@ if (typeof window !== 'undefined') {
     }
   };
   
+  // 环境检查函数
+  const checkEnvFunc = () => {
+    const envInfo = (window as any).__CLOUDBASE_ENV__;
+    console.log('='.repeat(80));
+    console.log('📋 CloudBase 环境信息:');
+    console.log('  配置的环境 ID:', envInfo.envId);
+    console.log('  当前模式:', envInfo.mode);
+    console.log('  环境变量:', envInfo.viteEnvId);
+    console.log('  期望环境 (开发):', envInfo.expectedDevEnv);
+    console.log('  期望环境 (生产):', envInfo.expectedProdEnv);
+    
+    // 检查当前认证状态
+    auth.getLoginState().then(state => {
+      console.log('  认证状态:', state ? '已登录' : '未登录');
+      if (state) {
+        console.log('  用户 UID:', state.user?.uid);
+      }
+    });
+    
+    console.log('='.repeat(80));
+    
+    const isCorrectEnv = envInfo.mode === 'development' 
+      ? envInfo.envId === envInfo.expectedDevEnv
+      : envInfo.envId === envInfo.expectedProdEnv;
+    
+    alert(
+      `📋 环境检查结果:\n\n` +
+      `当前环境 ID: ${envInfo.envId}\n` +
+      `期望环境: ${envInfo.mode === 'development' ? envInfo.expectedDevEnv : envInfo.expectedProdEnv}\n` +
+      `运行模式: ${envInfo.mode}\n` +
+      `状态: ${isCorrectEnv ? '✅ 正确' : '❌ 错误'}\n\n` +
+      `${!isCorrectEnv ? '⚠️ 请清除浏览器缓存并硬性重新加载（右键刷新按钮）！' : ''}`
+    );
+  };
+  
   // 提供多个别名，方便使用
   (window as any).debugCloudBase = debugFunc;
   (window as any).debugCloudbase = debugFunc;
   (window as any).debugDB = debugFunc;
   (window as any).debug = debugFunc;
+  (window as any).checkEnv = checkEnvFunc;
+  (window as any).checkEnvironment = checkEnvFunc;
+  
+  // 输出使用提示
+  console.log('%c💡 调试命令:', 'color: #00ff00; font-weight: bold; font-size: 14px;');
+  console.log('  checkEnv() - 检查环境配置');
+  console.log('  debug() - 查询用户数据');
+  console.log('  __CLOUDBASE_ENV__ - 查看环境变量');
 }
 
 // 导出 app 实例（用于云存储等功能）

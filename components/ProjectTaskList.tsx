@@ -155,7 +155,7 @@ export default function ProjectTaskList({ projectId, onTaskUpdate }: ProjectTask
   const loadTaskTypes = async () => {
     try {
       const result = await db.collection('type_settings')
-        .where({ type: 'taskType' })
+        .where({ type: 'task' })  // 🔧 修正：使用 'task' 而不是 'taskType'
         .get();
       
       if (result.data && result.data.length > 0) {

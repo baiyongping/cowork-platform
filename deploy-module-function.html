@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>部署 module-management 云函数</title>
+  <script src="https://unpkg.com/@cloudbase/js-sdk@2.24.3/dist/index.umd.js"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 20px;
+    }
+    .info {
+      background: #e3f2fd;
+      padding: 15px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+      border-left: 4px solid #2196f3;
+    }
+    .warning {
+      background: #fff3e0;
+      padding: 15px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+      border-left: 4px solid #ff9800;
+    }
+    button {
+      background: #2196f3;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 4px;
+      font-size: 16px;
+      cursor: pointer;
+      margin-right: 10px;
+      margin-bottom: 10px;
+    }
+    button:hover {
+      background: #1976d2;
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    .success {
+      background: #4caf50;
+    }
+    .danger {
+      background: #f44336;
+    }
+    #output {
+      background: #f5f5f5;
+      padding: 15px;
+      border-radius: 4px;
+      margin-top: 20px;
+      font-family: monospace;
+      white-space: pre-wrap;
+      max-height: 400px;
+      overflow-y: auto;
+      display: none;
+    }
+    .show {
+      display: block !important;
+    }
+    .step {
+      padding: 10px;
+      margin: 10px 0;
+      border-left: 3px solid #2196f3;
+      background: #f9f9f9;
+    }
+    .step-title {
+      font-weight: bold;
+      color: #2196f3;
+      margin-bottom: 5px;
+    }
+    .step-content {
+      color: #666;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🚀 部署 module-management 云函数</h1>
+    
+    <div class="info">
+      <strong>📌 说明：</strong><br>
+      此工具用于部署功能模块管理云函数到 CloudBase 环境。<br>
+      环境ID: <code>cowork-9gg9oocb516be5fb</code>
+    </div>
+
+    <div class="warning">
+      <strong>⚠️ 重要提示：</strong><br>
+      1. 请确保已使用管理员账号登录<br>
+      2. 云函数代码位于: <code>cloudfunctions/module-management/</code><br>
+      3. 部署需要几分钟时间，请耐心等待
+    </div>
+
+    <div class="step">
+      <div class="step-title">步骤 1: 登录验证</div>
+      <div class="step-content">
+        <button onclick="checkLogin()">🔐 检查登录状态</button>
+        <span id="loginStatus"></span>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-title">步骤 2: 读取云函数代码</div>
+      <div class="step-content">
+        <button onclick="readFunctionCode()">📂 读取本地代码</button>
+        <span id="codeStatus"></span>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-title">步骤 3: 部署云函数</div>
+      <div class="step-content">
+        <button onclick="deployFunction()" id="deployBtn" disabled>🚀 开始部署</button>
+        <span id="deployStatus"></span>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-title">步骤 4: 验证部署</div>
+      <div class="step-content">
+        <button onclick="testFunction()" id="testBtn" disabled>✅ 测试云函数</button>
+        <span id="testStatus"></span>
+      </div>
+    </div>
+
+    <div id="output"></div>
+  </div>
+
+  <script>
+    const ENV_ID = 'cowork-9gg9oocb516be5fb';
+    const FUNCTION_NAME = 'module-management';
+    
+    let app, auth;
+    let functionCode = null;
+
+    // 初始化
+    function init() {
+      app = cloudbase.init({
+        env: ENV_ID
+      });
+      auth = app.auth({ persistence: 'local' });
+      log('✅ CloudBase SDK 初始化成功');
+    }
+
+    // 日志输出
+    function log(message) {
+      const output = document.getElementById('output');
+      output.classList.add('show');
+      output.textContent += `[${new Date().toLocaleTimeString()}] ${message}\n`;
+      output.scrollTop = output.scrollHeight;
+    }
+
+    // 检查登录状态
+    async function checkLogin() {
+      try {
+        log('🔍 检查登录状态...');
+        const loginState = await auth.getLoginState();
+        
+        if (!loginState) {
+          log('❌ 未登录，请先登录系统');
+          document.getElementById('loginStatus').innerHTML = '<span style="color: red;">❌ 未登录</span>';
+          return;
+        }
+
+        log('✅ 已登录: ' + loginState.user.uid);
+        document.getElementById('loginStatus').innerHTML = '<span style="color: green;">✅ 已登录</span>';
+        
+        // 验证是否为管理员
+        const db = app.database();
+        const userRes = await db.collection('users').where({
+          _openid: loginState.user.uid
+        }).get();
+        
+        if (userRes.data && userRes.data.length > 0 && userRes.data[0].role === 'admin') {
+          log('✅ 管理员权限验证通过');
+          return true;
+        } else {
+          log('❌ 需要管理员权限');
+          return false;
+        }
+      } catch (error) {
+        log('❌ 检查登录失败: ' + error.message);
+        document.getElementById('loginStatus').innerHTML = '<span style="color: red;">❌ 失败</span>';
+        return false;
+      }
+    }
+
+    // 读取云函数代码
+    async function readFunctionCode() {
+      log('⚠️ 浏览器环境无法直接读取本地文件');
+      log('📌 请手动确认云函数代码文件存在:');
+      log('   - cloudfunctions/module-management/index.js');
+      log('   - cloudfunctions/module-management/package.json');
+      log('   - cloudfunctions/module-management/config.json');
+      
+      document.getElementById('codeStatus').innerHTML = '<span style="color: orange;">⚠️ 需手动确认</span>';
+      document.getElementById('deployBtn').disabled = false;
+      
+      log('💡 提示: 实际部署需要使用 CloudBase CLI 工具');
+      log('💡 命令: cd cloudfunctions/module-management && tcb fn deploy module-management');
+    }
+
+    // 部署云函数（实际需要后端支持）
+    async function deployFunction() {
+      log('⚠️ 浏览器环境无法直接部署云函数');
+      log('');
+      log('📋 请按以下步骤手动部署:');
+      log('');
+      log('方法 1: 使用 CloudBase CLI（推荐）');
+      log('--------------------------------------');
+      log('1. 打开终端/命令行');
+      log('2. 切换到项目目录: cd d:/project/cowork12-21');
+      log('3. 安装依赖（如未安装）: npm install -g @cloudbase/cli');
+      log('4. 登录 CloudBase: tcb login');
+      log('5. 部署云函数:');
+      log('   cd cloudfunctions/module-management');
+      log('   tcb fn deploy module-management --envId ' + ENV_ID);
+      log('');
+      log('方法 2: 使用 CloudBase 控制台');
+      log('--------------------------------------');
+      log('1. 访问: https://tcb.cloud.tencent.com/dev?envId=' + ENV_ID + '#/scf');
+      log('2. 点击"新建云函数"');
+      log('3. 函数名称: module-management');
+      log('4. 运行环境: Nodejs 16.13');
+      log('5. 上传代码文件');
+      log('6. 点击"确定"完成创建');
+      log('');
+      
+      document.getElementById('deployStatus').innerHTML = '<span style="color: orange;">⚠️ 需手动操作</span>';
+      document.getElementById('testBtn').disabled = false;
+    }
+
+    // 测试云函数
+    async function testFunction() {
+      try {
+        log('🧪 测试云函数调用...');
+        
+        const result = await app.callFunction({
+          name: FUNCTION_NAME,
+          data: {
+            action: 'list',
+            data: {}
+          }
+        });
+        
+        if (result.result) {
+          log('✅ 云函数调用成功！');
+          log('✅ 返回数据: ' + JSON.stringify(result.result, null, 2));
+          document.getElementById('testStatus').innerHTML = '<span style="color: green;">✅ 测试通过</span>';
+        } else {
+          log('❌ 云函数返回异常');
+          document.getElementById('testStatus').innerHTML = '<span style="color: red;">❌ 测试失败</span>';
+        }
+      } catch (error) {
+        log('❌ 云函数调用失败: ' + error.message);
+        log('💡 可能原因:');
+        log('   1. 云函数尚未部署');
+        log('   2. 函数名称不正确');
+        log('   3. 权限配置问题');
+        document.getElementById('testStatus').innerHTML = '<span style="color: red;">❌ 测试失败</span>';
+      }
+    }
+
+    // 页面加载完成后初始化
+    window.onload = init;
+  </script>
+</body>
+</html>

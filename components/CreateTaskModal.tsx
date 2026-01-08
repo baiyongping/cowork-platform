@@ -8,6 +8,7 @@ import type {
 import CollaboratorSelector from './CollaboratorSelector';
 import OpportunitySelector from './OpportunitySelector';
 import ProjectSelector from './ProjectSelector';
+import OutcomeGoalSelector from './OutcomeGoalSelector';  // 🆕 成果目标选择器
 import { UserAvatar } from './UserAvatar';
 
 interface CreateTaskModalProps {
@@ -15,6 +16,13 @@ interface CreateTaskModalProps {
   onSuccess: () => void;
   taskStatuses: string[];
   taskTypes: string[];  // 🆕 任务类型
+  defaultValues?: {  // 🆕 默认值参数
+    level?: TaskLevel;
+    type?: TaskType;
+    status?: TaskStatus;
+    relatedTo?: string;  // 🔧 修复：统一使用 relatedTo 字段（关联的成果目标ID、商机ID或项目ID）
+    relatedGoalContent?: string;  // 关联的成果目标内容（仅用于显示）
+  };
 }
 
 // 商机跟进动作类型选项
@@ -44,12 +52,15 @@ const projectPhases: ProjectPhase[] = [
   '售后服务'
 ];
 
-export default function CreateTaskModal({ onClose, onSuccess, taskStatuses, taskTypes }: CreateTaskModalProps) {
+export default function CreateTaskModal({ onClose, onSuccess, taskStatuses, taskTypes, defaultValues }: CreateTaskModalProps) {
+  // 🔧 如果 taskTypes 为空,使用备用任务类型列表
+  const [availableTaskTypes, setAvailableTaskTypes] = useState<string[]>(taskTypes);
+  
   const [formData, setFormData] = useState<CreateTaskDto>({
     name: '',
-    level: '个人级',
-    type: (taskTypes[0] as TaskType) || '日常工作',  // 🆕 使用动态任务类型的第一个作为默认值
-    status: '未开始',
+    level: defaultValues?.level || '团队级',  // ✅ 修改：默认为团队级
+    type: defaultValues?.type || '成果任务',  // ✅ 修改：默认为成果任务
+    status: defaultValues?.status || '未开始',  // 🆕 使用默认值
     progress: 0,
     owner: '',
     collaborators: [],
@@ -57,7 +68,8 @@ export default function CreateTaskModal({ onClose, onSuccess, taskStatuses, task
     startDate: new Date().toISOString().split('T')[0],
     endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     description: '',
-    isPublic: true
+    isPublic: true,
+    relatedTo: defaultValues?.relatedTo  // 🔧 修复：初始化 relatedTo 字段
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -72,6 +84,14 @@ export default function CreateTaskModal({ onClose, onSuccess, taskStatuses, task
   const [selectedOpportunity, setSelectedOpportunity] = useState<{ id: string; name: string } | null>(null);
   const [selectedProject, setSelectedProject] = useState<{ id: string; name: string } | null>(null);
   
+  // 🆕 成果目标选择器状态
+  const [showOutcomeGoalSelector, setShowOutcomeGoalSelector] = useState(false);
+  const [selectedOutcomeGoal, setSelectedOutcomeGoal] = useState<{ id: string; content: string } | null>(
+    defaultValues?.relatedTo && defaultValues?.relatedGoalContent 
+      ? { id: defaultValues.relatedTo, content: defaultValues.relatedGoalContent }
+      : null
+  );
+  
   // 季度举措选择器状态
   const [quarterlyMeasures, setQuarterlyMeasures] = useState<any[]>([]);
   const [selectedMeasure, setSelectedMeasure] = useState<{ id: string; content: string } | null>(null);
@@ -79,6 +99,38 @@ export default function CreateTaskModal({ onClose, onSuccess, taskStatuses, task
   // 团队月度任务选择器状态
   const [teamMonthlyTasks, setTeamMonthlyTasks] = useState<any[]>([]);
   const [selectedTeamTask, setSelectedTeamTask] = useState<{ id: string; name: string } | null>(null);
+
+  // 🔧 加载任务类型(如果 props 中的 taskTypes 为空)
+  useEffect(() => {
+    if (!taskTypes || taskTypes.length === 0) {
+      console.log('⚠️ [CreateTaskModal] taskTypes为空,从数据库加载');
+      loadTaskTypes();
+    } else {
+      console.log('✅ [CreateTaskModal] 使用传入的taskTypes:', taskTypes);
+      setAvailableTaskTypes(taskTypes);
+    }
+  }, [taskTypes]);
+
+  const loadTaskTypes = async () => {
+    try {
+      const typesRes = await db.collection('type_settings').where({ type: 'taskType' }).get();
+      console.log('🔍 [CreateTaskModal] 任务类型查询结果:', typesRes);
+
+      if (typesRes.data && typesRes.data.length > 0) {
+        const types = typesRes.data[0].values
+          .filter((item: any) => item.enabled)
+          .map((item: any) => item.value);
+        console.log('✅ [CreateTaskModal] 加载的任务类型:', types);
+        setAvailableTaskTypes(types);
+      } else {
+        console.warn('⚠️ [CreateTaskModal] 未找到任务类型数据,使用默认值');
+        setAvailableTaskTypes(['日常工作', '商机跟进', '项目任务', '成果任务']);
+      }
+    } catch (error) {
+      console.error('❌ [CreateTaskModal] 加载任务类型失败:', error);
+      setAvailableTaskTypes(['日常工作', '商机跟进', '项目任务', '成果任务']);
+    }
+  };
 
   // 获取当前用户
   useEffect(() => {
@@ -314,6 +366,11 @@ export default function CreateTaskModal({ onClose, onSuccess, taskStatuses, task
       newErrors.relatedTo = '请选择关联项目';
     }
 
+    // 🆕 成果任务类型必须选择关联成果目标
+    if (formData.type === '成果任务' && !formData.relatedTo) {
+      newErrors.relatedTo = '请选择关联成果目标';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -398,8 +455,8 @@ export default function CreateTaskModal({ onClose, onSuccess, taskStatuses, task
       // 重置表单
       setFormData({
         name: '',
-        level: '个人级',
-        type: (taskTypes[0] as TaskType) || '日常工作',  // 🆕 使用动态任务类型
+        level: '团队级',  // ✅ 修改：默认为团队级
+        type: '成果任务',  // ✅ 修改：默认为成果任务
         status: '未开始',
         progress: 0,
         owner: currentUser._id,
@@ -458,6 +515,12 @@ export default function CreateTaskModal({ onClose, onSuccess, taskStatuses, task
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               任务类型 <span className="text-red-500">*</span>
+              {/* 🆕 当从成果目标创建任务时,任务类型不可编辑 */}
+              {defaultValues?.type && defaultValues?.relatedTo && (
+                <span className="text-xs text-gray-500 ml-2">
+                  (从成果目标创建,类型已固定)
+                </span>
+              )}
             </label>
             <select
               value={formData.type}
@@ -472,18 +535,28 @@ export default function CreateTaskModal({ onClose, onSuccess, taskStatuses, task
                   projectPhase: undefined,
                   relatedTo: undefined
                 });
-                // 清除已选择的商机/项目
+                // 清除已选择的商机/项目/成果目标
                 setSelectedOpportunity(null);
                 setSelectedProject(null);
+                setSelectedOutcomeGoal(null);  // 🆕 清除成果目标
                 // 重置计划类型
                 setPlanType('本周计划');
               }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              disabled={!!(defaultValues?.type && defaultValues?.relatedTo)}  // 🆕 当从成果目标创建时禁用
+              className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                defaultValues?.type && defaultValues?.relatedTo ? 'bg-gray-100 cursor-not-allowed' : ''
+              }`}
             >
-              {taskTypes.map((type) => (
+              {availableTaskTypes.map((type) => (
                 <option key={type} value={type}>{type}</option>
               ))}
             </select>
+            {/* 🔧 调试信息 */}
+            {availableTaskTypes.length === 0 && (
+              <p className="mt-1 text-xs text-orange-600">
+                ⚠️ 任务类型列表为空,正在加载中...
+              </p>
+            )}
           </div>
 
           {/* 日常工作类型的字段 */}
@@ -688,6 +761,59 @@ export default function CreateTaskModal({ onClose, onSuccess, taskStatuses, task
               </div>
               <p className="mt-1 text-xs text-gray-500">
                 从正在进行中的项目列表中选择（只显示您有查询权限的项目）
+              </p>
+              {errors.relatedTo && (
+                <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                  <AlertCircle size={16} />
+                  {errors.relatedTo}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* 🆕 成果任务类型的字段 */}
+          {formData.type === '成果任务' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                关联成果目标 <span className="text-red-500">*</span>
+                {/* 🆕 当从成果目标创建任务时,关联成果目标不可编辑 */}
+                {defaultValues?.type && defaultValues?.relatedTo && (
+                  <span className="text-xs text-gray-500 ml-2">
+                    (已关联到指定成果目标)
+                  </span>
+                )}
+              </label>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowOutcomeGoalSelector(true)}
+                  disabled={!!(defaultValues?.type && defaultValues?.relatedTo)}  // 🆕 当从成果目标创建时禁用
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 rounded-lg transition-colors ${
+                    defaultValues?.type && defaultValues?.relatedTo 
+                      ? 'bg-gray-100 cursor-not-allowed' 
+                      : 'hover:bg-gray-50'
+                  }`}
+                >
+                  <Link2 className="w-4 h-4" />
+                  {selectedOutcomeGoal ? selectedOutcomeGoal.content : '选择成果目标'}
+                </button>
+                {selectedOutcomeGoal && !(defaultValues?.type && defaultValues?.relatedTo) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedOutcomeGoal(null);
+                      setFormData({ ...formData, relatedTo: undefined });
+                    }}
+                    className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+              <p className="mt-1 text-xs text-gray-500">
+                {defaultValues?.type && defaultValues?.relatedTo 
+                  ? '此任务将自动关联到指定的成果目标' 
+                  : '从当前年度成果目标列表中选择'}
               </p>
               {errors.relatedTo && (
                 <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
@@ -994,6 +1120,19 @@ export default function CreateTaskModal({ onClose, onSuccess, taskStatuses, task
               setFormData({ ...formData, relatedTo: id });
             }}
             onClose={() => setShowProjectSelector(false)}
+          />
+        )}
+
+        {/* 🆕 成果目标选择器 */}
+        {showOutcomeGoalSelector && (
+          <OutcomeGoalSelector
+            selectedGoalId={selectedOutcomeGoal?.id}
+            onSelect={(goal) => {
+              setSelectedOutcomeGoal(goal);
+              setFormData({ ...formData, relatedTo: goal.id });
+              setShowOutcomeGoalSelector(false);
+            }}
+            onClose={() => setShowOutcomeGoalSelector(false)}
           />
         )}
       </div>

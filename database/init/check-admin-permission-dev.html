@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>管理员权限检查工具 - 开发环境</title>
+  <script src="https://static.cloudbase.net/cloudbase-js-sdk/1.5.0/cloudbase.full.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .container {
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      padding: 40px;
+      max-width: 600px;
+      width: 100%;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .header h1 {
+      color: #667eea;
+      font-size: 28px;
+      margin-bottom: 10px;
+    }
+    .env-badge {
+      display: inline-block;
+      background: #10b981;
+      color: white;
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 600;
+      margin-top: 10px;
+    }
+    .form-group {
+      margin-bottom: 20px;
+    }
+    .label {
+      display: block;
+      color: #374151;
+      font-weight: 600;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+    .input {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid #e5e7eb;
+      border-radius: 10px;
+      font-size: 14px;
+      transition: all 0.3s;
+    }
+    .input:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    .input:disabled {
+      background: #f3f4f6;
+      cursor: not-allowed;
+    }
+    .btn {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      margin-bottom: 10px;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+    }
+    .btn-secondary {
+      background: #6b7280;
+      color: white;
+    }
+    .btn-secondary:hover {
+      background: #4b5563;
+    }
+    .result {
+      margin-top: 20px;
+      padding: 20px;
+      border-radius: 10px;
+      display: none;
+    }
+    .result.success {
+      background: #d1fae5;
+      border: 2px solid #10b981;
+    }
+    .result.error {
+      background: #fee2e2;
+      border: 2px solid #ef4444;
+    }
+    .result-icon {
+      font-size: 48px;
+      text-align: center;
+      margin-bottom: 15px;
+    }
+    .result-title {
+      font-size: 20px;
+      font-weight: 600;
+      text-align: center;
+      margin-bottom: 15px;
+    }
+    .result.success .result-title {
+      color: #059669;
+    }
+    .result.error .result-title {
+      color: #dc2626;
+    }
+    .result-content {
+      color: #374151;
+      line-height: 1.6;
+    }
+    .info-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .info-item:last-child {
+      border-bottom: none;
+    }
+    .info-label {
+      font-weight: 600;
+      color: #6b7280;
+    }
+    .info-value {
+      color: #111827;
+      font-family: 'Monaco', 'Courier New', monospace;
+    }
+    .help-text {
+      font-size: 13px;
+      color: #6b7280;
+      margin-top: 5px;
+    }
+    .loading {
+      display: none;
+      text-align: center;
+      color: #667eea;
+      margin-top: 20px;
+    }
+    .spinner {
+      border: 3px solid #f3f4f6;
+      border-top: 3px solid #667eea;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 10px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🔐 管理员权限检查</h1>
+      <div class="env-badge">🟢 开发环境</div>
+    </div>
+
+    <div class="form-group">
+      <label class="label">CloudBase 环境 ID</label>
+      <input type="text" id="envId" class="input" value="jihua-oa-dev-3goht9irae4d949f" disabled>
+      <div class="help-text">开发环境 ID（已固定）</div>
+    </div>
+
+    <div class="form-group">
+      <label class="label">用户名（可选）</label>
+      <input type="text" id="username" class="input" placeholder="留空检查当前登录用户">
+      <div class="help-text">留空则检查当前登录的用户</div>
+    </div>
+
+    <button class="btn btn-primary" onclick="checkPermission()">🔍 检查权限</button>
+    <button class="btn btn-secondary" onclick="goToLogin()">🔐 跳转到登录页</button>
+
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <div>正在检查...</div>
+    </div>
+
+    <div class="result" id="result"></div>
+  </div>
+
+  <script>
+    const app = cloudbase.init({
+      env: 'jihua-oa-dev-3goht9irae4d949f' // 开发环境（固定）
+    });
+
+    const auth = app.auth();
+    const db = app.database();
+
+    async function checkPermission() {
+      const envId = document.getElementById('envId').value.trim();
+      const username = document.getElementById('username').value.trim();
+      const loading = document.getElementById('loading');
+      const result = document.getElementById('result');
+
+      if (!envId) {
+        alert('❌ 请输入环境 ID');
+        return;
+      }
+
+      loading.style.display = 'block';
+      result.style.display = 'none';
+
+      try {
+        // 检查登录状态
+        const loginState = await auth.getLoginState();
+        console.log('登录状态:', loginState);
+
+        if (!loginState) {
+          showResult('error', '❌', '未登录', '当前未登录，请先登录');
+          return;
+        }
+
+        // 查询用户
+        let query = db.collection('users');
+        
+        if (username) {
+          query = query.where({ username });
+        } else {
+          query = query.where({ _openid: loginState.user.uid });
+        }
+
+        const { data } = await query.get();
+        console.log('查询结果:', data);
+
+        if (!data || data.length === 0) {
+          showResult('error', '❌', '用户不存在', username ? `未找到用户 "${username}"` : '未找到当前登录用户的信息');
+          return;
+        }
+
+        const user = data[0];
+        const hasPermission = user.role === 'admin';
+
+        if (hasPermission) {
+          showResult('success', '✅', '有权限', 
+            `用户 "${user.username}" 是管理员\n\n` +
+            `详细信息：\n` +
+            `角色: ${user.role}\n` +
+            `OpenID: ${user._openid}\n` +
+            `用户ID: ${user._id}`
+          );
+        } else {
+          showResult('error', '❌', '无权限',
+            `用户 "${user.username}" 不是管理员\n\n` +
+            `当前角色: ${user.role}\n` +
+            `OpenID: ${user._openid}\n` +
+            `用户ID: ${user._id}\n\n` +
+            `请联系管理员将您的角色设置为 "admin"`
+          );
+        }
+      } catch (error) {
+        console.error('检查失败:', error);
+        showResult('error', '❌', '检查失败', `错误: ${error.message}`);
+      } finally {
+        loading.style.display = 'none';
+      }
+    }
+
+    function showResult(type, icon, title, content) {
+      const result = document.getElementById('result');
+      result.className = `result ${type}`;
+      result.innerHTML = `
+        <div class="result-icon">${icon}</div>
+        <div class="result-title">${title}</div>
+        <div class="result-content">${content.replace(/\n/g, '<br>')}</div>
+      `;
+      result.style.display = 'block';
+    }
+
+    function goToLogin() {
+      window.location.href = '/';
+    }
+
+    // 页面加载时自动检查
+    window.addEventListener('load', () => {
+      console.log('🔧 管理员权限检查工具已加载（开发环境）');
+    });
+  </script>
+</body>
+</html>

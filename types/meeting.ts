@@ -84,6 +84,8 @@ export interface Meeting {
   status: MeetingStatus;
   minutes?: string;         // 会议纪要（旧格式，兼容性保留）
   minutesData?: MeetingMinutes; // 会议纪要（新格式，结构化数据）
+  description?: string;      // 会议描述
+  duration?: number;          // 会议时长（分钟）
   
   createdAt: Date;
   updatedAt?: Date;

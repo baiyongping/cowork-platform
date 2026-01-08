@@ -1,0 +1,9 @@
+{
+  "name": "outcome-goal-management",
+  "version": "1.0.0",
+  "description": "成果目标管理云函数 - 自动计算完成度",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

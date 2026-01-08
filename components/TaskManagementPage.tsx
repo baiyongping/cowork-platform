@@ -119,7 +119,7 @@ export default function TaskManagementPage({ openTaskId, onTaskOpened }: TaskMan
   const loadTaskTypes = async () => {
     try {
       const result = await db.collection('type_settings')
-        .where({ type: 'taskType' })
+        .where({ type: 'task' })  // 🔧 修正：使用 'task' 而不是 'taskType'
         .get();
       
       if (result.data && result.data.length > 0) {
@@ -891,9 +891,9 @@ export default function TaskManagementPage({ openTaskId, onTaskOpened }: TaskMan
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="all">全部类型</option>
-            <option value="日常工作">日常工作</option>
-            <option value="商机跟进">商机跟进</option>
-            <option value="项目任务">项目任务</option>
+            {taskTypes.map((type) => (
+              <option key={type} value={type}>{type}</option>
+            ))}
           </select>
 
           {/* 时间筛选 */}

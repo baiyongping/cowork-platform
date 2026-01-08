@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Smartphone, CheckCircle, XCircle, Scan, Loader2 } from 'lucide-react';
+import { app } from '../lib/cloudbase';
 
 interface WechatScanSimulatorProps {
   onClose?: () => void;
@@ -60,7 +61,7 @@ export default function WechatScanSimulator({ onClose }: WechatScanSimulatorProp
         return;
       }
 
-      const res = await window.cloudbase.callFunction({
+      const res = await app.callFunction({
         name: functionName,
         data: {
           action: actionName,

@@ -41,7 +41,6 @@ interface TDesignProviderProps {
 export function TDesignProvider({ children }: TDesignProviderProps) {
   return (
     <ConfigProvider 
-      theme={tdesignTheme}
       globalConfig={tdesignGlobalConfig}
     >
       {children}

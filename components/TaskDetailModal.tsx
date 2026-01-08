@@ -162,7 +162,7 @@ export default function TaskDetailModal({ task, onClose, onEdit, onDelete, onSav
     }
   };
 
-  // 加载关联的商机或项目数据
+  // 加载关联的商机或项目或成果目标数据
   const loadRelatedData = async () => {
     try {
       if (task.relatedTo) {
@@ -175,6 +175,12 @@ export default function TaskDetailModal({ task, onClose, onEdit, onDelete, onSav
           const result = await db.collection('projects').doc(task.relatedTo).get();
           if (result.data && result.data.length > 0) {
             setRelatedName(result.data[0].name);
+          }
+        } else if (task.type === '成果任务') {
+          // 🆕 加载成果目标数据
+          const result = await db.collection('outcome_goals').doc(task.relatedTo).get();
+          if (result.data && result.data.length > 0) {
+            setRelatedName(result.data[0].content);
           }
         }
       }
@@ -620,6 +626,32 @@ export default function TaskDetailModal({ task, onClose, onEdit, onDelete, onSav
       
       console.log('✅ [任务详情] 保存成功,刷新任务数据');
       
+      // 🚨 关键修复：读取最新任务数据，触发成果目标完成度计算
+      try {
+        const taskRes = await db.collection('tasks').doc(task._id).get();
+        const latestTask = taskRes.data?.[0];
+        
+        console.log('📊 [任务详情] 查询任务最新数据:', {
+          taskId: task._id,
+          type: latestTask?.type,
+          relatedTo: latestTask?.relatedTo
+        });
+        
+        // 如果是成果任务，触发成果目标完成度计算
+        if (latestTask?.type === '成果任务' && latestTask?.relatedTo) {
+          console.log('🎯 [成果任务] 触发成果目标完成度计算:', latestTask.relatedTo);
+          await app.callFunction({
+            name: 'outcome-goal-management',
+            data: {
+              action: 'calculateCompletion',
+              data: { outcomeGoalId: latestTask.relatedTo }
+            }
+          });
+        }
+      } catch (error) {
+        console.error('❌ [任务详情] 触发完成度计算失败:', error);
+      }
+      
       // 退出编辑模式
       setIsEditing(false);
       
@@ -940,6 +972,28 @@ export default function TaskDetailModal({ task, onClose, onEdit, onDelete, onSav
                       </p>
                     </div>
                   )}
+
+                  {/* 🆕 关联成果目标（仅成果任务显示） */}
+                  {editForm.type === '成果任务' && (
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        关联成果目标 <span className="text-red-500">*</span>
+                      </label>
+                      <p className="text-sm text-gray-600">
+                        {task.relatedTo && relatedName ? (
+                          <span className="inline-flex items-center px-3 py-1.5 bg-green-50 border border-green-200 rounded-lg text-green-800 font-medium">
+                            {relatedName}
+                          </span>
+                        ) : (
+                          <span className="text-gray-500">未关联成果目标</span>
+                        )}
+                      </p>
+                      <p className="mt-1 text-xs text-gray-500">
+                        成果目标关联信息不可修改，请在创建任务时选择
+                      </p>
+                    </div>
+                  )}
+
 
                   {/* 开始日期 */}
                   <div>
@@ -1369,6 +1423,17 @@ export default function TaskDetailModal({ task, onClose, onEdit, onDelete, onSav
               )}
             </>
           )}
+
+          {/* 🆕 成果任务特有字段 */}
+          {task.type === '成果任务' && relatedName && (
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">关联成果目标</label>
+              <span className="inline-flex items-center px-3 py-1.5 bg-green-50 border border-green-200 rounded-lg text-green-800 font-medium">
+                {relatedName}
+              </span>
+            </div>
+          )}
+
 
           {/* 评论区 */}
           <div className="border-t border-gray-200 pt-6">

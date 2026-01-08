@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>模块配置数据导入工具</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .container {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 900px;
+      width: 100%;
+      padding: 40px;
+    }
+    
+    h1 {
+      color: #333;
+      margin-bottom: 10px;
+      font-size: 28px;
+    }
+    
+    .subtitle {
+      color: #666;
+      margin-bottom: 30px;
+      font-size: 14px;
+    }
+    
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 30px;
+    }
+    
+    .stat-card {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 20px;
+      border-radius: 8px;
+      text-align: center;
+    }
+    
+    .stat-value {
+      font-size: 32px;
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+    
+    .stat-label {
+      font-size: 14px;
+      opacity: 0.9;
+    }
+    
+    .buttons {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 30px;
+    }
+    
+    button {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+    
+    button:active {
+      transform: translateY(0);
+    }
+    
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+    
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    
+    .btn-secondary {
+      background: #f0f0f0;
+      color: #333;
+    }
+    
+    .btn-success {
+      background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+      color: white;
+    }
+    
+    .btn-danger {
+      background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+      color: white;
+    }
+    
+    .log-container {
+      background: #1e1e1e;
+      border-radius: 8px;
+      padding: 20px;
+      max-height: 400px;
+      overflow-y: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    
+    .log-entry {
+      margin-bottom: 8px;
+      display: flex;
+      gap: 10px;
+    }
+    
+    .log-time {
+      color: #888;
+      flex-shrink: 0;
+    }
+    
+    .log-info { color: #61dafb; }
+    .log-success { color: #4ade80; }
+    .log-error { color: #f87171; }
+    .log-warning { color: #fbbf24; }
+    
+    .progress-bar {
+      width: 100%;
+      height: 4px;
+      background: #e0e0e0;
+      border-radius: 2px;
+      overflow: hidden;
+      margin-bottom: 20px;
+      display: none;
+    }
+    
+    .progress-bar.active {
+      display: block;
+    }
+    
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+      transition: width 0.3s ease;
+      width: 0%;
+    }
+    
+    .alert {
+      padding: 15px 20px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+      display: none;
+    }
+    
+    .alert.show {
+      display: block;
+    }
+    
+    .alert-success {
+      background: #d1fae5;
+      color: #065f46;
+      border-left: 4px solid #10b981;
+    }
+    
+    .alert-error {
+      background: #fee2e2;
+      color: #991b1b;
+      border-left: 4px solid #ef4444;
+    }
+    
+    .config-section {
+      background: #f9fafb;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    
+    .config-section h3 {
+      margin-bottom: 15px;
+      color: #333;
+      font-size: 16px;
+    }
+    
+    .config-row {
+      display: grid;
+      grid-template-columns: 120px 1fr;
+      gap: 15px;
+      margin-bottom: 10px;
+      align-items: center;
+    }
+    
+    .config-label {
+      font-weight: 500;
+      color: #666;
+    }
+    
+    input[type="text"] {
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+      width: 100%;
+    }
+    
+    input[type="text"]:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🚀 模块配置数据导入工具</h1>
+    <p class="subtitle">快速导入系统功能模块配置到 CloudBase 数据库</p>
+    
+    <!-- 统计卡片 -->
+    <div class="stats">
+      <div class="stat-card">
+        <div class="stat-value" id="totalModules">0</div>
+        <div class="stat-label">总模块数</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="level1Modules">0</div>
+        <div class="stat-label">一级模块</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="level2Modules">0</div>
+        <div class="stat-label">二级模块</div>
+      </div>
+    </div>
+    
+    <!-- 环境配置 -->
+    <div class="config-section">
+      <h3>⚙️ 环境配置</h3>
+      <div class="config-row">
+        <div class="config-label">环境ID:</div>
+        <input type="text" id="envId" value="cowork-9gg9oocb516be5fb" placeholder="请输入CloudBase环境ID">
+      </div>
+    </div>
+    
+    <!-- 进度条 -->
+    <div class="progress-bar" id="progressBar">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+    
+    <!-- 提示信息 -->
+    <div class="alert alert-success" id="successAlert"></div>
+    <div class="alert alert-error" id="errorAlert"></div>
+    
+    <!-- 操作按钮 -->
+    <div class="buttons">
+      <button class="btn-primary" id="importBtn">
+        📥 导入模块配置
+      </button>
+      <button class="btn-success" id="verifyBtn">
+        ✅ 验证导入结果
+      </button>
+      <button class="btn-secondary" id="viewBtn">
+        👀 查看数据
+      </button>
+      <button class="btn-danger" id="clearBtn">
+        🗑️ 清空数据
+      </button>
+    </div>
+    
+    <!-- 日志输出 -->
+    <div class="log-container" id="logContainer"></div>
+  </div>
+
+  <!-- CloudBase SDK - 使用 npm CDN -->
+  <script src="https://unpkg.com/@cloudbase/js-sdk@1.7.2/dist/index.umd.js"></script>
+  
+  <script>
+    // 等待 SDK 加载
+    function waitForCloudBase(callback) {
+      if (typeof cloudbase !== 'undefined') {
+        callback();
+      } else {
+        setTimeout(() => waitForCloudBase(callback), 100);
+      }
+    }
+    
+    // 模块配置数据（从 constants/modules.ts 转换）
+    const SYSTEM_MODULES = [
+      // 简单业务模块
+      { id: 'tasks', name: '任务管理', description: '任务的创建、分配、跟踪和管理', order: 1 },
+      { id: 'issues', name: '问题管理', description: '问题的记录、跟踪和解决', order: 2 },
+      { id: 'opportunities', name: '商机管理', description: '商机的创建、跟进和转化', order: 3 },
+      { id: 'projects', name: '项目管理', description: '项目的规划、执行和监控', order: 4 },
+      { id: 'meetings', name: '例会管理', description: '会议的安排、记录和跟踪', order: 5 },
+      { id: 'performance', name: '绩效管理', description: '绩效考核和评价管理', order: 6 },
+      { id: 'business', name: '业务管理', description: '业务流程和数据管理', order: 7 },
+      
+      // 目标管理（一级）
+      { id: 'goal', name: '目标管理', description: '目标的设定、分解和跟踪', order: 8, isParent: true },
+      { id: 'salesGoal', name: '销售目标', description: '销售目标管理', parentId: 'goal', order: 1 },
+      { id: 'productOrder', name: '产品目标', description: '产品订单目标管理', parentId: 'goal', order: 2 },
+      { id: 'strategy', name: '经营策略', description: '年度经营策略和执行措施', parentId: 'goal', order: 3 },
+      { id: 'outcome', name: '成果目标', description: '成果目标设定和跟踪', parentId: 'goal', order: 4 },
+      { id: 'decomposition', name: '目标分解', description: '目标的层级分解和管理', parentId: 'goal', order: 5 },
+      { id: 'executionMap', name: '执行力地图', description: '执行力可视化和分析', parentId: 'goal', order: 6 },
+      { id: 'dimensionSettings', name: '维度设置', description: '目标维度参数配置', parentId: 'goal', order: 7 },
+      
+      // 预算管理（一级）
+      { id: 'budget', name: '预算管理', description: '预算的编制、审批和执行', order: 9, isParent: true },
+      { id: 'annual', name: '年度预算', description: '年度预算编制和审批', parentId: 'budget', order: 1 },
+      { id: 'execution', name: '预算执行', description: '预算执行情况跟踪', parentId: 'budget', order: 2 },
+      { id: 'asset', name: '资产预算', description: '资产采购预算管理', parentId: 'budget', order: 3 },
+      { id: 'cashFlow', name: '现金流管理', description: '现金流预测和管理', parentId: 'budget', order: 4 },
+      { id: 'hr', name: '薪酬预算', description: '薪酬成本预算管理', parentId: 'budget', order: 5 },
+      { id: 'parameters', name: '预算参数', description: '预算编制参数配置', parentId: 'budget', order: 6 },
+      
+      // 个人信息（一级）
+      { id: 'profile', name: '个人信息', description: '个人信息、团队和消息管理', order: 10, isParent: true },
+      { id: 'info', name: '基本信息', description: '个人基本信息管理', parentId: 'profile', order: 1 },
+      { id: 'team', name: '团队', description: '所属团队和成员信息', parentId: 'profile', order: 2 },
+      { id: 'message', name: '消息', description: '系统消息和通知', parentId: 'profile', order: 3 },
+      { id: 'goals', name: '我的目标', description: '个人目标查看和跟踪', parentId: 'profile', order: 4 },
+      { id: 'profileExecution', name: '执行力', description: '个人执行力分析', parentId: 'profile', order: 5 },
+      { id: 'profilePerformance', name: '绩效', description: '个人绩效查看', parentId: 'profile', order: 6 },
+      
+      // 系统设置（一级）
+      { id: 'settings', name: '系统设置', description: '系统配置和权限管理', order: 11, isParent: true },
+      { id: 'userApproval', name: '用户审核', description: '新用户注册审核', parentId: 'settings', order: 1 },
+      { id: 'employees', name: '员工管理', description: '员工信息维护', parentId: 'settings', order: 2 },
+      { id: 'departments', name: '部门管理', description: '部门组织架构管理', parentId: 'settings', order: 3 },
+      { id: 'roles', name: '角色权限', description: '角色和权限配置', parentId: 'settings', order: 4 },
+      { id: 'typeSettings', name: '参数配置', description: '系统参数和选项配置', parentId: 'settings', order: 5 },
+      { id: 'operationLogs', name: '操作日志', description: '系统操作记录查询', parentId: 'settings', order: 6 }
+    ];
+    
+    // 初始化 CloudBase
+    let app, db;
+    
+    function initCloudBase() {
+      const envId = document.getElementById('envId').value.trim();
+      
+      if (!envId) {
+        showError('请输入环境ID');
+        return false;
+      }
+      
+      try {
+        // 检查 SDK 是否加载
+        if (typeof cloudbase === 'undefined') {
+          showError('CloudBase SDK 未加载，请刷新页面重试');
+          return false;
+        }
+        
+        app = cloudbase.init({
+          env: envId
+        });
+        
+        db = app.database();
+        log('info', `已连接到环境: ${envId}`);
+        return true;
+      } catch (error) {
+        showError('初始化CloudBase失败: ' + error.message);
+        console.error('CloudBase初始化详细错误:', error);
+        return false;
+      }
+    }
+    
+    // 日志函数
+    function log(type, message) {
+      const logContainer = document.getElementById('logContainer');
+      const time = new Date().toLocaleTimeString();
+      const entry = document.createElement('div');
+      entry.className = 'log-entry';
+      entry.innerHTML = `
+        <span class="log-time">[${time}]</span>
+        <span class="log-${type}">${message}</span>
+      `;
+      logContainer.appendChild(entry);
+      logContainer.scrollTop = logContainer.scrollHeight;
+    }
+    
+    function showSuccess(message) {
+      const alert = document.getElementById('successAlert');
+      alert.textContent = message;
+      alert.classList.add('show');
+      setTimeout(() => alert.classList.remove('show'), 5000);
+    }
+    
+    function showError(message) {
+      const alert = document.getElementById('errorAlert');
+      alert.textContent = message;
+      alert.classList.add('show');
+      setTimeout(() => alert.classList.remove('show'), 5000);
+    }
+    
+    function updateProgress(percent) {
+      const progressBar = document.getElementById('progressBar');
+      const progressFill = document.getElementById('progressFill');
+      progressBar.classList.add('active');
+      progressFill.style.width = percent + '%';
+      
+      if (percent >= 100) {
+        setTimeout(() => {
+          progressBar.classList.remove('active');
+          progressFill.style.width = '0%';
+        }, 1000);
+      }
+    }
+    
+    // 导入模块
+    async function importModules() {
+      if (!initCloudBase()) return;
+      
+      log('info', '开始导入模块配置...');
+      updateProgress(0);
+      
+      let successCount = 0;
+      let errorCount = 0;
+      
+      for (let i = 0; i < SYSTEM_MODULES.length; i++) {
+        const module = SYSTEM_MODULES[i];
+        const progress = ((i + 1) / SYSTEM_MODULES.length) * 100;
+        updateProgress(progress);
+        
+        try {
+          const data = {
+            _id: module.id,
+            name: module.name,
+            displayName: module.name,
+            description: module.description || '',
+            icon: 'Settings',
+            parentId: module.parentId || null,
+            order: module.order,
+            isEnabled: true,
+            isCustom: false,
+            defaultPermission: 'view',
+            metadata: {
+              collections: [],
+              fields: {},
+              routes: [],
+              apis: []
+            },
+            createdAt: new Date(),
+            updatedAt: new Date()
+          };
+          
+          await db.collection('modulesConfig').add(data);
+          log('success', `✓ ${module.name} (${module.id})`);
+          successCount++;
+        } catch (error) {
+          if (error.message.includes('duplicate')) {
+            log('warning', `⚠ ${module.name} 已存在，跳过`);
+          } else {
+            log('error', `✗ ${module.name}: ${error.message}`);
+            errorCount++;
+          }
+        }
+        
+        // 延迟避免频繁请求
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      
+      log('info', `导入完成！成功: ${successCount}, 错误: ${errorCount}`);
+      showSuccess(`导入成功 ${successCount} 条记录`);
+      updateStats();
+    }
+    
+    // 验证数据
+    async function verifyData() {
+      if (!initCloudBase()) return;
+      
+      log('info', '开始验证数据...');
+      
+      try {
+        const res = await db.collection('modulesConfig').get();
+        const count = res.data.length;
+        
+        log('success', `✓ 数据库中共有 ${count} 条记录`);
+        
+        // 验证必要模块是否存在
+        const requiredModules = ['tasks', 'goal', 'budget', 'settings'];
+        for (const moduleId of requiredModules) {
+          const exists = res.data.some(m => m._id === moduleId);
+          if (exists) {
+            log('success', `✓ 核心模块 ${moduleId} 存在`);
+          } else {
+            log('error', `✗ 核心模块 ${moduleId} 缺失`);
+          }
+        }
+        
+        showSuccess('验证完成');
+        updateStats();
+      } catch (error) {
+        log('error', '验证失败: ' + error.message);
+        showError('验证失败');
+      }
+    }
+    
+    // 查看数据
+    async function viewData() {
+      if (!initCloudBase()) return;
+      
+      log('info', '查询数据...');
+      
+      try {
+        const res = await db.collection('modulesConfig')
+          .orderBy('order', 'asc')
+          .get();
+        
+        log('info', `共 ${res.data.length} 条记录：`);
+        
+        res.data.forEach(item => {
+          const prefix = item.parentId ? '  ├─ ' : '📁 ';
+          log('info', `${prefix}${item.displayName} (${item._id})`);
+        });
+        
+        showSuccess('查询完成');
+      } catch (error) {
+        log('error', '查询失败: ' + error.message);
+        showError('查询失败');
+      }
+    }
+    
+    // 清空数据
+    async function clearData() {
+      if (!confirm('⚠️ 确定要清空所有模块配置数据吗？此操作不可撤销！')) {
+        return;
+      }
+      
+      if (!initCloudBase()) return;
+      
+      log('warning', '开始清空数据...');
+      
+      try {
+        const res = await db.collection('modulesConfig').get();
+        const ids = res.data.map(item => item._id);
+        
+        for (const id of ids) {
+          await db.collection('modulesConfig').doc(id).remove();
+          log('warning', `已删除: ${id}`);
+        }
+        
+        log('success', `清空完成，共删除 ${ids.length} 条记录`);
+        showSuccess('清空成功');
+        updateStats();
+      } catch (error) {
+        log('error', '清空失败: ' + error.message);
+        showError('清空失败');
+      }
+    }
+    
+    // 更新统计
+    function updateStats() {
+      const total = SYSTEM_MODULES.length;
+      const level1 = SYSTEM_MODULES.filter(m => !m.parentId).length;
+      const level2 = SYSTEM_MODULES.filter(m => m.parentId).length;
+      
+      document.getElementById('totalModules').textContent = total;
+      document.getElementById('level1Modules').textContent = level1;
+      document.getElementById('level2Modules').textContent = level2;
+    }
+    
+    // 页面加载时更新统计
+    window.onload = function() {
+      updateStats();
+      
+      // 等待 CloudBase SDK 加载
+      waitForCloudBase(() => {
+        log('info', '✅ CloudBase SDK 已加载');
+        log('info', '工具已就绪，请点击"导入模块配置"开始');
+        
+        // 绑定按钮事件
+        document.getElementById('importBtn').addEventListener('click', importModules);
+        document.getElementById('verifyBtn').addEventListener('click', verifyData);
+        document.getElementById('viewBtn').addEventListener('click', viewData);
+        document.getElementById('clearBtn').addEventListener('click', clearData);
+      });
+    };
+  </script>
+</body>
+</html>

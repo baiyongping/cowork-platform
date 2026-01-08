@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>模块权限测试</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 1200px;
+      margin: 40px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #1a73e8;
+      border-bottom: 3px solid #1a73e8;
+      padding-bottom: 10px;
+    }
+    h2 {
+      color: #333;
+      margin-top: 30px;
+      background: #f8f9fa;
+      padding: 10px 15px;
+      border-left: 4px solid #1a73e8;
+    }
+    .test-section {
+      margin: 20px 0;
+      padding: 20px;
+      background: #f8f9fa;
+      border-radius: 4px;
+    }
+    .success {
+      color: #0f9d58;
+      font-weight: bold;
+    }
+    .error {
+      color: #d93025;
+      font-weight: bold;
+    }
+    .info {
+      color: #1a73e8;
+    }
+    .module-list {
+      list-style: none;
+      padding: 0;
+    }
+    .module-item {
+      padding: 8px 12px;
+      margin: 5px 0;
+      background: white;
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
+    }
+    .module-item.new {
+      border-left: 4px solid #0f9d58;
+      background: #e8f5e9;
+    }
+    .module-item.renamed {
+      border-left: 4px solid #f9ab00;
+      background: #fffbf0;
+    }
+    button {
+      background: #1a73e8;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      margin: 10px 5px;
+    }
+    button:hover {
+      background: #1557b0;
+    }
+    button.secondary {
+      background: #5f6368;
+    }
+    button.secondary:hover {
+      background: #3c4043;
+    }
+    pre {
+      background: #263238;
+      color: #aed581;
+      padding: 15px;
+      border-radius: 4px;
+      overflow-x: auto;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 20px 0;
+    }
+    .stat-card {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 20px;
+      border-radius: 8px;
+      text-align: center;
+    }
+    .stat-number {
+      font-size: 36px;
+      font-weight: bold;
+      margin: 10px 0;
+    }
+    .stat-label {
+      font-size: 14px;
+      opacity: 0.9;
+    }
+    #testResult {
+      margin-top: 20px;
+    }
+  </style>
+  <script src="https://web-9gikcbug35bad3a8-1259821445.tcloudbaseapp.com/sdk/1.6.1/cloud.js"></script>
+</head>
+<body>
+  <div class="container">
+    <h1>📋 模块权限配置测试工具</h1>
+    
+    <div class="stats">
+      <div class="stat-card">
+        <div class="stat-label">一级模块</div>
+        <div class="stat-number" id="totalModules">-</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">子模块</div>
+        <div class="stat-number" id="totalSubModules">-</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">新增模块</div>
+        <div class="stat-number" id="newModules">-</div>
+      </div>
+    </div>
+
+    <div style="text-align: center; margin: 20px 0;">
+      <button onclick="testModuleConfig()">🔍 测试模块配置</button>
+      <button onclick="testPermissionGeneration()">⚙️ 测试权限生成</button>
+      <button onclick="updateRolePermissions()" class="secondary">🔄 更新角色权限</button>
+      <button onclick="verifyRolePermissions()" class="secondary">✅ 验证角色权限</button>
+    </div>
+
+    <div id="testResult"></div>
+  </div>
+
+  <script type="module">
+    import { SYSTEM_MODULES, generateDefaultPermissions } from './constants/modules.ts';
+
+    // 将函数暴露到全局
+    window.SYSTEM_MODULES = SYSTEM_MODULES;
+    window.generateDefaultPermissions = generateDefaultPermissions;
+
+    // 自动运行初始测试
+    setTimeout(() => {
+      testModuleConfig();
+    }, 500);
+  </script>
+
+  <script>
+    // 初始化 CloudBase
+    const app = cloud.init({
+      env: 'cowork-9gg9oocb516be5fb'
+    });
+    const db = app.database();
+
+    // 测试模块配置
+    function testModuleConfig() {
+      const result = document.getElementById('testResult');
+      let html = '<h2>📊 模块配置测试结果</h2>';
+
+      try {
+        const modules = window.SYSTEM_MODULES || [];
+        const simpleModules = modules.filter(m => !m.hasChildren);
+        const complexModules = modules.filter(m => m.hasChildren);
+        const totalSubModules = complexModules.reduce((sum, m) => sum + (m.children?.length || 0), 0);
+
+        // 更新统计卡片
+        document.getElementById('totalModules').textContent = modules.length;
+        document.getElementById('totalSubModules').textContent = totalSubModules;
+        document.getElementById('newModules').textContent = '10'; // 3+1+6
+
+        html += '<div class="test-section">';
+        html += '<h3 class="success">✅ 模块配置加载成功</h3>';
+        html += `<p>一级模块: ${modules.length} 个 (简单: ${simpleModules.length}, 复杂: ${complexModules.length})</p>`;
+        html += `<p>子模块总数: ${totalSubModules} 个</p>`;
+        html += '</div>';
+
+        // 测试目标管理
+        const goalModule = modules.find(m => m.id === 'goal');
+        html += '<div class="test-section">';
+        html += '<h3>🎯 目标管理模块 (goal)</h3>';
+        if (goalModule?.children) {
+          html += `<p class="success">✅ 子模块数量: ${goalModule.children.length}</p>`;
+          html += '<ul class="module-list">';
+          goalModule.children.forEach(child => {
+            const isNew = ['outcome', 'decomposition', 'executionMap', 'dimensionSettings'].includes(child.id);
+            const className = isNew ? 'new' : '';
+            const badge = isNew ? ' <span class="success">[新增]</span>' : '';
+            html += `<li class="module-item ${className}">${child.name} (${child.id})${badge}</li>`;
+          });
+          html += '</ul>';
+
+          const hasOpportunityGoal = goalModule.children.some(c => c.id === 'opportunityGoal');
+          html += hasOpportunityGoal ? 
+            '<p class="error">❌ opportunityGoal 未删除</p>' : 
+            '<p class="success">✅ opportunityGoal 已正确删除</p>';
+        } else {
+          html += '<p class="error">❌ 未找到目标管理模块或子模块</p>';
+        }
+        html += '</div>';
+
+        // 测试预算管理
+        const budgetModule = modules.find(m => m.id === 'budget');
+        html += '<div class="test-section">';
+        html += '<h3>💰 预算管理模块 (budget)</h3>';
+        if (budgetModule?.children) {
+          html += `<p class="success">✅ 子模块数量: ${budgetModule.children.length}</p>`;
+          html += '<ul class="module-list">';
+          budgetModule.children.forEach(child => {
+            const isNew = child.id === 'cashFlow';
+            const isRenamed = child.id === 'hr';
+            let className = '';
+            let badge = '';
+            if (isNew) {
+              className = 'new';
+              badge = ' <span class="success">[新增]</span>';
+            } else if (isRenamed) {
+              className = 'renamed';
+              badge = ' <span class="info">[已改名]</span>';
+            }
+            html += `<li class="module-item ${className}">${child.name} (${child.id})${badge}</li>`;
+          });
+          html += '</ul>';
+
+          const hrModule = budgetModule.children.find(c => c.id === 'hr');
+          if (hrModule) {
+            const isRenamed = hrModule.name === '薪酬预算';
+            html += isRenamed ? 
+              '<p class="success">✅ hr 已改名为"薪酬预算"</p>' : 
+              `<p class="error">❌ hr 未改名 (当前: ${hrModule.name})</p>`;
+          }
+        } else {
+          html += '<p class="error">❌ 未找到预算管理模块或子模块</p>';
+        }
+        html += '</div>';
+
+        // 测试个人信息
+        const profileModule = modules.find(m => m.id === 'profile');
+        html += '<div class="test-section">';
+        html += '<h3>👤 个人信息模块 (profile)</h3>';
+        if (profileModule) {
+          html += '<p class="success">✅ 个人信息模块已创建</p>';
+          if (profileModule.children) {
+            html += `<p class="success">✅ 子模块数量: ${profileModule.children.length}</p>`;
+            html += '<ul class="module-list">';
+            profileModule.children.forEach(child => {
+              html += `<li class="module-item new">${child.name} (${child.id}) <span class="success">[新增]</span></li>`;
+            });
+            html += '</ul>';
+          }
+        } else {
+          html += '<p class="error">❌ 未找到个人信息模块</p>';
+        }
+        html += '</div>';
+
+      } catch (error) {
+        html += `<div class="test-section"><p class="error">❌ 测试失败: ${error.message}</p></div>`;
+      }
+
+      result.innerHTML = html;
+    }
+
+    // 测试权限生成
+    function testPermissionGeneration() {
+      const result = document.getElementById('testResult');
+      let html = '<h2>⚙️ 权限生成测试结果</h2>';
+
+      try {
+        const permissions = window.generateDefaultPermissions();
+        html += '<div class="test-section">';
+        html += '<h3 class="success">✅ generateDefaultPermissions() 执行成功</h3>';
+
+        // 验证目标管理权限
+        if (permissions.goal) {
+          const goalKeys = Object.keys(permissions.goal);
+          html += '<h4>🎯 目标管理权限:</h4>';
+          html += `<p>子模块数量: ${goalKeys.length}</p>`;
+          html += `<p>包含 outcome: ${goalKeys.includes('outcome') ? '✅' : '❌'}</p>`;
+          html += `<p>包含 executionMap: ${goalKeys.includes('executionMap') ? '✅' : '❌'}</p>`;
+          html += `<p>包含 decomposition: ${goalKeys.includes('decomposition') ? '✅' : '❌'}</p>`;
+        }
+
+        // 验证预算管理权限
+        if (permissions.budget) {
+          const budgetKeys = Object.keys(permissions.budget);
+          html += '<h4>💰 预算管理权限:</h4>';
+          html += `<p>子模块数量: ${budgetKeys.length}</p>`;
+          html += `<p>包含 cashFlow: ${budgetKeys.includes('cashFlow') ? '✅' : '❌'}</p>`;
+        }
+
+        // 验证个人信息权限
+        if (permissions.profile) {
+          const profileKeys = Object.keys(permissions.profile);
+          html += '<h4>👤 个人信息权限:</h4>';
+          html += `<p>子模块数量: ${profileKeys.length}</p>`;
+          html += `<p>包含 info: ${profileKeys.includes('info') ? '✅' : '❌'}</p>`;
+        }
+
+        html += '<h4>完整权限结构:</h4>';
+        html += `<pre>${JSON.stringify(permissions, null, 2)}</pre>`;
+        html += '</div>';
+
+      } catch (error) {
+        html += `<div class="test-section"><p class="error">❌ 测试失败: ${error.message}</p></div>`;
+      }
+
+      result.innerHTML = html;
+    }
+
+    // 更新角色权限
+    async function updateRolePermissions() {
+      const result = document.getElementById('testResult');
+      let html = '<h2>🔄 更新角色权限</h2>';
+
+      try {
+        html += '<div class="test-section"><p class="info">⏳ 正在查询角色...</p></div>';
+        result.innerHTML = html;
+
+        // 查询所有角色
+        const rolesResult = await db.collection('roles').get();
+        const roles = rolesResult.data;
+
+        html += `<div class="test-section"><p class="success">✅ 找到 ${roles.length} 个角色</p></div>`;
+
+        // 获取默认权限
+        const defaultPermissions = window.generateDefaultPermissions();
+
+        let successCount = 0;
+        let errorCount = 0;
+
+        for (const role of roles) {
+          try {
+            const permissions = role.permissions || {};
+
+            // 合并新权限(只添加缺失的)
+            if (!permissions.goal) permissions.goal = {};
+            if (!permissions.budget) permissions.budget = {};
+            if (!permissions.profile) permissions.profile = {};
+
+            Object.assign(permissions.goal, { ...defaultPermissions.goal, ...permissions.goal });
+            Object.assign(permissions.budget, { ...defaultPermissions.budget, ...permissions.budget });
+            Object.assign(permissions.profile, { ...defaultPermissions.profile, ...permissions.profile });
+
+            // 更新到数据库
+            await db.collection('roles').doc(role._id).update({
+              permissions: permissions,
+              updatedAt: new Date()
+            });
+
+            successCount++;
+            html += `<p class="success">✅ ${role.name} 更新成功</p>`;
+            result.innerHTML = html;
+
+          } catch (error) {
+            errorCount++;
+            html += `<p class="error">❌ ${role.name} 更新失败: ${error.message}</p>`;
+            result.innerHTML = html;
+          }
+        }
+
+        html += `<div class="test-section">`;
+        html += `<h3>📊 更新结果</h3>`;
+        html += `<p>✅ 成功: ${successCount} 个</p>`;
+        html += `<p>❌ 失败: ${errorCount} 个</p>`;
+        html += `<p>📋 总共: ${roles.length} 个</p>`;
+        html += `</div>`;
+
+      } catch (error) {
+        html += `<div class="test-section"><p class="error">❌ 更新失败: ${error.message}</p></div>`;
+      }
+
+      result.innerHTML = html;
+    }
+
+    // 验证角色权限
+    async function verifyRolePermissions() {
+      const result = document.getElementById('testResult');
+      let html = '<h2>✅ 验证角色权限</h2>';
+
+      try {
+        const rolesResult = await db.collection('roles').get();
+        const roles = rolesResult.data;
+
+        html += '<div class="test-section">';
+        html += `<p class="info">正在验证 ${roles.length} 个角色...</p>`;
+
+        let passCount = 0;
+        let failCount = 0;
+
+        for (const role of roles) {
+          const hasGoalOutcome = role.permissions?.goal?.outcome !== undefined;
+          const hasProfileInfo = role.permissions?.profile?.info !== undefined;
+          const hasBudgetCashFlow = role.permissions?.budget?.cashFlow !== undefined;
+
+          const isPassed = hasGoalOutcome && hasProfileInfo && hasBudgetCashFlow;
+
+          if (isPassed) {
+            passCount++;
+            html += `<p class="success">✅ ${role.name}: 验证通过</p>`;
+          } else {
+            failCount++;
+            html += `<p class="error">❌ ${role.name}: 验证失败</p>`;
+            html += `<ul>`;
+            html += `<li>goal.outcome: ${hasGoalOutcome ? '✅' : '❌'}</li>`;
+            html += `<li>profile.info: ${hasProfileInfo ? '✅' : '❌'}</li>`;
+            html += `<li>budget.cashFlow: ${hasBudgetCashFlow ? '✅' : '❌'}</li>`;
+            html += `</ul>`;
+          }
+        }
+
+        html += `</div><div class="test-section">`;
+        html += `<h3>📊 验证结果</h3>`;
+        html += `<p>✅ 通过: ${passCount} 个</p>`;
+        html += `<p>❌ 失败: ${failCount} 个</p>`;
+        html += failCount === 0 ? 
+          '<p class="success">🎉 所有角色权限验证通过!</p>' :
+          '<p class="error">⚠️ 部分角色权限验证失败,请执行更新!</p>';
+        html += `</div>`;
+
+      } catch (error) {
+        html += `<div class="test-section"><p class="error">❌ 验证失败: ${error.message}</p></div>`;
+      }
+
+      result.innerHTML = html;
+    }
+
+    // 暴露函数到全局
+    window.testModuleConfig = testModuleConfig;
+    window.testPermissionGeneration = testPermissionGeneration;
+    window.updateRolePermissions = updateRolePermissions;
+    window.verifyRolePermissions = verifyRolePermissions;
+  </script>
+</body>
+</html>

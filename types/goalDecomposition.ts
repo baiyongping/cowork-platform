@@ -87,12 +87,16 @@ export interface GoalDecompositionHistory {
   goalId: string;
   decompositionId: string;
   version: number;
-  snapshotData: GoalDecomposition;
+  snapshot: GoalDecomposition; // 🔄 与组件使用保持一致
+  snapshotData: Record<string, unknown>; // 🆕 新增：完整的快照数据
   changeType: 'created' | 'updated' | 'deleted';
   changeDescription: string;
   changedFields: string[];
+  createdBy: string; // 🆕 新增：创建者
+  createdAt: Date; // 🆕 新增：创建时间
   changedBy: string;
   changedAt: Date;
+  comment?: string; // 🆕 新增：备注信息
 }
 
 // 创建维度输入

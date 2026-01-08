@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>测试成果目标集合</title>
+</head>
+<body>
+  <h1>测试成果目标集合访问</h1>
+  <button onclick="testCollection()">测试集合访问</button>
+  <button onclick="testAdd()">测试添加数据</button>
+  <div id="result" style="margin-top: 20px; padding: 10px; border: 1px solid #ccc;"></div>
+
+  <script src="https://imgcache.qq.com/qcloud/cloudbase-js-sdk/2.1.0/cloudbase.full.js"></script>
+  <script>
+    const app = cloudbase.init({
+      env: 'cowork-9gg9oocb516be5fb' // 生产环境ID
+    });
+
+    const db = app.database();
+    const auth = app.auth();
+
+    async function testCollection() {
+      const resultDiv = document.getElementById('result');
+      resultDiv.innerHTML = '正在测试...';
+
+      try {
+        // 1. 检查认证状态
+        console.log('1️⃣ 检查认证状态...');
+        const loginState = await auth.getLoginState();
+        console.log('登录状态:', loginState);
+
+        if (!loginState) {
+          console.log('🔐 执行匿名登录...');
+          await auth.signInAnonymously();
+          console.log('✅ 匿名登录成功');
+        }
+
+        // 2. 测试集合查询
+        console.log('2️⃣ 测试集合查询...');
+        const res = await db.collection('outcome_goals')
+          .where({ year: 2025 })
+          .get();
+
+        console.log('查询结果:', res);
+
+        resultDiv.innerHTML = `
+          <h3>✅ 测试成功</h3>
+          <p><strong>集合名称:</strong> outcome_goals</p>
+          <p><strong>数据数量:</strong> ${res.data?.length || 0}</p>
+          <p><strong>查询结果:</strong></p>
+          <pre>${JSON.stringify(res, null, 2)}</pre>
+        `;
+      } catch (error) {
+        console.error('❌ 测试失败:', error);
+        resultDiv.innerHTML = `
+          <h3>❌ 测试失败</h3>
+          <p><strong>错误信息:</strong> ${error.message}</p>
+          <p><strong>错误代码:</strong> ${error.code || 'N/A'}</p>
+          <pre>${JSON.stringify(error, null, 2)}</pre>
+        `;
+      }
+    }
+
+    async function testAdd() {
+      const resultDiv = document.getElementById('result');
+      resultDiv.innerHTML = '正在测试添加...';
+
+      try {
+        // 确保已登录
+        const loginState = await auth.getLoginState();
+        if (!loginState) {
+          await auth.signInAnonymously();
+        }
+
+        // 测试添加数据
+        console.log('📝 测试添加数据...');
+        const res = await db.collection('outcome_goals').add({
+          year: 2025,
+          content: '测试成果目标',
+          owner: '测试用户',
+          ownerId: 'test-001',
+          weight: 10,
+          status: '未开始',
+          progress: 0,
+          createdBy: 'test',
+          createdAt: new Date(),
+          updatedAt: new Date()
+        });
+
+        console.log('添加结果:', res);
+
+        resultDiv.innerHTML = `
+          <h3>✅ 添加成功</h3>
+          <p><strong>新记录ID:</strong> ${res.id}</p>
+          <pre>${JSON.stringify(res, null, 2)}</pre>
+        `;
+      } catch (error) {
+        console.error('❌ 添加失败:', error);
+        resultDiv.innerHTML = `
+          <h3>❌ 添加失败</h3>
+          <p><strong>错误信息:</strong> ${error.message}</p>
+          <p><strong>错误代码:</strong> ${error.code || 'N/A'}</p>
+          <pre>${JSON.stringify(error, null, 2)}</pre>
+        `;
+      }
+    }
+
+    // 页面加载时自动测试
+    window.onload = () => {
+      console.log('🚀 页面加载完成，CloudBase SDK 版本:', cloudbase.version);
+    };
+  </script>
+</body>
+</html>

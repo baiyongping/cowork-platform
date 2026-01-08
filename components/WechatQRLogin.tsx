@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { CheckCircle, XCircle, Loader2, Smartphone, ArrowLeft } from 'lucide-react';
+import { app } from '../lib/cloudbase';
 
 interface WechatQRLoginProps {
   onLoginSuccess: (token: string, user: any) => void;
@@ -20,7 +21,7 @@ export default function WechatQRLogin({ onLoginSuccess, onSwitchToPassword }: We
       setStatus('pending');
       setErrorMessage('');
 
-      const res = await window.cloudbase.callFunction({
+      const res = await app.callFunction({
         name: 'wechat-login',
         data: {
           action: 'generateLoginScene'

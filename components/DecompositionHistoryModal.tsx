@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, RotateCcw, Calendar, User } from 'lucide-react';
 import { callFunction } from '../lib/cloudbase';
-import type { DecompositionHistory } from '../types/goalDecomposition';
+import type { GoalDecompositionHistory } from '../types/goalDecomposition';
 
 interface DecompositionHistoryModalProps {
   goalId: string;
@@ -14,9 +14,9 @@ const DecompositionHistoryModal: React.FC<DecompositionHistoryModalProps> = ({
   onClose,
   onRestore,
 }) => {
-  const [histories, setHistories] = useState<DecompositionHistory[]>([]);
+  const [histories, setHistories] = useState<GoalDecompositionHistory[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedVersion, setSelectedVersion] = useState<DecompositionHistory | null>(null);
+  const [selectedVersion, setSelectedVersion] = useState<GoalDecompositionHistory | null>(null);
   const [comparing, setComparing] = useState(false);
 
   useEffect(() => {
@@ -80,7 +80,7 @@ const DecompositionHistoryModal: React.FC<DecompositionHistoryModalProps> = ({
     });
   };
 
-  const renderVersionDetail = (history: DecompositionHistory) => {
+  const renderVersionDetail = (history: GoalDecompositionHistory) => {
     const total = history.snapshot.cells.reduce((sum, cell) => sum + cell.value, 0);
 
     return (

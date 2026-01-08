@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Target, TrendingUp, Briefcase, ShoppingCart, Plus, X, Edit2, Trash2, Save, Download, ChevronDown, ChevronUp, Settings } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { db, callFunction } from '../../lib/cloudbase';
+import { OutcomeGoals } from '../OutcomeGoals';
 
 // 导入 CloudBase command 用于数据库查询
 const _ = db.command;
@@ -134,7 +135,7 @@ interface ProductOrderForecast {
 }
 
 export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened }: GoalManagementProps) {
-  const [selectedTab, setSelectedTab] = useState<'sales' | 'opportunity' | 'product' | 'strategy' | 'decomposition' | 'execution' | 'dimensionSettings'>('sales');
+  const [selectedTab, setSelectedTab] = useState<'sales' | 'opportunity' | 'product' | 'strategy' | 'outcome' | 'decomposition' | 'execution' | 'dimensionSettings'>('sales');
   const currentYear = new Date().getFullYear(); // 当前年份（固定）
   const [selectedYear, setSelectedYear] = useState(currentYear);
   
@@ -3615,6 +3616,21 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
             经营策略
           </button>
         )}
+        {checkPermission('goal.strategy', 'view') && (
+          <button
+            onClick={() => setSelectedTab('outcome')}
+            className={`flex items-center gap-2 px-6 py-3 font-medium transition-colors relative ${
+              selectedTab === 'outcome' 
+                ? 'text-blue-600 border-b-2 border-blue-600' 
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+            </svg>
+            成果目标
+          </button>
+        )}
         {checkPermission('goal.decomposition', 'view') && (
           <button
             onClick={() => setSelectedTab('decomposition')}
@@ -3670,6 +3686,14 @@ export function GoalManagement({ userRole, currentUser, openGoalId, onGoalOpened
           {selectedTab === 'sales' && renderSalesGoals()}
           {selectedTab === 'product' && renderProductOrderForecast()}
           {selectedTab === 'strategy' && renderStrategies()}
+          {selectedTab === 'outcome' && (
+            <OutcomeGoals
+              selectedYear={selectedYear}
+              currentUser={currentUser}
+              users={users}
+              checkPermission={checkPermission}
+            />
+          )}
           {selectedTab === 'decomposition' && renderGoalDecomposition()}
           {selectedTab === 'execution' && renderExecutionMap()}
           {selectedTab === 'dimensionSettings' && renderDimensionSettings()}

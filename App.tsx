@@ -15,6 +15,7 @@ import { BusinessManagement } from './components/pages/BusinessManagement';
 import { SystemSettings } from './components/pages/SystemSettings';
 import { AccountSettings } from './components/pages/AccountSettings';
 import IssueManagementPage from './components/IssueManagementPage';
+import ModuleManagement from './components/pages/ModuleManagement';
 import { LoginPage } from './components/LoginPage';
 import { MessageCenter } from './components/MessageCenter';
 import { WechatBind } from './components/wechat/WechatBind';
@@ -26,6 +27,7 @@ import { ensureAuth, app } from './lib/cloudbase';
 import { PermissionProvider } from './contexts/PermissionContext';
 import { useNotificationStore } from './lib/notification-store';
 import { DialogProvider } from './components/ui/GlobalDialog';
+import { showError } from './lib/dialog-utils';
 
 // 开发环境日志工具（生产环境静默）
 const isDev = import.meta.env.DEV;
@@ -33,7 +35,7 @@ const devLog = (...args: any[]) => {
   if (isDev) console.log(...args);
 };
 
-type PageType = 'dashboard' | 'tasks' | 'issues' | 'opportunities' | 'projects' | 'goals' | 'budget' | 'meetings' | 'performance' | 'business' | 'settings' | 'account';
+type PageType = 'dashboard' | 'tasks' | 'issues' | 'opportunities' | 'projects' | 'goals' | 'budget' | 'meetings' | 'performance' | 'business' | 'settings' | 'account' | 'modules';
 
 // 主应用组件（包含侧边栏和页面内容）
 function MainApp() {
@@ -338,10 +340,7 @@ function MainApp() {
       case 'budget':
         return <BudgetManagement />;
       case 'meetings':
-        return <MeetingManagement 
-          userRole={currentUser?.role} 
-          currentUser={currentUser}
-        />;
+        return <MeetingManagement />;
       case 'performance':
         return <PerformanceManagement 
           userRole={currentUser?.role} 
@@ -360,6 +359,24 @@ function MainApp() {
           userRole={currentUser?.role}
           onPendingCountChange={setPendingUserCount}
         />;
+      case 'modules':
+        // 🔒 权限检查：只有 admin 可以访问功能模块管理
+        console.log('🔐 [App] modules 权限检查:', { 
+          username: currentUser?.username, 
+          role: currentUser?.role,
+          isUsernameAdmin: currentUser?.username === 'admin',
+          isRoleAdmin: currentUser?.role === 'admin'
+        });
+        
+        if (currentUser?.username !== 'admin' && currentUser?.role !== 'admin') {
+          console.log('❌ [App] modules 权限检查失败');
+          showError('权限不足：只有管理员可以管理功能模块');
+          handleNavigate('dashboard');
+          return null;
+        }
+        
+        console.log('✅ [App] modules 权限检查通过');
+        return <ModuleManagement />;
       default:
         return <Dashboard userRole={currentUser?.role} currentUser={currentUser} />;
     }

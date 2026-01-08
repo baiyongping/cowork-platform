@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>修改用户角色 - 际华协同办公</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+      max-width: 800px;
+      width: 100%;
+      padding: 40px;
+    }
+
+    h1 {
+      font-size: 28px;
+      color: #333;
+      margin-bottom: 10px;
+    }
+
+    .subtitle {
+      color: #666;
+      font-size: 14px;
+      margin-bottom: 30px;
+    }
+
+    .warning {
+      background: #fff3cd;
+      border-left: 4px solid #ffc107;
+      padding: 15px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+    }
+
+    .warning-title {
+      font-weight: 600;
+      color: #856404;
+      margin-bottom: 5px;
+    }
+
+    .warning-text {
+      color: #856404;
+      font-size: 14px;
+    }
+
+    .input-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      font-weight: 500;
+      color: #333;
+      margin-bottom: 8px;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+      transition: border-color 0.3s;
+    }
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    .button {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: transform 0.2s, opacity 0.3s;
+      margin-bottom: 10px;
+    }
+
+    .button:hover {
+      transform: translateY(-2px);
+      opacity: 0.9;
+    }
+
+    .button:active {
+      transform: translateY(0);
+    }
+
+    .button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .result-box {
+      margin-top: 30px;
+      padding: 20px;
+      border-radius: 8px;
+      background: #f8f9fa;
+      border-left: 4px solid #667eea;
+    }
+
+    .result-box.success {
+      background: #d4edda;
+      border-left-color: #28a745;
+    }
+
+    .result-box.error {
+      background: #f8d7da;
+      border-left-color: #dc3545;
+    }
+
+    .result-title {
+      font-weight: 600;
+      margin-bottom: 10px;
+      color: #333;
+    }
+
+    .result-content {
+      font-size: 14px;
+      color: #555;
+      line-height: 1.6;
+    }
+
+    .log-box {
+      margin-top: 20px;
+      padding: 15px;
+      background: #2d2d2d;
+      border-radius: 6px;
+      max-height: 300px;
+      overflow-y: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+    }
+
+    .log-entry {
+      margin-bottom: 8px;
+      color: #f0f0f0;
+    }
+
+    .log-info { color: #4fc3f7; }
+    .log-success { color: #81c784; }
+    .log-error { color: #e57373; }
+    .log-warn { color: #ffb74d; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>👤 修改用户角色</h1>
+    <p class="subtitle">将用户角色修改为管理员</p>
+
+    <div class="warning">
+      <div class="warning-title">⚠️ 重要提示</div>
+      <div class="warning-text">
+        此操作会直接修改数据库中的用户角色。请谨慎使用！<br>
+        建议只将可信任的用户设置为管理员。
+      </div>
+    </div>
+
+    <div class="input-group">
+      <label for="envId">CloudBase 环境 ID</label>
+      <input 
+        type="text" 
+        id="envId" 
+        placeholder="cowork-9gg9oocb516be5fb"
+        value="cowork-9gg9oocb516be5fb"
+      >
+    </div>
+
+    <div class="input-group">
+      <label for="username">用户名</label>
+      <input 
+        type="text" 
+        id="username" 
+        placeholder="输入要修改的用户名"
+        required
+      >
+    </div>
+
+    <div class="input-group">
+      <label for="role">新角色</label>
+      <select id="role">
+        <option value="admin">admin（管理员）</option>
+        <option value="user">user（普通用户）</option>
+      </select>
+    </div>
+
+    <button id="updateBtn" class="button">✏️ 修改角色</button>
+
+    <div id="result" style="display: none;"></div>
+    <div id="logBox" class="log-box" style="display: none;"></div>
+  </div>
+
+  <!-- CloudBase SDK -->
+  <script src="https://unpkg.com/@cloudbase/js-sdk@1.7.2/dist/index.umd.js"></script>
+  
+  <script>
+    let app, db;
+    
+    // 日志函数
+    function log(type, message) {
+      const logBox = document.getElementById('logBox');
+      logBox.style.display = 'block';
+      
+      const entry = document.createElement('div');
+      entry.className = `log-entry log-${type}`;
+      const timestamp = new Date().toLocaleTimeString();
+      entry.textContent = `[${timestamp}] ${message}`;
+      
+      logBox.appendChild(entry);
+      logBox.scrollTop = logBox.scrollHeight;
+    }
+
+    // 显示结果
+    function showResult(type, title, content) {
+      const resultDiv = document.getElementById('result');
+      resultDiv.style.display = 'block';
+      resultDiv.className = `result-box ${type}`;
+      resultDiv.innerHTML = `
+        <div class="result-title">${title}</div>
+        <div class="result-content">${content}</div>
+      `;
+    }
+
+    // 初始化 CloudBase
+    function initCloudBase() {
+      const envId = document.getElementById('envId').value.trim();
+      
+      if (!envId) {
+        showResult('error', '❌ 错误', '请输入环境ID');
+        return false;
+      }
+      
+      try {
+        if (typeof cloudbase === 'undefined') {
+          showResult('error', '❌ 错误', 'CloudBase SDK 未加载，请刷新页面重试');
+          return false;
+        }
+        
+        app = cloudbase.init({
+          env: envId
+        });
+        
+        db = app.database();
+        
+        log('success', `✅ 已连接到环境: ${envId}`);
+        return true;
+      } catch (error) {
+        showResult('error', '❌ 初始化失败', error.message);
+        log('error', `初始化失败: ${error.message}`);
+        return false;
+      }
+    }
+
+    // 修改用户角色
+    async function updateUserRole() {
+      if (!initCloudBase()) {
+        return;
+      }
+
+      const username = document.getElementById('username').value.trim();
+      const newRole = document.getElementById('role').value;
+
+      if (!username) {
+        showResult('error', '❌ 错误', '请输入用户名');
+        return;
+      }
+
+      const updateBtn = document.getElementById('updateBtn');
+      updateBtn.disabled = true;
+      updateBtn.textContent = '✏️ 修改中...';
+
+      try {
+        // 查询用户
+        log('info', `查询用户: ${username}`);
+        const { data: users } = await db.collection('users')
+          .where({ username: username })
+          .get();
+
+        if (users.length === 0) {
+          showResult('error', '❌ 用户不存在', `未找到用户 "${username}"`);
+          log('error', '用户不存在');
+          updateBtn.disabled = false;
+          updateBtn.textContent = '✏️ 修改角色';
+          return;
+        }
+
+        const user = users[0];
+        log('info', `找到用户: ${user.username} (当前角色: ${user.role})`);
+
+        // 确认修改
+        if (!confirm(`确认要将用户 "${username}" 的角色从 "${user.role}" 修改为 "${newRole}" 吗？`)) {
+          log('warn', '用户取消操作');
+          updateBtn.disabled = false;
+          updateBtn.textContent = '✏️ 修改角色';
+          return;
+        }
+
+        // 修改角色
+        log('info', `修改角色: ${user.role} → ${newRole}`);
+        await db.collection('users')
+          .doc(user._id)
+          .update({
+            role: newRole,
+            updatedAt: new Date()
+          });
+
+        showResult('success', '✅ 修改成功', `
+          用户 "${username}" 的角色已修改为 "${newRole}"<br><br>
+          - 用户ID: ${user._id}<br>
+          - 旧角色: ${user.role}<br>
+          - 新角色: ${newRole}<br><br>
+          请重新登录以使权限生效
+        `);
+        log('success', `✅ 角色修改成功: ${username} → ${newRole}`);
+
+      } catch (error) {
+        showResult('error', '❌ 修改失败', error.message);
+        log('error', `修改失败: ${error.message}`);
+        console.error('详细错误:', error);
+      } finally {
+        updateBtn.disabled = false;
+        updateBtn.textContent = '✏️ 修改角色';
+      }
+    }
+
+    // 等待 SDK 加载
+    function waitForCloudBase(callback) {
+      if (typeof cloudbase !== 'undefined') {
+        callback();
+      } else {
+        setTimeout(() => waitForCloudBase(callback), 100);
+      }
+    }
+
+    // 页面加载
+    window.onload = function() {
+      waitForCloudBase(() => {
+        log('success', '✅ CloudBase SDK 已加载');
+        log('info', '工具已就绪，请输入用户名后点击"修改角色"');
+        
+        document.getElementById('updateBtn').addEventListener('click', updateUserRole);
+      });
+    };
+  </script>
+</body>
+</html>

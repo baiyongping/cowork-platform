@@ -17,8 +17,6 @@ export default defineConfig({
     port: 5173,
     open: true,
     host: true,
-    // 🔧 开发环境HTTPS配置（CloudBase需要）
-    https: false,  // 使用HTTP避免证书问题
     // 🔧 禁用缓存，确保总是加载最新代码
     headers: {
       'Cache-Control': 'no-store',

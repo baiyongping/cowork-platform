@@ -8,6 +8,7 @@ import { db, app } from '../../lib/cloudbase';
 import { getStoragePublicURL } from '../../constants/cloudbase';
 import { usePermissionContext } from '../../contexts/PermissionContext';
 import { showAlert, showConfirm, showSuccess, showError, showWarning } from '../../lib/dialog-utils';
+import { generateDefaultPermissions } from '../../constants/modules';
 
 interface TypeItem {
   value: string;
@@ -132,33 +133,7 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
     role: '',
     name: '',
     description: '',
-    permissions: {
-      tasks: { view: true, create: true, edit: false, delete: false, export: false },
-      opportunities: { view: true, create: true, edit: false, delete: false, export: false },
-      projects: { view: true, create: true, edit: false, delete: false, export: false },
-      goal: {
-        salesGoal: { view: true, create: true, edit: false, delete: false, export: false },
-        opportunityGoal: { view: true, create: true, edit: false, delete: false, export: false },
-        productOrder: { view: true, create: true, edit: false, delete: false, export: false },
-        strategy: { view: true, create: true, edit: false, delete: false, export: false },
-        execution: { view: true, create: true, edit: false, delete: false, export: false }
-      },
-      budget: {
-        annual: { view: true, create: false, edit: false, delete: false, export: false },
-        asset: { view: true, create: true, edit: false, delete: false, export: false },
-        execution: { view: true, create: false, edit: false, delete: false, export: false },
-        parameters: { view: false, create: false, edit: false, delete: false, export: false },
-        hr: { view: true, create: false, edit: false, delete: false, export: false }
-      },
-      settings: {
-        userApproval: { view: true, create: false, edit: false, delete: false, export: false },
-        employees: { view: true, create: false, edit: false, delete: false, export: false },
-        departments: { view: true, create: false, edit: false, delete: false, export: false },
-        roles: { view: true, create: false, edit: false, delete: false, export: false },
-        typeSettings: { view: true, create: false, edit: false, delete: false, export: false },
-        operationLogs: { view: true, create: false, edit: false, delete: false, export: false }
-      }
-    }
+    permissions: {} as any
   });
   const [showAddTypeModal, setShowAddTypeModal] = useState<string | null>(null);
   const [showEditTypeModal, setShowEditTypeModal] = useState(false);
@@ -185,7 +160,7 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
   const [showClearLogsModal, setShowClearLogsModal] = useState(false);
   
   // 固定类型列表常量
-  const fixedTypes = ['moduleNames', 'task', 'taskStatus', 'opportunity', 'action', 'preparation', 'production', 'delivery', 'projectStatus', 'productType', 'strategyStatus'];
+  const fixedTypes = ['moduleNames', 'moduleCategory', 'task', 'taskStatus', 'opportunity', 'action', 'preparation', 'production', 'delivery', 'projectStatus', 'productType', 'strategyStatus'];
   
   // 加载已审核通过的用户列表
   useEffect(() => {
@@ -223,76 +198,48 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
             role: 'admin',
             name: '管理员',
             description: '系统管理员，拥有所有权限',
-            permissions: {
-              task: { view: true, create: true, edit: true, delete: true, export: true },
-              opportunity: { view: true, create: true, edit: true, delete: true, export: true },
-              project: { view: true, create: true, edit: true, delete: true, export: true },
-              goal: {
-                salesGoal: { view: true, create: true, edit: true, delete: true, export: true },
-                opportunityGoal: { view: true, create: true, edit: true, delete: true, export: true },
-                productOrder: { view: true, create: true, edit: true, delete: true, export: true },
-                strategy: { view: true, create: true, edit: true, delete: true, export: true },
-                execution: { view: true, create: true, edit: true, delete: true, export: true }
-              },
-              settings: {
-                userApproval: { view: true, create: true, edit: true, delete: true, export: true },
-                employees: { view: true, create: true, edit: true, delete: true, export: true },
-                departments: { view: true, create: true, edit: true, delete: true, export: true },
-                roles: { view: true, create: true, edit: true, delete: true, export: true },
-                typeSettings: { view: true, create: true, edit: true, delete: true, export: true },
-                operationLogs: { view: true, create: true, edit: true, delete: true, export: true }
-              }
-            },
+            permissions: (() => {
+              const perms = generateDefaultPermissions();
+              // 管理员拥有所有权限
+              Object.keys(perms).forEach(key => {
+                if (typeof perms[key] === 'object' && 'view' in perms[key]) {
+                  perms[key] = { view: true, create: true, edit: true, delete: true, export: true };
+                } else if (typeof perms[key] === 'object') {
+                  // 有子模块的情况
+                  Object.keys(perms[key]).forEach(subKey => {
+                    perms[key][subKey] = { view: true, create: true, edit: true, delete: true, export: true };
+                  });
+                }
+              });
+              return perms;
+            })(),
             createdAt: new Date()
           },
           {
             role: 'manager',
             name: '经理',
             description: '部门经理，可管理本部门及下级数据',
-            permissions: {
-              task: { view: true, create: true, edit: true, delete: false, export: true },
-              opportunity: { view: true, create: true, edit: true, delete: false, export: true },
-              project: { view: true, create: true, edit: true, delete: false, export: true },
-              goal: {
-                salesGoal: { view: true, create: true, edit: true, delete: false, export: true },
-                opportunityGoal: { view: true, create: true, edit: true, delete: false, export: true },
-                strategy: { view: true, create: true, edit: true, delete: false, export: true },
-                execution: { view: true, create: true, edit: true, delete: false, export: true }
-              },
-              settings: {
-                userApproval: { view: true, create: false, edit: true, delete: false, export: false },
-                employees: { view: true, create: false, edit: true, delete: false, export: false },
-                departments: { view: true, create: false, edit: true, delete: false, export: false },
-                roles: { view: true, create: false, edit: false, delete: false, export: false },
-                typeSettings: { view: true, create: false, edit: true, delete: false, export: false },
-                operationLogs: { view: true, create: false, edit: false, delete: false, export: false }
-              }
-            },
+            permissions: (() => {
+              const perms = generateDefaultPermissions();
+              // 经理权限:查看+创建+编辑,不允许删除
+              Object.keys(perms).forEach(key => {
+                if (typeof perms[key] === 'object' && 'view' in perms[key]) {
+                  perms[key] = { view: true, create: true, edit: true, delete: false, export: true };
+                } else if (typeof perms[key] === 'object') {
+                  Object.keys(perms[key]).forEach(subKey => {
+                    perms[key][subKey] = { view: true, create: true, edit: true, delete: false, export: true };
+                  });
+                }
+              });
+              return perms;
+            })(),
             createdAt: new Date()
           },
           {
             role: 'employee',
             name: '员工',
             description: '普通员工，可管理自己的数据和协作数据',
-            permissions: {
-              task: { view: true, create: true, edit: false, delete: false, export: false },
-              opportunity: { view: true, create: true, edit: false, delete: false, export: false },
-              project: { view: true, create: true, edit: false, delete: false, export: false },
-              goal: {
-                salesGoal: { view: true, create: true, edit: false, delete: false, export: false },
-                opportunityGoal: { view: true, create: true, edit: false, delete: false, export: false },
-                strategy: { view: true, create: true, edit: false, delete: false, export: false },
-                execution: { view: true, create: true, edit: false, delete: false, export: false }
-              },
-              settings: {
-                userApproval: { view: true, create: false, edit: false, delete: false, export: false },
-                employees: { view: true, create: false, edit: false, delete: false, export: false },
-                departments: { view: true, create: false, edit: false, delete: false, export: false },
-                roles: { view: true, create: false, edit: false, delete: false, export: false },
-                typeSettings: { view: true, create: false, edit: false, delete: false, export: false },
-                operationLogs: { view: true, create: false, edit: false, delete: false, export: false }
-              }
-            },
+            permissions: generateDefaultPermissions(), // 使用默认权限
             createdAt: new Date()
           }
         ];
@@ -412,37 +359,12 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
   
   // 打开新增角色modal
   const handleAddRole = () => {
+    // ✅ 使用统一的模块配置生成默认权限
     setRoleForm({
       role: '',
       name: '',
       description: '',
-      permissions: {
-        tasks: { view: true, create: true, edit: false, delete: false, export: false },
-        opportunities: { view: true, create: true, edit: false, delete: false, export: false },
-        projects: { view: true, create: true, edit: false, delete: false, export: false },
-        goal: {
-          salesGoal: { view: true, create: true, edit: false, delete: false, export: false },
-          opportunityGoal: { view: true, create: true, edit: false, delete: false, export: false },
-          productOrder: { view: true, create: true, edit: false, delete: false, export: false },
-          strategy: { view: true, create: true, edit: false, delete: false, export: false },
-          execution: { view: true, create: true, edit: false, delete: false, export: false }
-        },
-        budget: {
-          annual: { view: true, create: false, edit: false, delete: false, export: false },
-          asset: { view: true, create: true, edit: false, delete: false, export: false },
-          execution: { view: true, create: false, edit: false, delete: false, export: false },
-          parameters: { view: false, create: false, edit: false, delete: false, export: false },
-          hr: { view: true, create: false, edit: false, delete: false, export: false }
-        },
-        settings: {
-          userApproval: { view: true, create: false, edit: false, delete: false, export: false },
-          employees: { view: true, create: false, edit: false, delete: false, export: false },
-          departments: { view: true, create: false, edit: false, delete: false, export: false },
-          roles: { view: true, create: false, edit: false, delete: false, export: false },
-          typeSettings: { view: true, create: false, edit: false, delete: false, export: false },
-          operationLogs: { view: true, create: false, edit: false, delete: false, export: false }
-        }
-      }
+      permissions: generateDefaultPermissions()
     });
     setShowAddRoleModal(true);
   };
@@ -931,6 +853,7 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
       // 默认值配置(字符串数组格式)
       const defaults: Record<string, string[]> = {
         moduleNames: ['工作台', '任务管理', '商机管理', '项目管理', '目标管理'],
+        moduleCategory: ['核心业务', '辅助功能', '管理功能', '报表分析'], // 🆕 功能模块分类
         task: ['日常工作', '商机跟进', '项目任务', '采购任务'],  // 🆕 添加采购任务
         taskStatus: ['未开始', '进行中', '已完成', '延期', '取消', '暂停'],
         opportunity: ['跟进线索', '方案咨询', '商务谈判'],
@@ -946,6 +869,7 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
       // 默认类型名称映射
       const defaultNames: Record<string, string> = {
         moduleNames: '功能模块名称',
+        moduleCategory: '功能模块分类', // 🆕 功能模块分类
         task: '任务类型设置',
         taskStatus: '任务状态设置',
         opportunity: '商机阶段设置',
@@ -1066,6 +990,7 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
       
       // 设置各类型数据
       setModuleNames(typeMap.moduleNames?.items || defaults.moduleNames.map(v => ({ value: v, enabled: true })));
+      setModuleCategories(typeMap.moduleCategory?.items || defaults.moduleCategory.map(v => ({ value: v, enabled: true }))); // 🆕 功能模块分类
       setTaskTypes(typeMap.task?.items || defaults.task.map(v => ({ value: v, enabled: true })));
       setTaskStatuses(typeMap.taskStatus?.items || defaults.taskStatus.map(v => ({ value: v, enabled: true })));
       setOpportunityStages(typeMap.opportunity?.items || defaults.opportunity.map(v => ({ value: v, enabled: true })));
@@ -1096,6 +1021,7 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
       console.error('加载类型设置失败:', error);
       // 出错时使用默认值,但不保存到数据库
       const defaults: Record<string, string[]> = {
+        moduleCategory: ['核心业务', '辅助功能', '管理功能', '报表分析'], // 🆕 功能模块分类
         task: ['日常工作', '商机跟进', '项目任务', '采购任务'],  // 🆕 添加采购任务
         taskStatus: ['未开始', '进行中', '已完成', '延期', '取消', '暂停'],
         opportunity: ['跟进线索', '方案咨询', '商务谈判'],
@@ -1108,6 +1034,7 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
       };
       
       setTaskTypes(defaults.task.map(v => ({ value: v, enabled: true })));
+      setModuleCategories(defaults.moduleCategory?.map(v => ({ value: v, enabled: true })) || []); // 🆕 功能模块分类
       setTaskStatuses(defaults.taskStatus.map(v => ({ value: v, enabled: true })));
       setOpportunityStages(defaults.opportunity.map(v => ({ value: v, enabled: true })));
       setOpportunityActionTypes(defaults.action.map(v => ({ value: v, enabled: true })));
@@ -2025,7 +1952,7 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
       await saveTypeSettingsToDb(dbType, newValues);
       
       // 如果是动态类型，需要更新 allTypeSettings
-      if (!['moduleNames', 'task', 'taskStatus', 'opportunity', 'action', 'preparation', 'production', 'delivery', 'projectStatus', 'productType', 'strategyStatus'].includes(category)) {
+      if (!['moduleNames', 'moduleCategory', 'task', 'taskStatus', 'opportunity', 'action', 'preparation', 'production', 'delivery', 'projectStatus', 'productType', 'strategyStatus'].includes(category)) {
         const updatedAllSettings = allTypeSettings.map(t => 
           t.key === category ? { ...t, items: newValues } : t
         );
@@ -2203,6 +2130,15 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
           newValues = [...moduleNames, { value, enabled: true, isSystem: false }];
           setModuleNames(newValues);
           dbType = 'moduleNames';
+          break;
+        case 'moduleCategory': // 🆕 功能模块分类
+          if (moduleCategories.some(t => t.value === value)) {
+            alert('该分类已存在');
+            return;
+          }
+          newValues = [...moduleCategories, { value, enabled: true, isSystem: false }];
+          setModuleCategories(newValues);
+          dbType = 'moduleCategory';
           break;
         case 'task':
           if (taskTypes.some(t => t.value === value)) {
@@ -2383,6 +2319,16 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
           newValues[editingTypeIndex] = { ...newValues[editingTypeIndex], value };
           setModuleNames(newValues);
           dbType = 'moduleNames';
+          break;
+        case 'moduleCategory': // 🆕 功能模块分类
+          if (moduleCategories.some((t, i) => t.value === value && i !== editingTypeIndex)) {
+            alert('该分类已存在');
+            return;
+          }
+          newValues = [...moduleCategories];
+          newValues[editingTypeIndex] = { ...newValues[editingTypeIndex], value };
+          setModuleCategories(newValues);
+          dbType = 'moduleCategory';
           break;
         case 'task':
           if (taskTypes.some((t, i) => t.value === value && i !== editingTypeIndex)) {
@@ -2633,7 +2579,7 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
       await saveTypeSettingsToDb(dbType, newValues);
       
       // 如果是动态类型，需要更新 allTypeSettings
-      if (!['moduleNames', 'task', 'taskStatus', 'opportunity', 'action', 'preparation', 'production', 'delivery', 'projectStatus', 'productType', 'strategyStatus'].includes(category)) {
+      if (!['moduleNames', 'moduleCategory', 'task', 'taskStatus', 'opportunity', 'action', 'preparation', 'production', 'delivery', 'projectStatus', 'productType', 'strategyStatus'].includes(category)) {
         const updatedAllSettings = allTypeSettings.map(t => 
           t.key === category ? { ...t, items: newValues } : t
         );
@@ -2665,6 +2611,9 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
       switch (category) {
         case 'moduleNames':
           isSystemParam = moduleNames[index]?.isSystem || false;
+          break;
+        case 'moduleCategory': // 🆕 功能模块分类
+          isSystemParam = moduleCategories[index]?.isSystem || false;
           break;
         case 'task':
           isSystemParam = taskTypes[index]?.isSystem || false;
@@ -2719,6 +2668,12 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
           // 功能模块名称不需要检查引用关系，可以直接删除（实际上作为系统参数也不会被删除）
           typeValue = moduleNames[index].value;
           typeName = '功能模块名称';
+          // 不设置 collectionName，跳过引用检查
+          break;
+        case 'moduleCategory': // 🆕 功能模块分类
+          // 功能模块分类不需要检查引用关系，可以直接删除
+          typeValue = moduleCategories[index].value;
+          typeName = '功能模块分类';
           // 不设置 collectionName，跳过引用检查
           break;
         case 'task':
@@ -2811,6 +2766,11 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
             newValues = moduleNames.filter((_, i) => i !== index);
             setModuleNames(newValues);
             dbType = 'moduleNames';
+            break;
+          case 'moduleCategory': // 🆕 功能模块分类
+            newValues = moduleCategories.filter((_, i) => i !== index);
+            setModuleCategories(newValues);
+            dbType = 'moduleCategory';
             break;
           case 'task':
             newValues = taskTypes.filter((_, i) => i !== index);
@@ -2962,6 +2922,7 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
       // 批量保存所有类型设置
       await Promise.all([
         saveTypeSettingsToDb('moduleNames', moduleNames),
+        saveTypeSettingsToDb('moduleCategory', moduleCategories), // 🆕 功能模块分类
         saveTypeSettingsToDb('task', taskTypes),
         saveTypeSettingsToDb('taskStatus', taskStatuses),
         saveTypeSettingsToDb('opportunity', opportunityStages),
@@ -3175,6 +3136,7 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
   const [opportunityStages, setOpportunityStages] = useState<TypeItem[]>([]);
   const [projectStatuses, setProjectStatuses] = useState<TypeItem[]>([]);
   const [moduleNames, setModuleNames] = useState<TypeItem[]>([]);
+  const [moduleCategories, setModuleCategories] = useState<TypeItem[]>([]); // 🆕 功能模块分类
   
   const [opportunityActionTypes, setOpportunityActionTypes] = useState<TypeItem[]>([]);
 

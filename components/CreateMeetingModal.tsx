@@ -33,11 +33,11 @@ const AGENDA_TYPES = [
   { value: 'other', label: '📝 其他议题', module: '无关联', icon: FileText }
 ];
 
-interface Agenda {
+interface CreateAgenda {
   id: string;
   type: string;
   title: string;
-  content: string;
+  description: string;
   duration: number;
   relatedIds: string[];
   relatedData?: any[]; // 🔧 新增：存储关联数据的详细信息
@@ -65,8 +65,8 @@ const CreateMeetingModal: React.FC<CreateMeetingModalProps> = ({
   const [formData, setFormData] = useState({
     title: meeting?.title || '',
     type: meeting?.type || '周工作例会', // 会议类型：周工作例会 或 月度工作例会
-    scheduledTime: meeting?.scheduledTime ? formatDateForInput(meeting.scheduledTime) : '',
-    duration: meeting?.duration || 60,
+    scheduledTime: meeting?.startTime ? formatDateForInput(meeting.startTime) : '',
+    duration: 60,
     location: meeting?.location || '',
     attendees: meeting?.attendees || [] as string[],
     host: meeting?.host || '',         // 🔧 新增：会议主持人
@@ -75,14 +75,14 @@ const CreateMeetingModal: React.FC<CreateMeetingModalProps> = ({
   });
   
   // 议题列表（一个会议可以有多个议题）
-  const [agendas, setAgendas] = useState<Agenda[]>(meeting?.agendas || []);
+  const [agendas, setAgendas] = useState<CreateAgenda[]>(meeting?.agendas || []);
   
   // 当前编辑的议题
   const [currentAgenda, setCurrentAgenda] = useState<Agenda>({
     id: '',
-    type: 'goal',
+    type: '目标复盘',
     title: '',
-    content: '',
+    description: '',
     duration: 15,
     relatedIds: []
   });
@@ -161,16 +161,16 @@ const CreateMeetingModal: React.FC<CreateMeetingModalProps> = ({
 
   // 根据议题类型加载相关业务数据
   useEffect(() => {
-    if (currentAgenda.type !== 'other' && currentAgenda.type !== 'task' && currentAgenda.type !== 'opportunity' && currentAgenda.type !== 'project') {
+    if (currentAgenda.type !== '其他议题' && currentAgenda.type !== '任务汇报' && currentAgenda.type !== '商机分析' && currentAgenda.type !== '项目进展') {
       loadRelatedData(currentAgenda.type);
-    } else if (currentAgenda.type === 'task') {
+    } else if (currentAgenda.type === '任务汇报') {
       // 任务类型：清空关联数据，等待用户选择时间范围
       setRelatedDataList([]);
       setTaskTimeRange(null);
-    } else if (currentAgenda.type === 'opportunity') {
+    } else if (currentAgenda.type === '商机分析') {
       // 商机类型：清空关联数据，等待用户打开选择器
       setRelatedDataList([]);
-    } else if (currentAgenda.type === 'project') {
+    } else if (currentAgenda.type === '项目进展') {
       // 项目类型：清空关联数据，等待用户打开选择器
       setRelatedDataList([]);
     }
@@ -193,22 +193,22 @@ const CreateMeetingModal: React.FC<CreateMeetingModalProps> = ({
     setLoadingData(true);
     try {
       switch (agendaType) {
-        case 'goal':
+        case '目标复盘':
           await loadGoals();
           break;
-        case 'task':
+        case '任务汇报':
           // 任务类型不在这里加载，通过模态框选择
           break;
-        case 'opportunity':
+        case '商机分析':
           await loadOpportunities();
           break;
-        case 'project':
+        case '项目进展':
           await loadProjects();
           break;
-        case 'issue':
+        case '问题解决':
           await loadIssues();
           break;
-        case 'budget':
+        case '预算决策':
           await loadBudgetSubjects();
           break;
       }
@@ -758,13 +758,13 @@ const CreateMeetingModal: React.FC<CreateMeetingModalProps> = ({
       return;
     }
     
-    if (currentAgenda.type !== 'other' && currentAgenda.relatedIds.length === 0) {
+    if (currentAgenda.type !== '其他议题' && currentAgenda.relatedIds.length === 0) {
       alert('请选择关联数据');
       return;
     }
     
-    if (currentAgenda.type === 'other' && !currentAgenda.content.trim()) {
-      alert('请填写议题内容');
+    if (currentAgenda.type === '其他议题' && !currentAgenda.description?.trim()) {
+      alert('请填写议题描述');
       return;
     }
     
@@ -790,9 +790,9 @@ const CreateMeetingModal: React.FC<CreateMeetingModalProps> = ({
       setReSelectModalType(null);
       setCurrentAgenda({
         id: '',
-        type: 'goal',
+        type: '目标复盘',
         title: '',
-        content: '',
+        description: '',
         duration: 15,
         relatedIds: []
       });
@@ -809,9 +809,9 @@ const CreateMeetingModal: React.FC<CreateMeetingModalProps> = ({
       // 重置当前议题并隐藏表单
       setCurrentAgenda({
         id: '',
-        type: 'goal',
+        type: '目标复盘',
         title: '',
-        content: '',
+        description: '',
         duration: 15,
         relatedIds: []
       });
@@ -834,7 +834,7 @@ const CreateMeetingModal: React.FC<CreateMeetingModalProps> = ({
     setReSelectModalType(agendaType);
     
     // 根据议题类型加载对应数据
-    if (agendaType === 'task') {
+    if (agendaType === '任务汇报') {
       // 任务类型：需要先选择时间维度，然后打开模态框
       // 获取该议题的时间维度（从议题标题判断）
       const agenda = agendas.find(a => a.id === agendaId);
@@ -855,19 +855,19 @@ const CreateMeetingModal: React.FC<CreateMeetingModalProps> = ({
     setLoadingData(true);
     try {
       switch (agendaType) {
-        case 'goal':
+        case '目标复盘':
           await loadGoals();
           break;
-        case 'opportunity':
+        case '商机分析':
           await loadOpportunities();
           break;
-        case 'project':
+        case '项目进展':
           await loadProjects();
           break;
-        case 'issue':
+        case '问题解决':
           await loadIssues();
           break;
-        case 'budget':
+        case '预算决策':
           await loadBudgetSubjects();
           break;
       }
@@ -1101,30 +1101,30 @@ const CreateMeetingModal: React.FC<CreateMeetingModalProps> = ({
 
     // 处理每个议题，按类型分类
     agendas.forEach(agenda => {
-      if (agenda.type === 'other') {
+      if (agenda.type === '其他议题') {
         // 其它议题类型
         result.agendaTopic = agenda.title;
-        result.agendaContent = agenda.content;
+        result.agendaContent = agenda.description || '';
       } else {
         // 按议题类型将关联数据分配到对应字段
         agenda.relatedIds.forEach(id => {
           switch (agenda.type) {
-            case 'goal':
+            case '目标复盘':
               result.relatedGoals.push(id);
               break;
-            case 'task':
+            case '任务汇报':
               result.relatedTasks.push(id);
               break;
-            case 'opportunity':
+            case '商机分析':
               result.relatedOpportunities.push(id);
               break;
-            case 'project':
+            case '项目进展':
               result.relatedProjects.push(id);
               break;
-            case 'issue':
+            case '问题解决':
               result.relatedIssues.push(id);
               break;
-            case 'budget':
+            case '预算决策':
               result.relatedBudgets.push(id);
               break;
           }
@@ -1468,8 +1468,8 @@ const CreateMeetingModal: React.FC<CreateMeetingModalProps> = ({
                             {getAgendaLabel(agenda.type)} • {agenda.duration}分钟
                           </span>
                         </div>
-                        {agenda.content && (
-                          <p className="text-sm text-gray-600 whitespace-pre-wrap">{agenda.content}</p>
+                        {agenda.description && (
+                          <p className="text-sm text-gray-600 whitespace-pre-wrap">{agenda.description}</p>
                         )}
                         {/* 🔧 新增：关联数据列表显示（可点击重新选择） */}
                         {agenda.relatedIds.length > 0 && agenda.relatedData && (
@@ -1556,14 +1556,14 @@ const CreateMeetingModal: React.FC<CreateMeetingModalProps> = ({
                     type="button"
                     onClick={() => {
                       setShowAgendaForm(false);
-                      setCurrentAgenda({
-                        id: '',
-                        type: 'goal',
-                        title: '',
-                        content: '',
-                        duration: 15,
-                        relatedIds: []
-                      });
+setCurrentAgenda({
+        id: '',
+        type: '目标复盘',
+        title: '',
+        description: '',
+        duration: 15,
+        relatedIds: []
+      });
                     }}
                     className="text-gray-400 hover:text-gray-600"
                   >
@@ -1582,23 +1582,33 @@ const CreateMeetingModal: React.FC<CreateMeetingModalProps> = ({
                       const newType = e.target.value;
                       const agendaTypeInfo = AGENDA_TYPES.find(t => t.value === newType);
                       
-                      // 自动生成标题：
-                      // 1. 任务汇报：根据时间维度生成（本周/下周/本月/下月 + 任务汇报）
-                      // 2. 其他类型：直接使用议题类型名称（去掉emoji）
+                      // 映射内部类型值到完整的中文类型名称
+                      const typeMapping: Record<string, string> = {
+                        'goal': '目标复盘',
+                        'task': '任务汇报',
+                        'opportunity': '商机分析',
+                        'project': '项目进展',
+                        'issue': '问题解决',
+                        'budget': '预算决策',
+                        'other': '其他议题'
+                      };
+                      
+                      const fullTypeName = agendaTypeInfo?.label || '';
                       let autoTitle = '';
+                      
                       if (newType === 'task') {
                         const timePrefix = timeDimension === 'current' 
                           ? (formData.type === '周工作例会' ? '本周' : '本月')
                           : (formData.type === '周工作例会' ? '下周' : '下月');
                         autoTitle = `${timePrefix}任务汇报`;
-                      } else if (agendaTypeInfo) {
+                      } else if (fullTypeName) {
                         // 去掉label中的emoji（如 "🎯 目标复盘" → "目标复盘"）
-                        autoTitle = agendaTypeInfo.label.replace(/[\u{1F300}-\u{1F9FF}]\s*/gu, '').trim();
+                        autoTitle = fullTypeName.replace(/[\u{1F300}-\u{1F9FF}]\s*/gu, '').trim();
                       }
                       
                       setCurrentAgenda({ 
                         ...currentAgenda, 
-                        type: newType, 
+                        type: typeMapping[newType] || newType, 
                         relatedIds: [],
                         title: autoTitle // 自动填充标题
                       });
@@ -1614,7 +1624,7 @@ const CreateMeetingModal: React.FC<CreateMeetingModalProps> = ({
                 </div>
 
                 {/* 时间维度选择 - 仅在选择任务汇报时显示 */}
-                {currentAgenda.type === 'task' && (
+                {currentAgenda.type === '任务汇报' && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       时间维度 <span className="text-red-500">*</span>
@@ -1625,7 +1635,7 @@ const CreateMeetingModal: React.FC<CreateMeetingModalProps> = ({
                         onClick={() => {
                           setTimeDimension('current');
                           // 同步更新任务汇报标题
-                          if (currentAgenda.type === 'task') {
+                          if (currentAgenda.type === '任务汇报') {
                             const timePrefix = formData.type === '周工作例会' ? '本周' : '本月';
                             setCurrentAgenda({ ...currentAgenda, title: `${timePrefix}任务汇报` });
                           }
@@ -1648,7 +1658,7 @@ const CreateMeetingModal: React.FC<CreateMeetingModalProps> = ({
                         onClick={() => {
                           setTimeDimension('next');
                           // 同步更新任务汇报标题
-                          if (currentAgenda.type === 'task') {
+                          if (currentAgenda.type === '任务汇报') {
                             const timePrefix = formData.type === '周工作例会' ? '下周' : '下月';
                             setCurrentAgenda({ ...currentAgenda, title: `${timePrefix}任务汇报` });
                           }
@@ -1707,7 +1717,7 @@ const CreateMeetingModal: React.FC<CreateMeetingModalProps> = ({
                   </label>
                   
                   {/* 任务汇报：显示关联任务按钮（不再需要本周/下周选择） */}
-                  {currentAgenda.type === 'task' && (
+                  {currentAgenda.type === '任务汇报' && (
                     <div className="mb-3">
                       <Button
                         type="button"
@@ -1722,7 +1732,7 @@ const CreateMeetingModal: React.FC<CreateMeetingModalProps> = ({
                   )}
                   
                   {/* 🔧 新增：商机分析：显示商机选择按钮 */}
-                  {currentAgenda.type === 'opportunity' && (
+                  {currentAgenda.type === '商机分析' && (
                     <div className="mb-3">
                       <Button
                         type="button"
@@ -1737,7 +1747,7 @@ const CreateMeetingModal: React.FC<CreateMeetingModalProps> = ({
                   )}
                   
                   {/* 🔧 新增：项目进展：显示项目选择按钮 */}
-                  {currentAgenda.type === 'project' && (
+                  {currentAgenda.type === '项目进展' && (
                     <div className="mb-3">
                       <Button
                         type="button"
@@ -1757,10 +1767,10 @@ const CreateMeetingModal: React.FC<CreateMeetingModalProps> = ({
                     <div className="text-sm text-gray-500 p-4 bg-gray-50 rounded-lg">
                       暂无可关联的数据
                     </div>
-                  ) : (currentAgenda.type === 'task' || currentAgenda.type === 'opportunity' || currentAgenda.type === 'project') && relatedDataList.length > 0 ? (
+                  ) : (currentAgenda.type === '任务汇报' || currentAgenda.type === '商机分析' || currentAgenda.type === '项目进展') && relatedDataList.length > 0 ? (
                     <div className="space-y-2 p-4 bg-gray-50 rounded-lg">
                       <div className="text-sm font-medium text-gray-700 mb-2">
-                        已选{currentAgenda.type === 'task' ? '任务' : currentAgenda.type === 'opportunity' ? '商机' : '项目'} ({relatedDataList.length})
+                        已选{currentAgenda.type === '任务汇报' ? '任务' : currentAgenda.type === '商机分析' ? '商机' : '项目'} ({relatedDataList.length})
                       </div>
                       {relatedDataList.map((item) => (
                         <div
@@ -1768,7 +1778,7 @@ const CreateMeetingModal: React.FC<CreateMeetingModalProps> = ({
                           className="flex items-center justify-between p-2 bg-white rounded border border-gray-200"
                         >
                           <span className="text-sm text-gray-700">
-                            {currentAgenda.type === 'task' 
+                            {currentAgenda.type === '任务汇报' 
                               ? (item.name || item.title || '未命名')
                               : currentAgenda.type === 'opportunity'
                               ? (item.customer || '未知客户')
@@ -1817,14 +1827,14 @@ const CreateMeetingModal: React.FC<CreateMeetingModalProps> = ({
               )}
 
               {/* 议题内容（"其他议题"类型） */}
-              {currentAgenda.type === 'other' && (
+              {currentAgenda.type === '其他议题' && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     议题内容 <span className="text-red-500">*</span>
                   </label>
                   <textarea
-                    value={currentAgenda.content}
-                    onChange={(e) => setCurrentAgenda({ ...currentAgenda, content: e.target.value })}
+                    value={currentAgenda.description || ''}
+                    onChange={(e) => setCurrentAgenda({ ...currentAgenda, description: e.target.value })}
                     placeholder="请输入议题内容..."
                     rows={4}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"

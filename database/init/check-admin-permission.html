@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>检查管理员权限 - 际华协同办公</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+      max-width: 800px;
+      width: 100%;
+      padding: 40px;
+    }
+
+    h1 {
+      font-size: 28px;
+      color: #333;
+      margin-bottom: 10px;
+    }
+
+    .subtitle {
+      color: #666;
+      font-size: 14px;
+      margin-bottom: 30px;
+    }
+
+    .input-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      font-weight: 500;
+      color: #333;
+      margin-bottom: 8px;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+      transition: border-color 0.3s;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    .button {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: transform 0.2s, opacity 0.3s;
+      margin-bottom: 10px;
+    }
+
+    .button:hover {
+      transform: translateY(-2px);
+      opacity: 0.9;
+    }
+
+    .button:active {
+      transform: translateY(0);
+    }
+
+    .button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .result-box {
+      margin-top: 30px;
+      padding: 20px;
+      border-radius: 8px;
+      background: #f8f9fa;
+      border-left: 4px solid #667eea;
+    }
+
+    .result-box.success {
+      background: #d4edda;
+      border-left-color: #28a745;
+    }
+
+    .result-box.error {
+      background: #f8d7da;
+      border-left-color: #dc3545;
+    }
+
+    .result-title {
+      font-weight: 600;
+      margin-bottom: 10px;
+      color: #333;
+    }
+
+    .result-content {
+      font-size: 14px;
+      color: #555;
+      line-height: 1.6;
+    }
+
+    .log-box {
+      margin-top: 20px;
+      padding: 15px;
+      background: #2d2d2d;
+      border-radius: 6px;
+      max-height: 300px;
+      overflow-y: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+    }
+
+    .log-entry {
+      margin-bottom: 8px;
+      color: #f0f0f0;
+    }
+
+    .log-info { color: #4fc3f7; }
+    .log-success { color: #81c784; }
+    .log-error { color: #e57373; }
+    .log-warn { color: #ffb74d; }
+
+    .steps {
+      margin: 20px 0;
+      padding: 20px;
+      background: #f8f9fa;
+      border-radius: 8px;
+    }
+
+    .steps h3 {
+      font-size: 18px;
+      color: #333;
+      margin-bottom: 15px;
+    }
+
+    .step {
+      display: flex;
+      align-items: start;
+      margin-bottom: 12px;
+      font-size: 14px;
+      color: #555;
+    }
+
+    .step-number {
+      flex-shrink: 0;
+      width: 24px;
+      height: 24px;
+      background: #667eea;
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      margin-right: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔐 检查管理员权限</h1>
+    <p class="subtitle">检查当前登录用户是否具有管理员权限</p>
+
+    <div class="steps">
+      <h3>使用步骤</h3>
+      <div class="step">
+        <div class="step-number">1</div>
+        <div>输入你的 CloudBase 环境 ID</div>
+      </div>
+      <div class="step">
+        <div class="step-number">2</div>
+        <div>输入要检查的用户名（留空则检查当前登录用户）</div>
+      </div>
+      <div class="step">
+        <div class="step-number">3</div>
+        <div>点击"检查权限"按钮</div>
+      </div>
+    </div>
+
+    <div class="input-group">
+      <label for="envId">CloudBase 环境 ID</label>
+      <input 
+        type="text" 
+        id="envId" 
+        placeholder="cowork-9gg9oocb516be5fb"
+        value="cowork-9gg9oocb516be5fb"
+      >
+    </div>
+
+    <div class="input-group">
+      <label for="username">用户名（可选，留空检查当前登录用户）</label>
+      <input 
+        type="text" 
+        id="username" 
+        placeholder="留空检查当前登录用户"
+      >
+    </div>
+
+    <button id="checkBtn" class="button">🔍 检查权限</button>
+    <button id="loginBtn" class="button">🔐 跳转到登录页</button>
+
+    <div id="result" style="display: none;"></div>
+    <div id="logBox" class="log-box" style="display: none;"></div>
+  </div>
+
+  <!-- CloudBase SDK -->
+  <script src="https://unpkg.com/@cloudbase/js-sdk@1.7.2/dist/index.umd.js"></script>
+  
+  <script>
+    let app, db, auth;
+    
+    // 日志函数
+    function log(type, message) {
+      const logBox = document.getElementById('logBox');
+      logBox.style.display = 'block';
+      
+      const entry = document.createElement('div');
+      entry.className = `log-entry log-${type}`;
+      const timestamp = new Date().toLocaleTimeString();
+      entry.textContent = `[${timestamp}] ${message}`;
+      
+      logBox.appendChild(entry);
+      logBox.scrollTop = logBox.scrollHeight;
+    }
+
+    // 显示结果
+    function showResult(type, title, content) {
+      const resultDiv = document.getElementById('result');
+      resultDiv.style.display = 'block';
+      resultDiv.className = `result-box ${type}`;
+      resultDiv.innerHTML = `
+        <div class="result-title">${title}</div>
+        <div class="result-content">${content}</div>
+      `;
+    }
+
+    // 初始化 CloudBase
+    function initCloudBase() {
+      const envId = document.getElementById('envId').value.trim();
+      
+      if (!envId) {
+        showResult('error', '❌ 错误', '请输入环境ID');
+        return false;
+      }
+      
+      try {
+        if (typeof cloudbase === 'undefined') {
+          showResult('error', '❌ 错误', 'CloudBase SDK 未加载，请刷新页面重试');
+          return false;
+        }
+        
+        app = cloudbase.init({
+          env: envId
+        });
+        
+        auth = app.auth({ persistence: 'local' });
+        db = app.database();
+        
+        log('success', `✅ 已连接到环境: ${envId}`);
+        return true;
+      } catch (error) {
+        showResult('error', '❌ 初始化失败', error.message);
+        log('error', `初始化失败: ${error.message}`);
+        return false;
+      }
+    }
+
+    // 检查权限
+    async function checkPermission() {
+      if (!initCloudBase()) {
+        return;
+      }
+
+      const checkBtn = document.getElementById('checkBtn');
+      checkBtn.disabled = true;
+      checkBtn.textContent = '🔍 检查中...';
+
+      try {
+        // 检查登录状态
+        const loginState = await auth.getLoginState();
+        log('info', `登录状态: ${loginState ? '已登录' : '未登录'}`);
+
+        if (!loginState) {
+          showResult('error', '❌ 未登录', '当前未登录，请先登录');
+          log('error', '未登录');
+          checkBtn.disabled = false;
+          checkBtn.textContent = '🔍 检查权限';
+          return;
+        }
+
+        // 获取用户信息
+        const userInfo = loginState.user;
+        log('info', `用户信息: UID=${userInfo.uid}`);
+
+        // 检查用户数据
+        const username = document.getElementById('username').value.trim();
+        
+        let queryFilter;
+        if (username) {
+          queryFilter = { username: username };
+          log('info', `查询用户: ${username}`);
+        } else {
+          queryFilter = { _openid: userInfo.uid };
+          log('info', `查询当前登录用户: ${userInfo.uid}`);
+        }
+
+        const { data: users } = await db.collection('users')
+          .where(queryFilter)
+          .get();
+
+        log('info', `查询结果: 找到 ${users.length} 个用户`);
+
+        if (users.length === 0) {
+          showResult('error', '❌ 用户不存在', `未找到用户${username ? ` "${username}"` : ''}`);
+          log('error', '用户不存在');
+          checkBtn.disabled = false;
+          checkBtn.textContent = '🔍 检查权限';
+          return;
+        }
+
+        const user = users[0];
+        log('info', `用户数据: username=${user.username}, role=${user.role}`);
+
+        // 检查是否是管理员
+        const isAdmin = user.role === 'admin';
+        
+        if (isAdmin) {
+          showResult('success', '✅ 有权限', `
+            用户 "${user.username}" 是管理员<br>
+            - 角色: ${user.role}<br>
+            - OpenID: ${user._openid || '未设置'}<br>
+            - 用户ID: ${user._id}
+          `);
+          log('success', '✅ 用户是管理员');
+        } else {
+          showResult('error', '❌ 无权限', `
+            用户 "${user.username}" 不是管理员<br>
+            - 当前角色: ${user.role}<br>
+            - OpenID: ${user._openid || '未设置'}<br>
+            - 用户ID: ${user._id}<br><br>
+            请联系管理员将您的角色设置为 "admin"
+          `);
+          log('error', `❌ 用户角色是 "${user.role}"，不是管理员`);
+        }
+
+      } catch (error) {
+        showResult('error', '❌ 检查失败', error.message);
+        log('error', `检查失败: ${error.message}`);
+        console.error('详细错误:', error);
+      } finally {
+        checkBtn.disabled = false;
+        checkBtn.textContent = '🔍 检查权限';
+      }
+    }
+
+    // 跳转到登录页
+    function goToLogin() {
+      window.location.href = '/';
+    }
+
+    // 等待 SDK 加载
+    function waitForCloudBase(callback) {
+      if (typeof cloudbase !== 'undefined') {
+        callback();
+      } else {
+        setTimeout(() => waitForCloudBase(callback), 100);
+      }
+    }
+
+    // 页面加载
+    window.onload = function() {
+      waitForCloudBase(() => {
+        log('success', '✅ CloudBase SDK 已加载');
+        log('info', '工具已就绪，请点击"检查权限"开始');
+        
+        document.getElementById('checkBtn').addEventListener('click', checkPermission);
+        document.getElementById('loginBtn').addEventListener('click', goToLogin);
+      });
+    };
+  </script>
+</body>
+</html>
