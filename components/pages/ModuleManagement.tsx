@@ -24,6 +24,7 @@ import type { ModuleMetadata } from "../../lib/module-service";
 import { moduleService } from "../../lib/module-service";
 import { showSuccess, showError, showConfirm } from "../../lib/dialog-utils";
 import { app } from "../../lib/cloudbase";
+import { getFlatModuleList } from "../../constants/modules"; // 🆕 导入统一配置
 
 // 模块分类颜色映射（🆕 支持中文分类名称）
 const categoryColorMap: Record<string, string> = {
@@ -40,64 +41,9 @@ const categoryColorMap: Record<string, string> = {
   system: "bg-purple-100 text-purple-800",
 };
 
-// 🎯 **完整的权限模块定义（一级和二级功能）**
-const PERMISSION_MODULES = [
-  // 1. 工作台（固定显示，不需要权限）
-  { code: 'dashboard', name: '工作台', level: 1, parentCode: null },
-  
-  // 2. 任务管理
-  { code: 'tasks', name: '任务管理', level: 1, parentCode: null },
-  
-  // 3. 问题管理
-  { code: 'issues', name: '问题管理', level: 1, parentCode: null },
-  
-  // 4. 商机管理
-  { code: 'opportunities', name: '商机管理', level: 1, parentCode: null },
-  
-  // 5. 项目管理
-  { code: 'projects', name: '项目管理', level: 1, parentCode: null },
-  
-  // 6. 目标管理（含8个二级功能）
-  { code: 'goal', name: '目标管理', level: 1, parentCode: null },
-  { code: 'goal.salesGoal', name: '销售目标', level: 2, parentCode: 'goal' },
-  { code: 'goal.opportunityGoal', name: '商机目标', level: 2, parentCode: 'goal' },
-  { code: 'goal.productOrder', name: '产品订单预测', level: 2, parentCode: 'goal' },
-  { code: 'goal.strategy', name: '年度策略', level: 2, parentCode: 'goal' },
-  { code: 'goal.outcome', name: '成果目标', level: 2, parentCode: 'goal' },
-  { code: 'goal.decomposition', name: '目标分解', level: 2, parentCode: 'goal' },
-  { code: 'goal.execution', name: '执行力地图', level: 2, parentCode: 'goal' },
-  { code: 'goal.dimensionSettings', name: '维度设置', level: 2, parentCode: 'goal', note: '与执行力地图权限相同' },
-  
-  // 7. 预算管理（含6个二级功能）
-  { code: 'budget', name: '预算管理', level: 1, parentCode: null },
-  { code: 'budget.annual', name: '年度预算', level: 2, parentCode: 'budget' },
-  { code: 'budget.execution', name: '预算执行', level: 2, parentCode: 'budget' },
-  { code: 'budget.asset', name: '资产预算', level: 2, parentCode: 'budget' },
-  { code: 'budget.cashFlow', name: '现金流管理', level: 2, parentCode: 'budget', note: '与预算执行权限相同' },
-  { code: 'budget.hr', name: '薪酬预算', level: 2, parentCode: 'budget' },
-  { code: 'budget.parameters', name: '预算参数', level: 2, parentCode: 'budget' },
-  
-  // 8. 例会管理
-  { code: 'meetings', name: '例会管理', level: 1, parentCode: null },
-  
-  // 9. 绩效管理
-  { code: 'performance', name: '绩效管理', level: 1, parentCode: null },
-  
-  // 10. 业务管理
-  { code: 'business', name: '业务管理', level: 1, parentCode: null },
-  
-  // 11. 功能模块（仅管理员可见）
-  { code: 'moduleManagement', name: '功能模块', level: 1, parentCode: null, adminOnly: true },
-  
-  // 12. 系统设置（含6个二级功能）
-  { code: 'settings', name: '系统设置', level: 1, parentCode: null },
-  { code: 'settings.userApproval', name: '用户审核', level: 2, parentCode: 'settings' },
-  { code: 'settings.employees', name: '员工管理', level: 2, parentCode: 'settings' },
-  { code: 'settings.departments', name: '部门管理', level: 2, parentCode: 'settings' },
-  { code: 'settings.roles', name: '角色权限', level: 2, parentCode: 'settings' },
-  { code: 'settings.typeSettings', name: '类型设置', level: 2, parentCode: 'settings' },
-  { code: 'settings.operationLogs', name: '操作日志', level: 2, parentCode: 'settings' },
-];
+// 🎯 **完整的权限模块定义（从统一配置导入）**
+// ⚠️ 重要: 所有模块定义现在来自 constants/modules.ts，确保单一配置源
+const PERMISSION_MODULES = getFlatModuleList();
 
 export default function ModuleManagement() {
   const [modules, setModules] = useState<any[]>([]);
