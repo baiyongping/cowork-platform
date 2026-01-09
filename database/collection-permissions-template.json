@@ -1,0 +1,118 @@
+{
+  "version": "1.0",
+  "description": "CloudBase NoSQL数据库集合权限配置模板",
+  "timestamp": "2026-01-09T00:00:00.000Z",
+  "usage": "将此配置导入到CloudBase控制台 > 数据库 > 权限设置",
+  "collections": {
+    "opportunities": {
+      "name": "商机管理",
+      "read": "auth.uid != null && (doc.owner == auth.uid || get('database.users.$(auth.uid)').role == 'admin')",
+      "write": "auth.uid != null && (doc.owner == auth.uid || get('database.users.$(auth.uid)').role == 'admin')"
+    },
+    "tasks": {
+      "name": "任务管理",
+      "read": "auth.uid != null && (doc.owner == auth.uid || doc.collaborators.includes(auth.uid) || get('database.users.$(auth.uid)').role == 'admin')",
+      "write": "auth.uid != null && (doc.owner == auth.uid || get('database.users.$(auth.uid)').role == 'admin')"
+    },
+    "projects": {
+      "name": "项目管理",
+      "read": "auth.uid != null && (doc.owner == auth.uid || get('database.users.$(auth.uid)').role == 'admin')",
+      "write": "auth.uid != null && (doc.owner == auth.uid || get('database.users.$(auth.uid)').role == 'admin')"
+    },
+    "issues": {
+      "name": "问题管理",
+      "read": "auth.uid != null && (doc.createdBy == auth.uid || get('database.users.$(auth.uid)').role == 'admin')",
+      "write": "auth.uid != null && (doc.createdBy == auth.uid || get('database.users.$(auth.uid)').role == 'admin')"
+    },
+    "sales_goals": {
+      "name": "销售目标",
+      "read": "auth.uid != null && get('database.users.$(auth.uid)').role in ['admin', 'manager']",
+      "write": "auth.uid != null && get('database.users.$(auth.uid)').role == 'admin'"
+    },
+    "product_order_forecast": {
+      "name": "产品订单预测",
+      "read": "auth.uid != null && get('database.users.$(auth.uid)').role in ['admin', 'manager']",
+      "write": "auth.uid != null && get('database.users.$(auth.uid)').role == 'admin'"
+    },
+    "annual_strategies": {
+      "name": "年度策略",
+      "read": "auth.uid != null && get('database.users.$(auth.uid)').role == 'admin'",
+      "write": "auth.uid != null && get('database.users.$(auth.uid)').role == 'admin'"
+    },
+    "outcome_goals": {
+      "name": "成果目标",
+      "read": "auth.uid != null",
+      "write": "auth.uid != null && get('database.users.$(auth.uid)').role == 'admin'"
+    },
+    "goal_decompositions": {
+      "name": "目标分解表",
+      "read": "auth.uid != null",
+      "write": "auth.uid != null && get('database.users.$(auth.uid)').role == 'admin'"
+    },
+    "budgetSubjects": {
+      "name": "预算科目",
+      "read": "auth.uid != null",
+      "write": "auth.uid != null && get('database.users.$(auth.uid)').role == 'admin'"
+    },
+    "annual_budgets": {
+      "name": "年度预算",
+      "read": "auth.uid != null",
+      "write": "auth.uid != null && get('database.users.$(auth.uid)').role == 'admin'"
+    },
+    "budget_execution": {
+      "name": "预算执行",
+      "read": "auth.uid != null",
+      "write": "auth.uid != null && get('database.users.$(auth.uid)').role == 'admin'"
+    },
+    "asset_budgets": {
+      "name": "资产预算",
+      "read": "auth.uid != null && get('database.users.$(auth.uid)').role in ['admin', 'manager']",
+      "write": "auth.uid != null && get('database.users.$(auth.uid)').role in ['admin', 'manager']"
+    },
+    "hrExpenses": {
+      "name": "薪酬预算",
+      "read": "auth.uid != null && get('database.users.$(auth.uid)').role == 'admin'",
+      "write": "auth.uid != null && get('database.users.$(auth.uid)').role == 'admin'"
+    },
+    "meetings": {
+      "name": "例会",
+      "read": "auth.uid != null",
+      "write": "auth.uid != null && (doc.createdBy == auth.uid || get('database.users.$(auth.uid)').role == 'admin')"
+    },
+    "meetingRecords": {
+      "name": "会议纪要",
+      "read": "auth.uid != null",
+      "write": "auth.uid != null && (doc.recordBy == auth.uid || get('database.users.$(auth.uid)').role == 'admin')"
+    },
+    "users": {
+      "name": "用户",
+      "read": "auth.uid != null",
+      "write": "auth.uid != null && get('database.users.$(auth.uid)').role == 'admin'"
+    },
+    "roles": {
+      "name": "角色",
+      "read": "auth.uid != null",
+      "write": "auth.uid != null && get('database.users.$(auth.uid)').role == 'admin'"
+    },
+    "moduleConfig": {
+      "name": "功能模块配置",
+      "read": "auth.uid != null",
+      "write": "auth.uid != null && get('database.users.$(auth.uid)').role == 'admin'"
+    },
+    "messages": {
+      "name": "消息通知",
+      "read": "auth.uid != null && doc.userId == auth.uid",
+      "write": "auth.uid != null && doc.userId == auth.uid"
+    },
+    "systemLogs": {
+      "name": "系统日志",
+      "read": "auth.uid != null && get('database.users.$(auth.uid)').role == 'admin'",
+      "write": "auth.uid != null && get('database.users.$(auth.uid)').role == 'admin'"
+    },
+    "wechat_sessions": {
+      "name": "微信会话",
+      "read": "auth.uid != null && get('database.users.$(auth.uid)').role == 'admin'",
+      "write": "auth.uid != null && get('database.users.$(auth.uid)').role == 'admin'"
+    }
+  }
+}

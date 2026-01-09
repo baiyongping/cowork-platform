@@ -384,7 +384,7 @@ export default function RolePermissions() {
 
     // 防止删除admin和manager等核心角色
     const protectedRoles = ['admin', 'manager', '管理员', '经理'];
-    if (protectedRoles.includes(role.name.toLowerCase())) {
+    if (role.name && protectedRoles.includes(role.name.toLowerCase())) {
       showError('该角色不能删除');
       return;
     }
@@ -558,7 +558,7 @@ export default function RolePermissions() {
                       </button>
                       
                       {/* 删除按钮 - 仅非核心角色显示 */}
-                      {!['admin', 'manager', '管理员', '经理'].includes(role.name.toLowerCase()) && (
+                      {role.name && !['admin', 'manager', '管理员', '经理'].includes(role.name.toLowerCase()) && (
                         <button
                           onClick={(e) => handleDeleteRole(role, e)}
                           className="p-1 text-red-600 hover:bg-red-50 rounded"

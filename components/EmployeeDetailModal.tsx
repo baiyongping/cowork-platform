@@ -253,36 +253,44 @@ export default function EmployeeDetailModal({
   // 🆕 放入回收站处理函数
   const handleMoveToTrash = async () => {
     try {
-      // 更新用户记录，标记为已删除
-      await db.collection('users').doc(employee._id).update({
-        deleted: true,
-        deletedAt: new Date(),
-        updatedAt: new Date()
+      console.log('🗑️ [删除员工] 开始删除:', employee._id, employee.name);
+      
+      // ✅ 调用云函数执行软删除
+      const result = await app.callFunction({
+        name: 'user-management',
+        data: {
+          action: 'softDelete',
+          userId: employee._id
+        }
       });
 
-      // 记录操作日志
-      await db.collection('operation_logs').add({
-        userId: employee._id,
-        module: '员工管理',
-        action: '放入回收站',
-        content: `将员工 ${employee.name}(${employee.username}) 放入回收站`,
-        ipAddress: 'unknown',
-        createdAt: new Date()
-      });
+      console.log('✅ [删除员工] 云函数执行结果:', result);
 
-      // 提示成功
-      showSuccess('已成功放入回收站');
-      
-      // 关闭删除确认对话框
-      setShowDeleteConfirm(false);
-      
-      // 关闭详情对话框并刷新列表
-      if (onSuccess) {
-        onSuccess();
+      if (result.result.success) {
+        // 提示成功
+        showSuccess('已成功放入回收站');
+        
+        // 关闭删除确认对话框
+        setShowDeleteConfirm(false);
+        
+        console.log('🔄 [删除员工] 准备刷新列表...');
+        
+        // 🔧 关键修复：等待 onSuccess 执行完成后再关闭对话框
+        if (onSuccess) {
+          await onSuccess(); // 等待异步刷新完成
+          console.log('✅ [删除员工] onSuccess 执行完成');
+        }
+        
+        // 延迟关闭对话框，确保状态更新
+        setTimeout(() => {
+          onClose();
+          console.log('✅ [删除员工] 对话框已关闭');
+        }, 100);
+      } else {
+        showError(result.result.message || '放入回收站失败');
       }
-      onClose();
     } catch (error) {
-      console.error('放入回收站失败:', error);
+      console.error('❌ [删除员工] 失败:', error);
       showError('放入回收站失败: ' + (error as any).message);
     }
   };
@@ -404,13 +412,16 @@ export default function EmployeeDetailModal({
                   重置密码
                 </button>
               )}
-              <button
-                onClick={() => setShowDeleteConfirm(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors shadow-sm"
-              >
-                <Trash2 className="w-4 h-4" />
-                放入回收站
-              </button>
+              {/* 🔧 删除按钮 - 防止 admin 账号被删除 */}
+              {!(employee.username === 'admin' || employee.role === 'admin') && (
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors shadow-sm"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  放入回收站
+                </button>
+              )}
             </div>
           ) : null
         }

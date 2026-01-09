@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>批量修复模块配置缺失字段</title>
+  <script src="https://unpkg.com/@cloudbase/js-sdk@2.2.0/dist/index.umd.js"></script>
+</head>
+<body>
+  <h1>批量修复模块配置缺失字段</h1>
+  <button onclick="fixModules()">🔧 开始修复</button>
+  <pre id="log"></pre>
+
+  <script>
+    const app = cloudbase.init({
+      env: 'cowork-9gg9oocb516be5fb'
+    });
+    
+    const auth = app.auth();
+    const db = app.database();
+    const _ = db.command;
+    
+    const log = (msg) => {
+      const logEl = document.getElementById('log');
+      logEl.textContent += msg + '\n';
+      console.log(msg);
+    };
+
+    /**
+     * 完整的模块配置映射（基于 constants/modules.ts）
+     */
+    const MODULE_CONFIG_MAP = {
+      'dashboard': { name: '工作台', icon: 'LayoutDashboard', path: '/dashboard', category: '核心业务' },
+      'tasks': { name: '任务管理', icon: 'CheckCircle', path: '/tasks', category: '核心业务' },
+      'issues': { name: '问题管理', icon: 'AlertCircle', path: '/issues', category: '核心业务' },
+      'opportunities': { name: '商机管理', icon: 'TrendingUp', path: '/opportunities', category: '核心业务' },
+      'projects': { name: '项目管理', icon: 'FolderKanban', path: '/projects', category: '核心业务' },
+      'meetings': { name: '例会管理', icon: 'Calendar', path: '/meetings', category: '核心业务' },
+      'performance': { name: '绩效管理', icon: 'Award', path: '/performance', category: '核心业务' },
+      'business': { name: '业务管理', icon: 'Briefcase', path: '/business', category: '核心业务' },
+      'goal': { name: '目标管理', icon: 'Target', path: '/goal', category: '核心业务' },
+      'goal.salesGoal': { name: '销售目标', icon: 'TrendingUp', path: '/goal/sales', parentId: 'goal', level: 2 },
+      'goal.productOrder': { name: '产品目标', icon: 'Package', path: '/goal/product', parentId: 'goal', level: 2 },
+      'goal.strategy': { name: '年度策略', icon: 'Target', path: '/goal/strategy', parentId: 'goal', level: 2 },
+      'goal.outcome': { name: '成果目标', icon: 'Award', path: '/goal/outcome', parentId: 'goal', level: 2 },
+      'goal.decomposition': { name: '目标分解', icon: 'LayoutGrid', path: '/goal/decomposition', parentId: 'goal', level: 2 },
+      'goal.executionMap': { name: '执行力地图', icon: 'Target', path: '/goal/execution-map', parentId: 'goal', level: 2 },
+      'goal.dimensionSettings': { name: '维度设置', icon: 'Settings', path: '/goal/dimension-settings', parentId: 'goal', level: 2 },
+      'budget': { name: '预算管理', icon: 'DollarSign', path: '/budget', category: '核心业务' },
+      'budget.annual': { name: '年度预算', icon: 'DollarSign', path: '/budget/annual', parentId: 'budget', level: 2 },
+      'budget.execution': { name: '预算执行', icon: 'DollarSign', path: '/budget/execution', parentId: 'budget', level: 2 },
+      'budget.asset': { name: '资产预算', icon: 'Package', path: '/budget/asset', parentId: 'budget', level: 2 },
+      'budget.cashFlow': { name: '现金流管理', icon: 'DollarSign', path: '/budget/cashflow', parentId: 'budget', level: 2 },
+      'budget.hr': { name: '薪酬预算', icon: 'UserCircle', path: '/budget/hr', parentId: 'budget', level: 2 },
+      'budget.parameters': { name: '预算参数', icon: 'Settings', path: '/budget/parameters', parentId: 'budget', level: 2 },
+      'profile': { name: '个人信息', icon: 'UserCircle', path: '/profile', category: '辅助功能' },
+      'profile.info': { name: '基本信息', icon: 'UserCircle', path: '/profile/info', parentId: 'profile', level: 2 },
+      'profile.team': { name: '团队', icon: 'UserCircle', path: '/profile/team', parentId: 'profile', level: 2 },
+      'profile.message': { name: '消息', icon: 'AlertCircle', path: '/profile/message', parentId: 'profile', level: 2 },
+      'profile.goals': { name: '我的目标', icon: 'Target', path: '/profile/goals', parentId: 'profile', level: 2 },
+      'profile.execution': { name: '执行力', icon: 'Target', path: '/profile/execution', parentId: 'profile', level: 2 },
+      'profile.performance': { name: '绩效', icon: 'Award', path: '/profile/performance', parentId: 'profile', level: 2 },
+      'settings': { name: '系统设置', icon: 'Settings', path: '/settings', category: '管理功能' },
+      'settings.userApproval': { name: '用户审核', icon: 'UserCircle', path: '/settings/user-approval', parentId: 'settings', level: 2 },
+      'settings.employees': { name: '员工管理', icon: 'UserCircle', path: '/settings/employees', parentId: 'settings', level: 2 },
+      'settings.departments': { name: '部门管理', icon: 'FolderOpen', path: '/settings/departments', parentId: 'settings', level: 2 },
+      'settings.roles': { name: '角色权限', icon: 'Shield', path: '/settings/roles', parentId: 'settings', level: 2 },
+      'settings.typeSettings': { name: '参数配置', icon: 'Settings', path: '/settings/type-settings', parentId: 'settings', level: 2 },
+      'settings.operationLogs': { name: '操作日志', icon: 'FileText', path: '/settings/operation-logs', parentId: 'settings', level: 2 },
+      'settings.moduleManagement': { name: '功能模块', icon: 'LayoutGrid', path: '/settings/module-management', parentId: 'settings', level: 2 }
+    };
+
+    async function fixModules() {
+      log('=== 开始修复模块配置缺失字段 ===\n');
+      
+      try {
+        // 1. 调用云函数查询所有模块
+        log('📊 调用云函数查询模块列表...');
+        const queryRes = await app.callFunction({
+          name: 'module-management',
+          data: { action: 'queryAll' }
+        });
+        
+        if (!queryRes.result.success) {
+          throw new Error('查询模块失败: ' + queryRes.result.error);
+        }
+        
+        const modules = queryRes.result.data;
+        log(`📊 总共查询到 ${modules.length} 个模块\n`);
+        
+        let updatedCount = 0;
+        let skippedCount = 0;
+        
+        // 2. 遍历更新
+        for (const module of modules) {
+          const moduleId = module._id;
+          const config = MODULE_CONFIG_MAP[moduleId];
+          
+          if (!config) {
+            log(`⚠️ [跳过] ${moduleId} - 未在配置映射中找到`);
+            skippedCount++;
+            continue;
+          }
+          
+          // 3. 准备更新数据（只更新缺失的字段）
+          const updates = {};
+          
+          if (!module.icon) {
+            updates.icon = config.icon;
+          }
+          if (!module.path) {
+            updates.path = config.path;
+          }
+          if (!module.category && config.category) {
+            updates.category = config.category;
+          }
+          if (!module.parentId && config.parentId) {
+            updates.parentId = config.parentId;
+          }
+          if (!module.level && config.level) {
+            updates.level = config.level;
+          }
+          
+          // 如果没有需要更新的字段，跳过
+          if (Object.keys(updates).length === 0) {
+            log(`✅ [无需更新] ${moduleId} - ${module.name}`);
+            continue;
+          }
+          
+          // 4. 调用云函数执行更新
+          const updateRes = await app.callFunction({
+            name: 'module-management',
+            data: {
+              action: 'update',
+              _id: moduleId,
+              ...updates
+            }
+          });
+          
+          if (updateRes.result.success) {
+            log(`✅ [更新成功] ${moduleId} - ${module.name}`);
+            log(`   更新字段: ${Object.keys(updates).join(', ')}`);
+            updatedCount++;
+          } else {
+            log(`❌ [更新失败] ${moduleId} - ${updateRes.result.error}`);
+          }
+          
+          // 延迟避免频繁调用
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        
+        log('\n=== 修复完成 ===');
+        log(`✅ 成功更新: ${updatedCount} 个`);
+        log(`⏭️ 跳过: ${skippedCount} 个`);
+        log(`📊 总计: ${modules.length} 个`);
+        
+      } catch (error) {
+        log('❌ 批量更新失败: ' + error.message);
+        console.error(error);
+      }
+    }
+
+    // 自动登录
+    auth.anonymousAuthProvider().signIn().then(() => {
+      log('✅ 匿名登录成功，可以开始修复\n');
+    }).catch(err => {
+      log('❌ 登录失败: ' + err.message);
+    });
+  </script>
+</body>
+</html>

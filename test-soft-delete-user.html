@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>测试软删除用户</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 20px;
+    }
+    button {
+      background: #dc2626;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      margin: 10px 5px;
+    }
+    button:hover {
+      background: #b91c1c;
+    }
+    button.query {
+      background: #2563eb;
+    }
+    button.query:hover {
+      background: #1d4ed8;
+    }
+    #result {
+      margin-top: 20px;
+      padding: 15px;
+      background: #f9fafb;
+      border-radius: 6px;
+      border: 1px solid #e5e7eb;
+      white-space: pre-wrap;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+    }
+    .info {
+      padding: 10px;
+      background: #eff6ff;
+      border-left: 4px solid #2563eb;
+      margin: 15px 0;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🗑️ 测试软删除用户</h1>
+    
+    <div class="info">
+      <strong>目标用户:</strong> name = "丰富"<br>
+      <strong>操作:</strong> 软删除（设置 deleted=true, deletedAt=当前时间）<br>
+      <strong>提示:</strong> 请先登录管理员账号，再执行操作
+    </div>
+
+    <button class="query" onclick="loginAdmin()">0️⃣ 登录管理员</button>
+    <button class="query" onclick="queryUser()">1️⃣ 查询用户信息</button>
+    <button onclick="softDeleteUser()">2️⃣ 执行软删除</button>
+    <button class="query" onclick="verifyDelete()">3️⃣ 验证删除结果</button>
+
+    <div id="result"></div>
+  </div>
+
+  <!-- CloudBase Web SDK -->
+  <script src="https://web.sdk.qcloud.com/tcb-js-sdk/latest/tcb.js"></script>
+  <script>
+    // 初始化 CloudBase
+    let app, db, auth;
+    
+    function initCloudBase() {
+      app = tcb.init({
+        env: 'cowork-9gg9oocb516be5fb'
+      });
+      db = app.database();
+      auth = app.auth();
+      
+      // 检查登录状态
+      checkLoginStatus();
+    }
+
+    async function checkLoginStatus() {
+      try {
+        const loginState = await auth.getLoginState();
+        if (loginState) {
+          log('✅ 已登录，可以进行操作');
+        } else {
+          log('⚠️ 未登录，请先登录管理员账号', true);
+        }
+      } catch (error) {
+        log('检查登录状态失败: ' + error.message, true);
+      }
+    }
+
+    // 登录管理员账号
+    async function loginAdmin() {
+      try {
+        const resultDiv = document.getElementById('result');
+        resultDiv.textContent = '';
+        log('开始登录管理员账号...');
+
+        // 使用用户名密码登录
+        await auth.signInWithUsernameAndPassword('admin', 'Xzb20170315');
+        
+        log('✅ 登录成功！');
+        log('现在可以执行删除操作了');
+      } catch (error) {
+        log(`登录失败: ${error.message}`, true);
+        console.error(error);
+      }
+    }
+
+    function log(message, isError = false) {
+      const resultDiv = document.getElementById('result');
+      const timestamp = new Date().toLocaleTimeString();
+      const prefix = isError ? '❌' : '✅';
+      resultDiv.textContent += `[${timestamp}] ${prefix} ${message}\n`;
+      console.log(message);
+    }
+
+    // 1. 查询用户信息
+    async function queryUser() {
+      try {
+        const resultDiv = document.getElementById('result');
+        resultDiv.textContent = '';
+        log('开始查询用户...');
+
+        const result = await db.collection('users')
+          .where({
+            name: '丰富'
+          })
+          .get();
+
+        if (result.data.length === 0) {
+          log('未找到用户名为"丰富"的用户', true);
+          return;
+        }
+
+        const user = result.data[0];
+        log('找到用户:');
+        log(`ID: ${user._id}`);
+        log(`姓名: ${user.name}`);
+        log(`用户名: ${user.username}`);
+        log(`部门: ${user.departments?.join(', ') || '无'}`);
+        log(`状态: ${user.status}`);
+        log(`是否已删除: ${user.deleted ? '是' : '否'}`);
+        if (user.deletedAt) {
+          log(`删除时间: ${new Date(user.deletedAt).toLocaleString()}`);
+        }
+
+      } catch (error) {
+        log(`查询失败: ${error.message}`, true);
+        console.error(error);
+      }
+    }
+
+    // 2. 执行软删除
+    async function softDeleteUser() {
+      try {
+        const resultDiv = document.getElementById('result');
+        resultDiv.textContent = '';
+        log('开始执行软删除...');
+
+        // 先查询用户
+        const result = await db.collection('users')
+          .where({
+            name: '丰富'
+          })
+          .get();
+
+        if (result.data.length === 0) {
+          log('未找到用户名为"丰富"的用户', true);
+          return;
+        }
+
+        const user = result.data[0];
+        log(`找到用户: ${user.name} (${user.username})`);
+
+        // 执行软删除
+        await db.collection('users')
+          .doc(user._id)
+          .update({
+            deleted: true,
+            deletedAt: new Date(),
+            updatedAt: new Date()
+          });
+
+        log('✅ 软删除成功！');
+        log('用户已标记为删除状态');
+        log('数据仍保留在数据库中，可以恢复');
+
+        // 如果用户有部门，从部门中移除
+        if (user.departments && user.departments.length > 0) {
+          log(`\n处理部门关联...`);
+          for (const deptName of user.departments) {
+            const deptResult = await db.collection('departments')
+              .where({ name: deptName })
+              .get();
+            
+            if (deptResult.data.length > 0) {
+              const dept = deptResult.data[0];
+              const updatedMemberIds = (dept.memberIds || []).filter(
+                id => id !== user._id
+              );
+              
+              await db.collection('departments')
+                .doc(dept._id)
+                .update({
+                  memberIds: updatedMemberIds,
+                  memberCount: updatedMemberIds.length,
+                  updatedAt: new Date()
+                });
+              
+              log(`从部门"${deptName}"中移除成功`);
+            }
+          }
+        }
+
+      } catch (error) {
+        log(`软删除失败: ${error.message}`, true);
+        console.error(error);
+      }
+    }
+
+    // 3. 验证删除结果
+    async function verifyDelete() {
+      try {
+        const resultDiv = document.getElementById('result');
+        resultDiv.textContent = '';
+        log('开始验证删除结果...\n');
+
+        // 查询所有用户（包括已删除）
+        const allResult = await db.collection('users')
+          .where({
+            name: '丰富'
+          })
+          .get();
+
+        if (allResult.data.length === 0) {
+          log('数据库中已完全不存在该用户（硬删除）', true);
+          return;
+        }
+
+        const user = allResult.data[0];
+        log('数据库中的用户记录:');
+        log(`ID: ${user._id}`);
+        log(`姓名: ${user.name}`);
+        log(`用户名: ${user.username}`);
+        log(`是否已删除: ${user.deleted ? '✅ 是（软删除成功）' : '❌ 否（未删除）'}`);
+        if (user.deletedAt) {
+          log(`删除时间: ${new Date(user.deletedAt).toLocaleString()}`);
+        }
+        log(`更新时间: ${new Date(user.updatedAt).toLocaleString()}`);
+
+        // 查询正常用户列表（不包括已删除）
+        log('\n验证用户列表查询:');
+        const activeResult = await db.collection('users')
+          .where({
+            name: '丰富',
+            deleted: db.command.neq(true)
+          })
+          .get();
+
+        if (activeResult.data.length === 0) {
+          log('✅ 用户不会出现在正常用户列表中');
+        } else {
+          log('❌ 用户仍然出现在正常用户列表中', true);
+        }
+
+        log('\n结论:');
+        if (user.deleted === true) {
+          log('✅ 软删除成功！数据已标记为删除但仍保留在数据库');
+          log('✅ 可以通过回收站功能恢复');
+        } else {
+          log('❌ 软删除失败，用户仍为正常状态', true);
+        }
+
+      } catch (error) {
+        log(`验证失败: ${error.message}`, true);
+        console.error(error);
+      }
+    }
+
+    // 页面加载时初始化
+    window.onload = function() {
+      initCloudBase();
+      log('页面加载完成，可以开始测试');
+      log('建议按顺序点击: 1️⃣ → 2️⃣ → 3️⃣\n');
+    };
+  </script>
+</body>
+</html>

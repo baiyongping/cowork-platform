@@ -5,6 +5,8 @@ import { getStoragePublicURL } from '../constants/cloudbase';
 import { usePermissionContext } from '../contexts/PermissionContext';
 import { APP_VERSION } from '../lib/version';
 import { useNotificationStore } from '../lib/notification-store';
+// 🔧 导入全局模块配置上下文
+import { useModuleConfig } from '../contexts/ModuleConfigContext';
 
 type PageType = 'dashboard' | 'tasks' | 'issues' | 'opportunities' | 'projects' | 'goals' | 'budget' | 'meetings' | 'performance' | 'business' | 'settings' | 'account' | 'modules' | 'role-permissions';
 
@@ -20,6 +22,9 @@ interface SidebarProps {
 }
 
 export function Sidebar({ currentPage, onPageChange, userRole, currentUser, onLogout, pendingUserCount = 0, collapsed = false, onToggleCollapse }: SidebarProps) {
+  // 🔧 使用全局模块配置
+  const { modules, loading: modulesLoading } = useModuleConfig();
+  
   // 从数据库读取的功能模块名称
   const [moduleLabels, setModuleLabels] = useState<string[]>([
     '工作台', '任务管理', '问题管理', '商机管理', '项目管理', '目标管理', '预算管理', '例会管理', '绩效管理', '业务管理', '个人信息'
@@ -145,7 +150,7 @@ export function Sidebar({ currentPage, onPageChange, userRole, currentUser, onLo
     { id: 'business', label: moduleLabels[9], icon: Briefcase, requiresPermission: true, module: 'business' },
   ] as const;
 
-  // 🎯 从数据库读取排序信息
+  // 🎯 从数据库读取排序信息（已废弃，使用全局配置的order）
   const [moduleOrderMap, setModuleOrderMap] = useState<Map<string, number>>(new Map());
   
   useEffect(() => {
@@ -173,12 +178,25 @@ export function Sidebar({ currentPage, onPageChange, userRole, currentUser, onLo
     loadModuleOrder();
   }, [currentUser]);
 
-  // ✅ v2.2.0: 基于权限过滤菜单 + 🎯 按数据库排序
+  // ✅ v2.2.0 + 🔧 v3.0: 基于权限过滤菜单 + 动态启用检查 + 数据库排序
   const menuItems = [
-    // 先过滤出有权限的菜单项
+    // 先过滤出有权限且已启用的菜单项
     ...allMenuItems.filter(item => {
-      if (!item.requiresPermission) return true;
-      return checkPermission(item.module!, 'view');
+      // 1. 检查权限
+      if (item.requiresPermission && !checkPermission(item.module!, 'view')) {
+        return false;
+      }
+      
+      // 2. 检查是否启用（dashboard 和 settings 除外）
+      if (item.id !== 'dashboard' && item.id !== 'settings') {
+        const moduleConfig = modules.find(m => m.code === item.id);
+        if (moduleConfig && !moduleConfig.enabled) {
+          console.log(`🔧 [Sidebar] 模块 ${item.label} (${item.id}) 已禁用，不显示在菜单`);
+          return false;
+        }
+      }
+      
+      return true;
     }),
     // 系统设置权限化
     ...(userRole === 'admin' || 
@@ -192,9 +210,13 @@ export function Sidebar({ currentPage, onPageChange, userRole, currentUser, onLo
       : []
     ),
   ].sort((a, b) => {
-    // 🎯 按数据库中的 order 排序
-    const orderA = moduleOrderMap.get(a.id) ?? 999;
-    const orderB = moduleOrderMap.get(b.id) ?? 999;
+    // 🎯 优先使用全局配置的 order
+    const configA = modules.find(m => m.code === a.id);
+    const configB = modules.find(m => m.code === b.id);
+    
+    const orderA = configA?.order ?? moduleOrderMap.get(a.id) ?? 999;
+    const orderB = configB?.order ?? moduleOrderMap.get(b.id) ?? 999;
+    
     return orderA - orderB;
   });
 

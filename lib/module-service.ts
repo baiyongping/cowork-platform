@@ -3,7 +3,6 @@ import { callFunction } from './cloudbase';
 export interface ModuleConfig {
   _id: string;
   name: string;
-  displayName: string;
   description?: string;
   icon?: string;
   parentId?: string;
@@ -29,18 +28,6 @@ export interface FieldInfo {
   description: string;
   nullable: boolean;
   examples: any[];
-}
-
-export interface ModuleMetadata {
-  collections: string[];
-  fields: Record<string, FieldInfo[]>;
-  routes: string[];
-  apis: string[];
-  stats?: Record<string, {
-    recordCount: number;
-    lastUpdated: Date;
-    error?: string;
-  }>;
 }
 
 /**
@@ -216,54 +203,6 @@ export const moduleService = {
     } catch (error: any) {
       console.error('❌ [moduleService] 更新状态失败:', error);
       throw new Error(error.message || '更新状态失败');
-    }
-  },
-  
-  /**
-   * 同步元数据
-   */
-  async syncMetadata(moduleId: string): Promise<ModuleMetadata> {
-    try {
-      const res = await callFunction({
-        name: 'module-management',
-        data: {
-          action: 'syncMetadata',
-          data: { moduleId }
-        }
-      });
-      
-      if (!res.result.success) {
-        throw new Error(res.result.error || '同步元数据失败');
-      }
-      
-      return res.result.data;
-    } catch (error: any) {
-      console.error('同步元数据失败:', error);
-      throw new Error(error.message || '同步元数据失败');
-    }
-  },
-  
-  /**
-   * 获取模块元数据
-   */
-  async getMetadata(moduleId: string): Promise<ModuleMetadata> {
-    try {
-      const res = await callFunction({
-        name: 'module-management',
-        data: {
-          action: 'getMetadata',
-          data: { moduleId }
-        }
-      });
-      
-      if (!res.result.success) {
-        throw new Error(res.result.error || '获取元数据失败');
-      }
-      
-      return res.result.data;
-    } catch (error: any) {
-      console.error('获取元数据失败:', error);
-      throw new Error(error.message || '获取元数据失败');
     }
   }
 };

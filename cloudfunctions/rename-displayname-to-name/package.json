@@ -1,0 +1,9 @@
+{
+  "name": "rename-displayname-to-name",
+  "version": "1.0.0",
+  "description": "临时云函数：将 displayName 字段重命名为 name",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

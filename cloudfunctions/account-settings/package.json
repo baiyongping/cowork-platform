@@ -1,0 +1,9 @@
+{
+  "name": "account-settings",
+  "version": "1.0.0",
+  "description": "账号设置云函数 - 处理个人账号信息更新",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

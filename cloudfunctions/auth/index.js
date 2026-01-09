@@ -227,10 +227,28 @@ async function login(event) {
     }
 
     // 更新最后登录时间
+    // 🔧 同时更新 _openid（首次登录时设置）
+    const auth = cloud.auth();
+    const wxContext = auth.getWXContext();
+    const currentOpenid = wxContext.OPENID;
+    
+    const updateData = {
+      lastLoginAt: new Date()
+    };
+    
+    // 如果用户文档中没有 _openid，或者 _openid 不正确，则更新
+    if (!user._openid || user._openid !== currentOpenid) {
+      console.log('🔧 更新用户 _openid:', {
+        userId: user._id,
+        username: user.username,
+        oldOpenid: user._openid,
+        newOpenid: currentOpenid
+      });
+      updateData._openid = currentOpenid;
+    }
+    
     await db.collection('users').doc(user._id).update({
-      data: {
-        lastLoginAt: new Date()
-      }
+      data: updateData
     });
 
     // 生成Token
@@ -403,6 +421,125 @@ async function changePassword(event) {
 }
 
 /**
+ * 创建用户（管理员功能）
+ */
+async function createUser(event) {
+  const { username, password, name, phone, status, createdBy } = event;
+
+  // 参数验证
+  if (!username || !password || !name) {
+    console.error('❌ 参数验证失败: 用户名、密码或姓名为空');
+    return {
+      code: 400,
+      message: '用户名、密码和姓名不能为空'
+    };
+  }
+
+  try {
+    console.log('🔍 [创建用户] 开始:', { username, name, phone });
+    
+    // 检查用户名是否已存在
+    const existingUser = await db.collection('users')
+      .where({ username })
+      .get();
+
+    if (existingUser.data.length > 0) {
+      console.warn('⚠️ [创建用户] 用户名已存在:', username);
+      return {
+        code: 409,
+        message: '用户名已存在'
+      };
+    }
+
+    // 🔐 密码加密
+    const hashedPassword = hashPassword(password);
+    console.log('🔐 [创建用户] 密码加密成功');
+
+    // 创建用户记录
+    const userData = {
+      username: username.trim(),
+      password: hashedPassword, // ✅ 存储加密后的密码
+      name: name.trim(),
+      phone: phone || '',
+      departments: [],
+      role: 'employee',
+      roles: ['user', 'employee'], // 🔧 添加默认角色数组
+      status: status || '在职',
+      approvalStatus: 'approved', // ✅ 管理员创建的员工自动审核通过
+      isActive: true, // ✅ 账号激活状态
+      deleted: false, // 🔧 明确标记未删除
+      createdAt: new Date(),
+      createdBy: createdBy || 'system',
+      updatedAt: new Date()
+    };
+
+    console.log('📝 [创建用户] 准备写入数据库:', { username: userData.username, name: userData.name, roles: userData.roles });
+
+    try {
+      const result = await db.collection('users').add({
+        data: userData
+      });
+
+      console.log('🔍 [创建用户] 数据库原始返回:', JSON.stringify(result));
+      console.log('🔍 [创建用户] result._id:', result._id);
+      console.log('🔍 [创建用户] result.id:', result.id);
+      console.log('🔍 [创建用户] result.insertedId:', result.insertedId);
+
+      // ✅ 详细的成功/失败判断
+      if (result && (result._id || result.id || result.insertedId)) {
+        const userId = result._id || result.id || result.insertedId;
+        console.log('✅ [创建用户] 成功:', {
+          id: userId,
+          username: username,
+          name: name
+        });
+        
+        return {
+          code: 200,
+          message: '用户创建成功',
+          data: {
+            id: userId,
+            username: username,
+            name: name,
+            created: true // 🔧 明确标记创建成功
+          }
+        };
+      } else {
+        console.error('❌ [创建用户] 数据库返回异常，result:', JSON.stringify(result));
+        return {
+          code: 500,
+          message: '用户创建失败：数据库未返回有效ID'
+        };
+      }
+    } catch (dbError) {
+      console.error('❌ [创建用户] 数据库操作异常:', dbError);
+      console.error('❌ [创建用户] 数据库错误详情:', {
+        message: dbError.message,
+        stack: dbError.stack,
+        code: dbError.code,
+        errCode: dbError.errCode,
+        errMsg: dbError.errMsg
+      });
+      throw dbError; // 抛出错误,让外层catch捕获
+    }
+  } catch (error) {
+    console.error('❌ [创建用户] 异常:', error);
+    console.error('❌ [创建用户] 错误详情:', {
+      message: error.message,
+      stack: error.stack,
+      code: error.code,
+      errCode: error.errCode,
+      errMsg: error.errMsg
+    });
+    
+    return {
+      code: 500,
+      message: '创建用户失败: ' + (error.message || error.errMsg || '未知错误')
+    };
+  }
+}
+
+/**
  * 云函数入口
  */
 exports.main = async (event, context) => {
@@ -417,6 +554,8 @@ exports.main = async (event, context) => {
       return await verifyToken(event);
     case 'changePassword':
       return await changePassword(event);
+    case 'createUser': // ✅ 新增：管理员创建用户
+      return await createUser(event);
     default:
       return {
         code: 400,

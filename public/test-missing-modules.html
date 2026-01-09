@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>检查缺失模块</title>
+  <script src="https://unpkg.com/@cloudbase/js-sdk@2.4.0/dist/index.umd.js"></script>
+  <style>
+    body {
+      font-family: monospace;
+      padding: 20px;
+      background: #1e1e1e;
+      color: #d4d4d4;
+    }
+    .log { margin: 5px 0; padding: 8px; background: #252526; border-left: 3px solid #007acc; }
+    .error { border-left-color: #f48771; }
+    .success { border-left-color: #89d185; }
+    button {
+      padding: 10px 20px;
+      margin: 10px;
+      background: #007acc;
+      color: white;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    button:hover { background: #005a9e; }
+  </style>
+</head>
+<body>
+  <h2>检查并修复缺失模块</h2>
+  <button onclick="checkMissingModules()">1. 检查缺失模块</button>
+  <button onclick="initMissingModule()">2. 初始化 goal.productOrder</button>
+  <div id="output"></div>
+
+  <script>
+    // 等待 SDK 加载完成再初始化
+    let app, auth, db, _;
+
+    function initCloudBase() {
+      if (!window.cloudbase) {
+        setTimeout(initCloudBase, 100);
+        return;
+      }
+      
+      app = cloudbase.init({
+        env: 'cowork-9gg9oocb516be5fb'
+      });
+
+      auth = app.auth();
+      db = app.database();
+      _ = db.command;
+      
+      // 自动登录
+      auth.anonymousAuthProvider().signIn().then(() => {
+        log('✅ 已登录 CloudBase', 'success');
+      });
+    }
+    
+    initCloudBase();
+
+    function log(message, type = 'log') {
+      const div = document.createElement('div');
+      div.className = `log ${type}`;
+      div.textContent = message;
+      document.getElementById('output').appendChild(div);
+      console.log(message);
+    }
+
+    // 检查缺失模块
+    async function checkMissingModules() {
+      document.getElementById('output').innerHTML = '';
+      log('🔍 开始检查缺失模块...');
+
+      // 确保已初始化
+      if (!db) {
+        log('⚠️ CloudBase 还未初始化，请稍候...', 'error');
+        setTimeout(checkMissingModules, 500);
+        return;
+      }
+
+      try {
+        // 检查 goal.productOrder
+        const result = await db.collection('module_config')
+          .where({ _id: 'goal.productOrder' })
+          .get();
+
+        if (result.data.length === 0) {
+          log('❌ 模块 goal.productOrder 不存在！', 'error');
+        } else {
+          log('✅ 模块 goal.productOrder 已存在', 'success');
+          log('配置：' + JSON.stringify(result.data[0], null, 2));
+        }
+
+        // 查询所有 goal 子模块
+        log('\n🔍 查询所有 goal 子模块...');
+        const goalModules = await db.collection('module_config')
+          .where({ parentId: 'goal' })
+          .orderBy('order', 'asc')
+          .get();
+
+        log(`找到 ${goalModules.data.length} 个目标管理子模块:`);
+        goalModules.data.forEach(m => {
+          log(`  - ${m._id}: ${m.name} (order: ${m.order})`);
+        });
+
+      } catch (error) {
+        log('❌ 检查失败: ' + error.message, 'error');
+      }
+    }
+
+    // 初始化缺失模块
+    async function initMissingModule() {
+      log('\n📝 开始初始化 goal.productOrder 模块...');
+
+      // 确保已初始化
+      if (!db) {
+        log('⚠️ CloudBase 还未初始化，请稍候...', 'error');
+        setTimeout(initMissingModule, 500);
+        return;
+      }
+
+      try {
+        // 检查是否已存在
+        const existing = await db.collection('module_config')
+          .where({ _id: 'goal.productOrder' })
+          .get();
+
+        if (existing.data.length > 0) {
+          log('⚠️  模块已存在，跳过初始化', 'success');
+          return;
+        }
+
+        // 创建模块配置
+        await db.collection('module_config').add({
+          _id: 'goal.productOrder',
+          name: '产品订单预测',
+          code: 'goal.productOrder',
+          parentId: 'goal',
+          level: 2,
+          path: '/goal/product-order',
+          order: 2,
+          enabled: true,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        });
+
+        log('✅ 模块 goal.productOrder 创建成功！', 'success');
+
+        // 验证创建结果
+        const result = await db.collection('module_config')
+          .where({ _id: 'goal.productOrder' })
+          .get();
+
+        log('验证结果：' + JSON.stringify(result.data[0], null, 2));
+
+      } catch (error) {
+        log('❌ 初始化失败: ' + error.message, 'error');
+      }
+    }
+
+    // 自动登录
+    auth.anonymousAuthProvider().signIn().then(() => {
+      log('✅ 已登录 CloudBase', 'success');
+    });
+  </script>
+</body>
+</html>

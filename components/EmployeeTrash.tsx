@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Trash2, RefreshCw, X, AlertTriangle } from 'lucide-react';
-import { db } from '../lib/cloudbase';
+import { db, app } from '../lib/cloudbase';
 import { ConfirmDialog } from './ConfirmDialog';
 
 interface EmployeeTrashProps {
@@ -96,30 +96,42 @@ export function EmployeeTrash({ onClose, onSuccess }: EmployeeTrashProps) {
     
     setConfirmLoading(true);
     try {
-      // 永久删除用户记录
-      await db.collection('users').doc(selectedEmployee._id).remove();
-
-      // 记录操作日志
-      await db.collection('operation_logs').add({
-        userId: selectedEmployee._id,
-        module: '员工管理',
-        action: '永久删除员工',
-        content: `永久删除员工 ${selectedEmployee.name}`,
-        ipAddress: 'unknown',
-        createdAt: new Date()
+      console.log('🗑️ [永久删除] 开始删除:', selectedEmployee._id, selectedEmployee.name);
+      
+      // ✅ 调用云函数执行永久删除
+      const result = await app.callFunction({
+        name: 'user-management',
+        data: {
+          action: 'delete',
+          userId: selectedEmployee._id
+        }
       });
 
-      setShowDeleteConfirm(false);
-      setSelectedEmployee(null);
-      setNotificationDialog({
-        show: true,
-        title: '删除成功',
+      console.log('✅ [永久删除] 云函数执行结果:', result);
+
+      if (result.result.success) {
+        setShowDeleteConfirm(false);
+        setSelectedEmployee(null);
+        setNotificationDialog({
+          show: true,
+          title: '删除成功',
         message: `员工 ${selectedEmployee.name} 已永久删除`
       });
-      loadDeletedEmployees();
-      onSuccess();
+      
+      console.log('🔄 [永久删除] 准备刷新回收站列表...');
+      await loadDeletedEmployees(); // 🔧 等待刷新完成
+      console.log('✅ [永久删除] 回收站列表刷新完成');
+      
+      onSuccess(); // 通知父组件刷新主列表
+      } else {
+        setNotificationDialog({
+          show: true,
+          title: '删除失败',
+          message: result.result.message || '永久删除失败'
+        });
+      }
     } catch (error) {
-      console.error('永久删除员工失败:', error);
+      console.error('❌ [永久删除] 失败:', error);
       setNotificationDialog({
         show: true,
         title: '删除失败',

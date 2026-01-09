@@ -12,11 +12,10 @@ const collection = {
   
   // 集合结构定义
   schema: {
-    _id: 'string',                    // 模块唯一ID（与constants/modules.ts中的id对应）
-    name: 'string',                   // 模块内部名称（不变）
-    displayName: 'string',            // 显示名称（可修改）
-    description: 'string',            // 功能描述
-    icon: 'string?',                  // 图标（可选）
+  _id: 'string',                    // 模块唯一ID（与constants/modules.ts中的id对应）
+  name: 'string',                   // 模块显示名称（可修改）
+  description: 'string',            // 功能描述
+  icon: 'string?',                  // 图标（可选）
     parentId: 'string?',              // 父模块ID（二级功能）
     order: 'number',                  // 排序序号
     isEnabled: 'boolean',             // 是否启用
@@ -73,11 +72,10 @@ const collection = {
   // 示例数据
   examples: [
     {
-      _id: 'tasks',
-      name: 'tasks',
-      displayName: '任务管理',
-      description: '任务的创建、分配、跟踪和管理',
-      icon: 'CheckSquare',
+    _id: 'tasks',
+    name: '任务管理',
+    description: '任务的创建、分配、跟踪和管理',
+    icon: 'CheckSquare',
       parentId: null,
       order: 1,
       isEnabled: true,
@@ -101,11 +99,10 @@ const collection = {
       lastModifiedBy: 'system'
     },
     {
-      _id: 'salesGoal',
-      name: 'salesGoal',
-      displayName: '销售目标',
-      description: '销售目标管理(已合并商机目标)',
-      icon: null,
+    _id: 'salesGoal',
+    name: '销售目标',
+    description: '销售目标管理(已合并商机目标)',
+    icon: null,
       parentId: 'goal',
       order: 1,
       isEnabled: true,

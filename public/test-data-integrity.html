@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>模块数据完整性验证</title>
+  <script src="https://web-9gikcbug35bad3a8-1252463788.tcloudbaseapp.com/sdk/1.7.0/cloud.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: white;
+      border-radius: 16px;
+      padding: 32px;
+      margin-bottom: 24px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+
+    h1 {
+      color: #1a202c;
+      font-size: 32px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      text-align: center;
+    }
+
+    .subtitle {
+      color: #718096;
+      text-align: center;
+      margin-bottom: 32px;
+      font-size: 16px;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      flex: 1;
+      min-width: 150px;
+      padding: 14px 28px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-primary {
+      background: #667eea;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #5568d3;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 16px rgba(102, 126, 234, 0.3);
+    }
+
+    .btn-success {
+      background: #48bb78;
+      color: white;
+    }
+
+    .btn-success:hover {
+      background: #38a169;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 16px rgba(72, 187, 120, 0.3);
+    }
+
+    .btn-warning {
+      background: #ed8936;
+      color: white;
+    }
+
+    .btn-warning:hover {
+      background: #dd6b20;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 16px rgba(237, 137, 54, 0.3);
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    .result {
+      background: #f7fafc;
+      border-radius: 8px;
+      padding: 20px;
+      margin-top: 20px;
+      border-left: 4px solid #667eea;
+    }
+
+    .result h3 {
+      color: #2d3748;
+      margin-bottom: 16px;
+      font-size: 20px;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .stat-card {
+      background: white;
+      padding: 16px;
+      border-radius: 8px;
+      text-align: center;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .stat-value {
+      font-size: 32px;
+      font-weight: 700;
+      color: #667eea;
+      margin-bottom: 4px;
+    }
+
+    .stat-label {
+      color: #718096;
+      font-size: 14px;
+    }
+
+    .issue-list {
+      background: white;
+      border-radius: 8px;
+      padding: 16px;
+      margin-top: 16px;
+    }
+
+    .issue-item {
+      padding: 12px;
+      margin-bottom: 8px;
+      border-radius: 6px;
+      background: #fff5f5;
+      border-left: 3px solid #fc8181;
+    }
+
+    .issue-item.warning {
+      background: #fffaf0;
+      border-left-color: #ed8936;
+    }
+
+    .issue-item.success {
+      background: #f0fff4;
+      border-left-color: #48bb78;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #718096;
+    }
+
+    .spinner {
+      border: 3px solid #e2e8f0;
+      border-top: 3px solid #667eea;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 16px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .tree {
+      margin-top: 20px;
+    }
+
+    .tree-item {
+      padding: 12px;
+      margin-bottom: 4px;
+      border-radius: 6px;
+      background: white;
+      border-left: 3px solid #667eea;
+    }
+
+    .tree-child {
+      margin-left: 32px;
+      margin-top: 4px;
+      padding: 10px;
+      border-radius: 6px;
+      background: #f7fafc;
+      border-left: 3px solid #cbd5e0;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-left: 8px;
+    }
+
+    .status-enabled {
+      background: #c6f6d5;
+      color: #22543d;
+    }
+
+    .status-disabled {
+      background: #fed7d7;
+      color: #742a2a;
+    }
+
+    pre {
+      background: #2d3748;
+      color: #a0aec0;
+      padding: 16px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h1>🔍 模块数据完整性验证</h1>
+      <p class="subtitle">验证和修复模块配置数据的完整性</p>
+
+      <div class="button-group">
+        <button class="btn btn-primary" onclick="verifyIntegrity()" id="verifyBtn">
+          <span>🔍</span>
+          <span>验证数据</span>
+        </button>
+        <button class="btn btn-success" onclick="fixIntegrity()" id="fixBtn" disabled>
+          <span>🔧</span>
+          <span>自动修复</span>
+        </button>
+        <button class="btn btn-warning" onclick="generateReport()" id="reportBtn">
+          <span>📊</span>
+          <span>生成报告</span>
+        </button>
+      </div>
+
+      <div id="result"></div>
+    </div>
+  </div>
+
+  <script>
+    // 初始化 CloudBase
+    const app = cloudbase.init({
+      env: 'cowork-9gg9oocb516be5fb'
+    });
+
+    let needFix = false;
+
+    // 验证数据完整性
+    async function verifyIntegrity() {
+      const resultDiv = document.getElementById('result');
+      const verifyBtn = document.getElementById('verifyBtn');
+      const fixBtn = document.getElementById('fixBtn');
+
+      verifyBtn.disabled = true;
+      resultDiv.innerHTML = `
+        <div class="loading">
+          <div class="spinner"></div>
+          <p>正在验证数据完整性...</p>
+        </div>
+      `;
+
+      try {
+        const result = await app.callFunction({
+          name: 'verify-module-integrity',
+          data: { action: 'verify' }
+        });
+
+        const data = result.result;
+
+        if (!data.success) {
+          throw new Error(data.error || '验证失败');
+        }
+
+        needFix = data.needFix;
+        fixBtn.disabled = !needFix;
+
+        const { totalModules, issues, totalIssues } = data;
+
+        let html = `
+          <div class="result">
+            <h3>${totalIssues === 0 ? '✅ 验证通过！' : `⚠️ 发现 ${totalIssues} 个问题`}</h3>
+
+            <div class="stats">
+              <div class="stat-card">
+                <div class="stat-value">${totalModules}</div>
+                <div class="stat-label">总模块数</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value">${issues.orphanedModules.length}</div>
+                <div class="stat-label">孤立子模块</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value">${issues.invalidParentId.length}</div>
+                <div class="stat-label">无效 parentId</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value">${issues.incorrectLevel.length}</div>
+                <div class="stat-label">level 不正确</div>
+              </div>
+            </div>
+        `;
+
+        if (issues.orphanedModules.length > 0) {
+          html += `
+            <div class="issue-list">
+              <h4 style="margin-bottom: 12px; color: #e53e3e;">❌ 孤立的子模块（缺少 parentId）:</h4>
+          `;
+          issues.orphanedModules.forEach(item => {
+            html += `
+              <div class="issue-item">
+                <strong>${item._id}</strong> (${item.name})<br>
+                <small>→ 应设置 parentId = ${item.inferredParentId}</small>
+              </div>
+            `;
+          });
+          html += `</div>`;
+        }
+
+        if (issues.invalidParentId.length > 0) {
+          html += `
+            <div class="issue-list">
+              <h4 style="margin-bottom: 12px; color: #e53e3e;">❌ 无效的 parentId:</h4>
+          `;
+          issues.invalidParentId.forEach(item => {
+            html += `
+              <div class="issue-item">
+                <strong>${item._id}</strong> (${item.name})<br>
+                <small>→ parentId = ${item.parentId} (不存在)</small>
+              </div>
+            `;
+          });
+          html += `</div>`;
+        }
+
+        if (issues.incorrectLevel.length > 0) {
+          html += `
+            <div class="issue-list">
+              <h4 style="margin-bottom: 12px; color: #ed8936;">⚠️ level 不正确:</h4>
+          `;
+          issues.incorrectLevel.forEach(item => {
+            html += `
+              <div class="issue-item warning">
+                <strong>${item._id}</strong> (${item.name})<br>
+                <small>→ 当前 level=${item.currentLevel}, 应为 ${item.expectedLevel}</small>
+              </div>
+            `;
+          });
+          html += `</div>`;
+        }
+
+        if (totalIssues === 0) {
+          html += `
+            <div class="issue-item success">
+              <strong>✅ 所有模块数据完整性检查通过！</strong><br>
+              <small>未发现任何数据不一致问题</small>
+            </div>
+          `;
+        }
+
+        html += `</div>`;
+        resultDiv.innerHTML = html;
+
+      } catch (error) {
+        console.error('验证失败:', error);
+        resultDiv.innerHTML = `
+          <div class="result">
+            <h3 style="color: #e53e3e;">❌ 验证失败</h3>
+            <p style="color: #718096; margin-top: 8px;">${error.message}</p>
+          </div>
+        `;
+      } finally {
+        verifyBtn.disabled = false;
+      }
+    }
+
+    // 修复数据完整性
+    async function fixIntegrity() {
+      if (!confirm('确定要自动修复数据完整性问题吗？')) {
+        return;
+      }
+
+      const resultDiv = document.getElementById('result');
+      const fixBtn = document.getElementById('fixBtn');
+
+      fixBtn.disabled = true;
+      resultDiv.innerHTML = `
+        <div class="loading">
+          <div class="spinner"></div>
+          <p>正在修复数据...</p>
+        </div>
+      `;
+
+      try {
+        const result = await app.callFunction({
+          name: 'verify-module-integrity',
+          data: { action: 'fix' }
+        });
+
+        const data = result.result;
+
+        if (!data.success) {
+          throw new Error(data.error || '修复失败');
+        }
+
+        const { fixedCount, errors, remainingIssues, verification } = data;
+
+        let html = `
+          <div class="result">
+            <h3>${remainingIssues === 0 ? '✅ 修复完成！' : `⚠️ 部分修复完成`}</h3>
+
+            <div class="stats">
+              <div class="stat-card">
+                <div class="stat-value">${fixedCount}</div>
+                <div class="stat-label">已修复</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value">${errors.length}</div>
+                <div class="stat-label">修复失败</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value">${remainingIssues}</div>
+                <div class="stat-label">剩余问题</div>
+              </div>
+            </div>
+        `;
+
+        if (fixedCount > 0) {
+          html += `
+            <div class="issue-item success">
+              <strong>✅ 成功修复 ${fixedCount} 个问题</strong><br>
+              <small>已自动更新模块的 parentId 和 level 字段</small>
+            </div>
+          `;
+        }
+
+        if (errors.length > 0) {
+          html += `
+            <div class="issue-list">
+              <h4 style="margin-bottom: 12px; color: #e53e3e;">❌ 修复失败的项目:</h4>
+          `;
+          errors.forEach(error => {
+            html += `
+              <div class="issue-item">
+                <strong>${error._id}</strong><br>
+                <small>${error.error}</small>
+              </div>
+            `;
+          });
+          html += `</div>`;
+        }
+
+        if (remainingIssues === 0) {
+          html += `
+            <div class="issue-item success" style="margin-top: 16px;">
+              <strong>🎉 所有问题已解决！</strong><br>
+              <small>建议刷新前端页面，查看是否正常显示</small>
+            </div>
+          `;
+        }
+
+        html += `</div>`;
+        resultDiv.innerHTML = html;
+
+        // 修复后重新验证
+        setTimeout(() => {
+          verifyIntegrity();
+        }, 2000);
+
+      } catch (error) {
+        console.error('修复失败:', error);
+        resultDiv.innerHTML = `
+          <div class="result">
+            <h3 style="color: #e53e3e;">❌ 修复失败</h3>
+            <p style="color: #718096; margin-top: 8px;">${error.message}</p>
+          </div>
+        `;
+      }
+    }
+
+    // 生成完整性报告
+    async function generateReport() {
+      const resultDiv = document.getElementById('result');
+      const reportBtn = document.getElementById('reportBtn');
+
+      reportBtn.disabled = true;
+      resultDiv.innerHTML = `
+        <div class="loading">
+          <div class="spinner"></div>
+          <p>正在生成报告...</p>
+        </div>
+      `;
+
+      try {
+        const result = await app.callFunction({
+          name: 'verify-module-integrity',
+          data: { action: 'report' }
+        });
+
+        const data = result.result;
+
+        if (!data.success) {
+          throw new Error(data.error || '报告生成失败');
+        }
+
+        const { stats, tree, verification } = data;
+
+        let html = `
+          <div class="result">
+            <h3>📊 数据完整性报告</h3>
+
+            <div class="stats">
+              <div class="stat-card">
+                <div class="stat-value">${stats.total}</div>
+                <div class="stat-label">总模块数</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value">${stats.topLevel}</div>
+                <div class="stat-label">一级模块</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value">${stats.children}</div>
+                <div class="stat-label">子模块</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value">${stats.enabled}</div>
+                <div class="stat-label">已启用</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value">${stats.disabled}</div>
+                <div class="stat-label">已禁用</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value">${stats.custom}</div>
+                <div class="stat-label">自定义</div>
+              </div>
+            </div>
+
+            <h4 style="margin: 24px 0 12px; color: #2d3748;">🌳 模块树形结构:</h4>
+            <div class="tree">
+        `;
+
+        tree.forEach(parent => {
+          html += `
+            <div class="tree-item">
+              ${parent.isEnabled ? '✅' : '❌'} <strong>${parent._id}</strong> - ${parent.name}
+              <span class="status-badge ${parent.isEnabled ? 'status-enabled' : 'status-disabled'}">
+                ${parent.isEnabled ? '已启用' : '已禁用'}
+              </span>
+              <small style="color: #718096;">(order: ${parent.order || 0})</small>
+          `;
+
+          if (parent.children && parent.children.length > 0) {
+            parent.children.forEach(child => {
+              html += `
+                <div class="tree-child">
+                  ${child.isEnabled ? '✅' : '❌'} <strong>${child._id}</strong> - ${child.name}
+                  <span class="status-badge ${child.isEnabled ? 'status-enabled' : 'status-disabled'}">
+                    ${child.isEnabled ? '已启用' : '已禁用'}
+                  </span>
+                  <small style="color: #718096;">(order: ${child.order || 0})</small>
+                </div>
+              `;
+            });
+          }
+
+          html += `</div>`;
+        });
+
+        html += `
+            </div>
+
+            <h4 style="margin: 24px 0 12px; color: #2d3748;">🔍 验证结果:</h4>
+            <div class="issue-item ${verification.totalIssues === 0 ? 'success' : ''}">
+              <strong>${verification.totalIssues === 0 ? '✅ 数据完整性检查通过' : `⚠️ 发现 ${verification.totalIssues} 个问题`}</strong><br>
+              <small>孤立子模块: ${verification.issues.orphanedModules.length} 个 | 无效 parentId: ${verification.issues.invalidParentId.length} 个 | level 不正确: ${verification.issues.incorrectLevel.length} 个</small>
+            </div>
+
+            <p style="margin-top: 16px; color: #718096; font-size: 14px;">
+              报告生成时间: ${new Date(data.timestamp).toLocaleString('zh-CN')}
+            </p>
+          </div>
+        `;
+
+        resultDiv.innerHTML = html;
+
+      } catch (error) {
+        console.error('报告生成失败:', error);
+        resultDiv.innerHTML = `
+          <div class="result">
+            <h3 style="color: #e53e3e;">❌ 报告生成失败</h3>
+            <p style="color: #718096; margin-top: 8px;">${error.message}</p>
+          </div>
+        `;
+      } finally {
+        reportBtn.disabled = false;
+      }
+    }
+
+    // 页面加载时自动验证
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        verifyIntegrity();
+      }, 500);
+    });
+  </script>
+</body>
+</html>

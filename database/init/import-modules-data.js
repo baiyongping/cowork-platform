@@ -321,11 +321,10 @@ function convertToDbFormat(module) {
   const now = new Date();
   
   return {
-    _id: module.id,
-    name: module.id,
-    displayName: module.name,
-    description: module.description || '',
-    icon: null,
+  _id: module.id,
+  name: module.name,
+  description: module.description || '',
+  icon: null,
     parentId: module.parentId || null,
     order: module.order || 999,
     isEnabled: true,
@@ -423,12 +422,12 @@ async function verifyImport() {
     // 显示模块结构
     console.log('模块结构预览：');
     for (const parent of parentModules) {
-      console.log(`\n📂 ${parent.displayName} (${parent._id})`);
+      console.log(`\n📂 ${parent.name} (${parent._id})`);
       
       const children = childModules.filter(c => c.parentId === parent._id);
       if (children.length > 0) {
         children.forEach(child => {
-          console.log(`   └─ ${child.displayName} (${child._id})`);
+          console.log(`   └─ ${child.name} (${child._id})`);
         });
       }
     }

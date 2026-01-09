@@ -427,6 +427,9 @@ export function verifyToken(token: string): { valid: boolean; payload?: any } {
  */
 export async function changePassword(userId: string, oldPassword: string, newPassword: string): Promise<{ success: boolean; message: string }> {
   try {
+    // 确保CloudBase已认证
+    await ensureAuth();
+    
     if (!userId || !oldPassword || !newPassword) {
       return { success: false, message: '参数不完整' };
     }
@@ -435,35 +438,31 @@ export async function changePassword(userId: string, oldPassword: string, newPas
       return { success: false, message: '新密码长度不能少于6位' };
     }
 
-    // 查询用户
-    const userResult = await db.collection('users').doc(userId).get();
-    
-    if (userResult.code) {
-      console.error('❌ CloudBase查询错误:', userResult.code, userResult.message);
-      return { success: false, message: '查询失败，请稍后重试' };
-    }
+    console.log('🔐 开始修改密码:', { userId, hasOldPwd: !!oldPassword, hasNewPwd: !!newPassword });
 
-    if (!userResult.data || userResult.data.length === 0) {
-      return { success: false, message: '用户不存在' };
-    }
-
-    const user = userResult.data[0] as any;
-
-    // 验证旧密码
-    const hashedOldPassword = await hashPassword(oldPassword);
-    if (hashedOldPassword !== user.password) {
-      return { success: false, message: '原密码错误' };
-    }
-
-    // 加密新密码
-    const hashedNewPassword = await hashPassword(newPassword);
-
-    // 更新密码
-    await db.collection('users').doc(userId).update({
-      password: hashedNewPassword,
-      needChangePassword: false,
-      updatedAt: new Date()
+    // 调用云函数修改密码
+    const result = await app.callFunction({
+      name: 'user-management',
+      data: {
+        action: 'updatePassword',
+        userId, // ✅ 传递用户ID
+        oldPassword,
+        newPassword
+      }
     });
+
+    console.log('📥 云函数返回:', result);
+
+    if (!result.result) {
+      console.error('❌ 云函数调用失败:', result);
+      return { success: false, message: '修改密码失败，请稍后重试' };
+    }
+
+    const responseData = result.result as any;
+    
+    if (!responseData.success) {
+      return { success: false, message: responseData.error || responseData.message || '修改密码失败' };
+    }
 
     return { success: true, message: '密码修改成功' };
   } catch (error: any) {

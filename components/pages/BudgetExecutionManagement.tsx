@@ -131,6 +131,9 @@ export function BudgetExecutionManagement({
     try {
       console.log('📋 正在加载损益科目配置...年份:', year);
       
+      // ✅ 🐛 修复：切换年份时清除该年份的加载标记，确保科目配置变化后会重新加载数据
+      hasLoadedDataRef.current[year] = false;
+      
       const queryResult = await db.collection('budget_accounts')
         .where({ 
           type: db.command.in(['income', 'summary', 'expense', 'percentage']),
@@ -140,20 +143,25 @@ export function BudgetExecutionManagement({
         .get();
       
       if (queryResult.data && queryResult.data.length > 0) {
-        console.log(`✅ 找到${queryResult.data.length}个损益科目:`, queryResult.data);
+        console.log(`✅ 找到${queryResult.data.length}个${year}年度损益科目:`, queryResult.data);
         setBudgetAccounts(queryResult.data as BudgetAccount[]);
         
         // 默认全部展开
         const allCategoryIds = new Set((queryResult.data as BudgetAccount[]).map(acc => acc._id));
         setExpandedCategories(allCategoryIds);
       } else {
-        console.log('⚠️ 未找到损益科目配置');
+        console.log(`⚠️ ${year}年度未设置薪酬核算参数，无预算数据项`);
         setBudgetAccounts([]);
+        // ✅ 🐛 修复：如果该年度没有科目配置，清空预算数据项
+        setBudgetItems([]);
+        // ✅ 标记该年度已加载（避免重复触发）
+        hasLoadedDataRef.current[year] = true;
       }
     } catch (error) {
       console.error('❌ 加载损益科目配置失败:', error);
       toast.error('加载损益科目配置失败');
       setBudgetAccounts([]);
+      setBudgetItems([]);
     }
   };
 

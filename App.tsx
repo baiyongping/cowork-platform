@@ -29,6 +29,10 @@ import { useNotificationStore } from './lib/notification-store';
 import { DialogProvider } from './components/ui/GlobalDialog';
 import { showError } from './lib/dialog-utils';
 
+// 🔧 导入全局模块配置上下文
+import { useModuleConfig } from './contexts/ModuleConfigContext';
+import ModuleManagement from './components/pages/ModuleManagement';
+
 // 开发环境日志工具（生产环境静默）
 const isDev = import.meta.env.DEV;
 const devLog = (...args: any[]) => {
@@ -50,6 +54,9 @@ function MainApp() {
   
   // 🔔 使用消息通知 store
   const { unreadCount, setUnreadCount, showNotification, setShowNotification, playNotificationSound } = useNotificationStore();
+  
+  // 🔧 使用全局模块配置
+  const { modules, loading: modulesLoading } = useModuleConfig();
 
   // 🔧 处理页面导航（支持传递 itemId）
   const handleNavigate = (page: PageType, itemId?: string) => {
@@ -292,6 +299,17 @@ function MainApp() {
   }
 
   const renderPage = () => {
+    // 🔧 查找当前页面的模块配置
+    const currentModule = modules.find(m => m.code === currentPage);
+    
+    // 🔒 检查模块是否启用（模块管理除外，始终可访问）
+    if (currentPage !== 'modules' && currentModule && !currentModule.enabled) {
+      console.warn(`⚠️ [App] 模块 ${currentModule.name} 已禁用`);
+      showError(`模块"${currentModule.name}"暂未启用，请联系管理员`);
+      handleNavigate('dashboard');
+      return null;
+    }
+    
     switch (currentPage) {
       case 'dashboard':
         return <Dashboard userRole={currentUser?.role} currentUser={currentUser} onLogout={handleLogout} />;

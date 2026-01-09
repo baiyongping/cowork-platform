@@ -42,9 +42,9 @@ export default function MeetingRecycleBin({ onClose, onRestore }: MeetingRecycle
     // 根据关键词过滤
     if (keyword.trim()) {
       const filtered = deletedMeetings.filter(meeting =>
-        meeting.title.toLowerCase().includes(keyword.toLowerCase()) ||
-        meeting.type.toLowerCase().includes(keyword.toLowerCase()) ||
-        meeting.organizer.toLowerCase().includes(keyword.toLowerCase())
+        (meeting.title && meeting.title.toLowerCase().includes(keyword.toLowerCase())) ||
+        (meeting.type && meeting.type.toLowerCase().includes(keyword.toLowerCase())) ||
+        (meeting.organizer && meeting.organizer.toLowerCase().includes(keyword.toLowerCase()))
       );
       setFilteredMeetings(filtered);
     } else {

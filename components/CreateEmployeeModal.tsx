@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, User, Phone, Lock, Eye, EyeOff } from 'lucide-react';
-import { db, app } from '../lib/cloudbase';
+import { db, app, callFunction } from '../lib/cloudbase';
 
 interface CreateEmployeeModalProps {
   show: boolean;
@@ -179,43 +179,75 @@ export default function CreateEmployeeModal({
     try {
       const cleanPhone = form.phone.trim().replace(/\s+/g, '').replace(/[^\d]/g, '');
       
-      // 创建员工记录
-      const employeeData = {
-        username: form.username.trim(),
-        password: form.password, // 实际生产环境应该加密
-        name: form.name.trim(),
-        phone: cleanPhone,
-        departments: [],
-        role: 'employee',
-        status: form.status,
-        approvalStatus: 'approved', // ✅ 管理员创建的员工自动审核通过
-        createdAt: new Date(),
-        createdBy: currentUser?.username || 'system',
-        updatedAt: new Date()
-      };
+      // 🔐 调用云函数创建用户（在云函数中处理密码加密）
+      const cloudResult = await callFunction({
+        name: 'auth',
+        data: {
+          action: 'createUser',
+          username: form.username.trim(),
+          password: form.password, // 明文密码，云函数会加密
+          name: form.name.trim(),
+          phone: cleanPhone,
+          status: form.status,
+          createdBy: currentUser?.username || 'system'
+        }
+      });
 
-      const result = await db.collection('users').add(employeeData);
+      // 🔍 调试日志
+      console.log('📡 云函数返回结果:', cloudResult);
+      console.log('📋 解析后的result:', cloudResult.result);
 
-      if (result.id) {
-        // 记录操作日志
-        await db.collection('operation_logs').add({
-          userId: currentUser?._id || '',
-          username: currentUser?.username || 'system',
-          action: '新增员工',
-          module: '员工管理',
-          details: `新增员工: ${form.name} (${form.username})`,
-          timestamp: new Date(),
-          ipAddress: '',
-          userAgent: navigator.userAgent
-        });
+      const result = cloudResult.result; // 解析云函数返回结果
 
+      // 🔧 修复：完善成功判断逻辑
+      if (result && typeof result === 'object' && (result.code === 200 || result.code === 201)) {
+        console.log('✅ 用户创建成功，开始记录日志');
+        console.log('📊 创建的用户信息:', result.data);
+        
+        // 尝试记录操作日志（即使失败也不影响主流程）
+        try {
+          await db.collection('operation_logs').add({
+            data: {
+              userId: currentUser?._id || '',
+              username: currentUser?.username || 'system',
+              action: '新增员工',
+              module: '员工管理',
+              details: `新增员工: ${form.name} (${form.username})`,
+              timestamp: new Date(),
+              ipAddress: '',
+              userAgent: navigator.userAgent
+            }
+          });
+          console.log('✅ 操作日志记录成功');
+        } catch (logError) {
+          console.warn('⚠️ 操作日志记录失败（不影响主流程）:', logError);
+        }
+
+        // 用户创建成功，关闭弹窗
+        console.log('✅ 关闭弹窗，刷新列表');
         onSuccess();
         onClose();
       } else {
-        setError('创建员工失败，请稍后重试');
+        // ❌ 创建失败
+        const errorMsg = result?.message || '创建员工失败，请稍后重试';
+        console.error('❌ 用户创建失败:', {
+          result: result,
+          errorMsg: errorMsg,
+          cloudResult: cloudResult
+        });
+        setError(errorMsg);
       }
     } catch (err: any) {
-      console.error('创建员工失败:', err);
+      console.error('❌ 创建员工异常:', err);
+      
+      // 🔍 详细错误信息
+      console.error('错误详情:', {
+        message: err.message,
+        code: err.code,
+        errCode: err.errCode,
+        stack: err.stack
+      });
+      
       setError(err.message || '创建员工失败，请稍后重试');
     } finally {
       setLoading(false);

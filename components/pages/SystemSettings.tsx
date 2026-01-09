@@ -1,3 +1,19 @@
+/**
+ * 系统设置模块 - 统一配置入口
+ * 
+ * 功能：
+ * 1. 功能模块管理（启用/禁用、拖拽排序）
+ * 2. 角色权限管理
+ * 3. 账户设置（密码修改）
+ * 
+ * 模块配置统计（截至 2025-01-26）：
+ * - 一级模块总数: 12个 (含dashboard)
+ * - 有子模块的一级模块: 4个 (goal, budget, profile, settings)
+ * - 二级子模块总数: 27个
+ * - 已配置数据集合: 24个模块
+ * - 无数据集合: 8个模块 (待开发功能或纯前端功能)
+ * - 简单业务模块(独立一级): 7个 (tasks, issues, opportunities, projects, meetings, performance, business)
+ */
 import React, { useState, useEffect } from 'react';
 import { Users, Building2, Shield, Tags, Plus, X, FileText, Calendar, Search, Download, UserCheck, ChevronDown, ChevronUp, Save, CheckCircle, XCircle, Trash2, User, Upload, Image as ImageIcon, UserPlus, Settings } from 'lucide-react';
 import { UserApprovalPage } from '../UserApprovalPage';
@@ -1043,17 +1059,26 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
   };
   
   const loadEmployees = async () => {
+    console.log('📋 [加载员工] 开始加载员工列表...');
     setLoadingEmployees(true);
     try {
-      // ✅ 只加载已审核通过的用户
+      // ✅ 只加载已审核通过且未删除的用户
       const result = await db.collection('users')
-        .where({ approvalStatus: 'approved' })
+        .where({
+          approvalStatus: 'approved',
+          deleted: db.command.neq(true) // 🔧 数据库层面排除已删除用户
+        })
         .get();
       
-      // 🔧 过滤掉已删除的用户和 admin 超级用户（系统默认隐藏）
+      console.log('📊 [加载员工] 数据库返回用户数:', result.data.length);
+      console.log('🔍 [加载员工] 已删除用户统计:', result.data.filter((u: any) => u.deleted === true).length);
+      
+      // 🔧 过滤掉 admin 超级用户（系统默认隐藏）
       const activeUsers = result.data.filter((user: any) => 
-        user.deleted !== true && user.username !== 'admin'
+        user.username !== 'admin'
       );
+      
+      console.log('✅ [加载员工] 过滤后用户数:', activeUsers.length);
       
       // 加载所有部门以匹配员工所属部门
       const deptResult = await db.collection('departments').get();
@@ -1496,10 +1521,14 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
     }
     
     try {
-      // 从数据库删除用户
+      // 软删除用户（标记为已删除）
       await db.collection('users')
         .doc(selectedEmployee._id)
-        .remove();
+        .update({
+          deleted: true,
+          deletedAt: new Date(),
+          updatedAt: new Date()
+        });
       
       // 从所有所属部门的memberIds中移除该员工
       const departments = selectedEmployee.departments || [];
@@ -3098,13 +3127,20 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
     }
   };
   
-  // 当选择负责人时更新负责人姓名
+  // 当选择负责人时更新负责人姓名，并自动将负责人添加到成员列表
   const handleLeaderChange = (leaderId: string) => {
     const leader = employees.find(emp => emp._id === leaderId);
+    
+    // 如果选择了负责人，且负责人不在成员列表中，则自动添加
+    const newMemberIds = leaderId && !departmentForm.memberIds.includes(leaderId)
+      ? [...departmentForm.memberIds, leaderId]
+      : departmentForm.memberIds;
+    
     setDepartmentForm({
       ...departmentForm,
       leaderId,
-      leaderName: leader ? leader.name : ''
+      leaderName: leader ? leader.name : '',
+      memberIds: newMemberIds
     });
   };
   
@@ -4107,7 +4143,7 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                   <span className="text-sm text-gray-900 font-medium">
                     {selectedEmployee.departmentNames && Array.isArray(selectedEmployee.departmentNames) && selectedEmployee.departmentNames.length > 0 
                       ? selectedEmployee.departmentNames.join('、') 
-                      : '无部门'}
+                      : '-'}
                   </span>
                 </div>
               </div>
@@ -4166,7 +4202,7 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                     <option value="">请选择负责人</option>
                     {employees.map(emp => (
                       <option key={emp._id} value={emp._id}>
-                        {emp.name}{emp.departmentNames && Array.isArray(emp.departmentNames) && emp.departmentNames.length > 0 ? ` - ${emp.departmentNames.join('、')}` : ' - 无部门'}
+                        {emp.name}
                       </option>
                     ))}
                   </select>
@@ -4197,9 +4233,11 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                             className="w-4 h-4" 
                           />
                           <span className="text-sm text-gray-900 flex-1">{emp.name}</span>
-                          <span className="text-xs text-gray-500">
-                            {emp.departmentNames && Array.isArray(emp.departmentNames) && emp.departmentNames.length > 0 ? emp.departmentNames.join('、') : '无部门'}
-                          </span>
+                          {emp.departmentNames && Array.isArray(emp.departmentNames) && emp.departmentNames.length > 0 && (
+                            <span className="text-xs text-gray-500">
+                              {emp.departmentNames.join('、')}
+                            </span>
+                          )}
                         </label>
                       ))
                     )}
@@ -4263,7 +4301,7 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                     <option value="">请选择负责人</option>
                     {employees.map(emp => (
                       <option key={emp._id} value={emp._id}>
-                        {emp.name}{emp.departmentNames && Array.isArray(emp.departmentNames) && emp.departmentNames.length > 0 ? ` - ${emp.departmentNames.join('、')}` : ' - 无部门'}
+                        {emp.name}
                       </option>
                     ))}
                   </select>
@@ -4294,9 +4332,11 @@ export function SystemSettings({ currentUser: propCurrentUser, userRole, onPendi
                             className="w-4 h-4" 
                           />
                           <span className="text-sm text-gray-900 flex-1">{emp.name}</span>
-                          <span className="text-xs text-gray-500">
-                            {emp.departmentNames && Array.isArray(emp.departmentNames) && emp.departmentNames.length > 0 ? emp.departmentNames.join('、') : '无部门'}
-                          </span>
+                          {emp.departmentNames && Array.isArray(emp.departmentNames) && emp.departmentNames.length > 0 && (
+                            <span className="text-xs text-gray-500">
+                              {emp.departmentNames.join('、')}
+                            </span>
+                          )}
                         </label>
                       ))
                     )}

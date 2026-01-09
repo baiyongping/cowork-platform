@@ -15,6 +15,28 @@ export interface ModulePermission {
   export: boolean;
 }
 
+/** 字段信息 */
+export interface FieldInfo {
+  /** 字段名称 (英文代码) */
+  name: string;
+  /** 字段类型 (string/number/boolean/date/array/object等) */
+  type: string;
+  /** 字段描述 (中文说明) */
+  description?: string;
+}
+
+/** 元数据信息 */
+export interface ModuleMetadata {
+  /** 关联的数据库集合列表 */
+  collections?: string[];
+  /** 关联的字段信息 (按集合分组) */
+  fields?: Record<string, FieldInfo[]>;
+  /** 关联的前端路由列表 */
+  routes?: string[];
+  /** 关联的API接口列表 */
+  apis?: string[];
+}
+
 export interface ModuleDefinition {
   // 📌 基础标识
   /** 模块ID (英文标识,用于权限判断和路由) */
@@ -57,6 +79,10 @@ export interface ModuleDefinition {
   // 📌 数据库关联
   /** 关联的数据库集合名 */
   dbCollection?: string;
+  
+  // 📌 元数据信息
+  /** 模块元数据 (字段、接口等详细信息) */
+  metadata?: ModuleMetadata;
   
   // 📌 默认状态 (用于初始化)
   /** 默认启用状态 */
@@ -136,7 +162,8 @@ export const SYSTEM_MODULES: ModuleDefinition[] = [
     category: '核心业务',
     needsPermission: true,
     route: '/tasks',
-    dbCollection: 'tasks',
+    dbCollection: 'tasks', // ✅ 已确认
+    note: '关联集合: task_comments(任务评论), task_attachments(任务附件)',
     defaultPermission: VIEW_CREATE,
     defaultEnabled: true,
     defaultOrder: 1
@@ -150,7 +177,8 @@ export const SYSTEM_MODULES: ModuleDefinition[] = [
     category: '核心业务',
     needsPermission: true,
     route: '/issues',
-    dbCollection: 'issueRecords',
+    dbCollection: 'issues', // ✅ 已确认
+    note: '关联集合: issue_comments(问题评论)',
     defaultPermission: VIEW_CREATE,
     defaultEnabled: true,
     defaultOrder: 2
@@ -164,7 +192,8 @@ export const SYSTEM_MODULES: ModuleDefinition[] = [
     category: '核心业务',
     needsPermission: true,
     route: '/opportunities',
-    dbCollection: 'opportunities',
+    dbCollection: 'opportunities', // ✅ 已确认
+    note: '关联集合: opportunity_actions(商机行动记录)',
     defaultPermission: VIEW_CREATE,
     defaultEnabled: true,
     defaultOrder: 3
@@ -178,7 +207,8 @@ export const SYSTEM_MODULES: ModuleDefinition[] = [
     category: '核心业务',
     needsPermission: true,
     route: '/projects',
-    dbCollection: 'projects',
+    dbCollection: 'projects', // ✅ 已确认
+    note: '关联集合: project_phases(项目阶段), project_milestones(项目里程碑)',
     defaultPermission: VIEW_CREATE,
     defaultEnabled: true,
     defaultOrder: 4
@@ -192,7 +222,8 @@ export const SYSTEM_MODULES: ModuleDefinition[] = [
     category: '核心业务',
     needsPermission: true,
     route: '/meetings',
-    dbCollection: 'meetings',
+    dbCollection: 'meetings', // ✅ 已确认
+    note: '关联集合: meeting_minutes(会议纪要)',
     defaultPermission: VIEW_CREATE,
     defaultEnabled: true,
     defaultOrder: 5
@@ -206,7 +237,8 @@ export const SYSTEM_MODULES: ModuleDefinition[] = [
     category: '核心业务',
     needsPermission: true,
     route: '/performance',
-    dbCollection: 'performance',
+    dbCollection: 'performance', // ✅ 已确认
+    note: '待开发功能,预留集合',
     defaultPermission: VIEW_CREATE,
     defaultEnabled: true,
     defaultOrder: 6
@@ -220,7 +252,8 @@ export const SYSTEM_MODULES: ModuleDefinition[] = [
     category: '核心业务',
     needsPermission: true,
     route: '/business',
-    dbCollection: 'business',
+    dbCollection: 'business', // ✅ 已确认
+    note: '待开发功能,预留集合',
     defaultPermission: VIEW_CREATE,
     defaultEnabled: true,
     defaultOrder: 7
@@ -247,27 +280,28 @@ export const SYSTEM_MODULES: ModuleDefinition[] = [
         level: 2,
         parentCode: 'goal',
         needsPermission: true,
-        dbCollection: 'salesGoals',
+        dbCollection: 'sales_goals', // ✅ 已确认
         defaultPermission: VIEW_CREATE
       },
       {
         id: 'productOrder',
-        name: '产品订单预测',
+        name: '产品目标',
         description: '产品订单目标管理',
         level: 2,
         parentCode: 'goal',
         needsPermission: true,
-        dbCollection: 'productOrders',
+        dbCollection: 'product_order_forecast', // ✅ 已确认
         defaultPermission: VIEW_CREATE
       },
       {
         id: 'strategy',
         name: '年度策略',
-        description: '年度经营策略和执行措施(已合并)',
+        description: '年度经营策略和执行措施',
         level: 2,
         parentCode: 'goal',
         needsPermission: true,
-        dbCollection: 'annualStrategy',
+        dbCollection: 'annual_strategies', // ✅ 已确认
+        note: '关联集合: quarterly_measures(季度经营措施), safeguardMeasures(保障措施)',
         defaultPermission: VIEW_CREATE
       },
       {
@@ -277,7 +311,7 @@ export const SYSTEM_MODULES: ModuleDefinition[] = [
         level: 2,
         parentCode: 'goal',
         needsPermission: true,
-        dbCollection: 'outcomeGoals',
+        dbCollection: 'outcome_goals', // ✅ 已确认
         defaultPermission: VIEW_CREATE
       },
       {
@@ -287,7 +321,8 @@ export const SYSTEM_MODULES: ModuleDefinition[] = [
         level: 2,
         parentCode: 'goal',
         needsPermission: true,
-        dbCollection: 'decompositionTables',
+        dbCollection: 'decompositionTables', // ✅ 已确认
+        note: '关联集合: decompositionDimensions, decompositionTableConfigs, goalDecompositionData, goalDecompositions2025-2030',
         defaultPermission: VIEW_CREATE
       },
       {
@@ -297,17 +332,19 @@ export const SYSTEM_MODULES: ModuleDefinition[] = [
         level: 2,
         parentCode: 'goal',
         needsPermission: true,
+        note: '纯前端可视化分析,无数据集合',
         defaultPermission: VIEW_CREATE
       },
       {
         id: 'dimensionSettings',
         name: '维度设置',
-        description: '目标维度参数配置',
+        description: '目标分解维度设置',
         level: 2,
         parentCode: 'goal',
         needsPermission: true,
-        defaultPermission: VIEW_CREATE,
-        note: '与执行力地图权限相同'
+        dbCollection: 'decompositionTables', // ✅ 直接复用分解表集合
+        note: '维度设置功能直接使用decompositionTables集合,无需单独集合',
+        defaultPermission: VIEW_CREATE
       }
     ]
   },
@@ -333,7 +370,7 @@ export const SYSTEM_MODULES: ModuleDefinition[] = [
         level: 2,
         parentCode: 'budget',
         needsPermission: true,
-        dbCollection: 'annualBudget',
+        dbCollection: 'annual_budgets', // ✅ 已确认
         defaultPermission: VIEW_ONLY
       },
       {
@@ -343,7 +380,7 @@ export const SYSTEM_MODULES: ModuleDefinition[] = [
         level: 2,
         parentCode: 'budget',
         needsPermission: true,
-        dbCollection: 'budgetExecution',
+        dbCollection: 'budget_execution', // ✅ 已确认
         defaultPermission: VIEW_ONLY
       },
       {
@@ -353,7 +390,7 @@ export const SYSTEM_MODULES: ModuleDefinition[] = [
         level: 2,
         parentCode: 'budget',
         needsPermission: true,
-        dbCollection: 'assetBudget',
+        dbCollection: 'asset_budgets', // ✅ 已确认
         defaultPermission: VIEW_CREATE
       },
       {
@@ -363,17 +400,18 @@ export const SYSTEM_MODULES: ModuleDefinition[] = [
         level: 2,
         parentCode: 'budget',
         needsPermission: true,
-        defaultPermission: VIEW_ONLY,
-        note: '与预算执行权限相同'
+        note: '待开发功能,暂无数据集合',
+        defaultPermission: VIEW_ONLY
       },
       {
         id: 'hr',
         name: '薪酬预算',
-        description: '薪酬成本预算管理(已更名)',
+        description: '薪酬成本预算管理',
         level: 2,
         parentCode: 'budget',
         needsPermission: true,
-        dbCollection: 'hrBudget',
+        dbCollection: 'hrExpenses', // ✅ 已确认
+        note: '关联集合: payroll_accounts(工资科目)',
         defaultPermission: VIEW_ONLY
       },
       {
@@ -383,7 +421,8 @@ export const SYSTEM_MODULES: ModuleDefinition[] = [
         level: 2,
         parentCode: 'budget',
         needsPermission: true,
-        dbCollection: 'budgetParameters',
+        dbCollection: 'budget_accounts', // ✅ 已确认,主集合
+        note: '关联集合: budget_accounts(损益参数), payroll_accounts(薪酬核算参数)',
         defaultPermission: VIEW_ONLY
       }
     ]
@@ -412,7 +451,7 @@ export const SYSTEM_MODULES: ModuleDefinition[] = [
         level: 2,
         parentCode: 'profile',
         needsPermission: true,
-        dbCollection: 'users',
+        dbCollection: 'users', // ✅ 已确认
         defaultPermission: FULL_PERMISSION
       },
       {
@@ -422,6 +461,8 @@ export const SYSTEM_MODULES: ModuleDefinition[] = [
         level: 2,
         parentCode: 'profile',
         needsPermission: true,
+        dbCollection: 'users', // ✅ 使用users集合查询部门成员
+        note: '从users集合查询当前用户的部门成员信息',
         defaultPermission: VIEW_ONLY
       },
       {
@@ -431,7 +472,7 @@ export const SYSTEM_MODULES: ModuleDefinition[] = [
         level: 2,
         parentCode: 'profile',
         needsPermission: true,
-        dbCollection: 'notifications',
+        dbCollection: 'messages', // ✅ 已确认
         defaultPermission: VIEW_ONLY
       },
       {
@@ -441,6 +482,7 @@ export const SYSTEM_MODULES: ModuleDefinition[] = [
         level: 2,
         parentCode: 'profile',
         needsPermission: true,
+        note: '待开发功能,可能使用outcome_goals或新建集合',
         defaultPermission: VIEW_ONLY
       },
       {
@@ -450,6 +492,7 @@ export const SYSTEM_MODULES: ModuleDefinition[] = [
         level: 2,
         parentCode: 'profile',
         needsPermission: true,
+        note: '待开发功能,纯前端分析或基于tasks集合',
         defaultPermission: VIEW_ONLY
       },
       {
@@ -459,6 +502,7 @@ export const SYSTEM_MODULES: ModuleDefinition[] = [
         level: 2,
         parentCode: 'profile',
         needsPermission: true,
+        note: '待开发功能,可能使用performance集合',
         defaultPermission: VIEW_ONLY
       }
     ]
@@ -485,7 +529,8 @@ export const SYSTEM_MODULES: ModuleDefinition[] = [
         level: 2,
         parentCode: 'settings',
         needsPermission: true,
-        dbCollection: 'users',
+        dbCollection: 'users', // ✅ 已确认,查询status='pending'的用户
+        note: '查询users集合中status为pending的用户',
         defaultPermission: VIEW_ONLY
       },
       {
@@ -495,7 +540,8 @@ export const SYSTEM_MODULES: ModuleDefinition[] = [
         level: 2,
         parentCode: 'settings',
         needsPermission: true,
-        dbCollection: 'users',
+        dbCollection: 'users', // ✅ 已确认
+        note: '关联集合: handover_history(交接历史)',
         defaultPermission: VIEW_ONLY
       },
       {
@@ -505,7 +551,7 @@ export const SYSTEM_MODULES: ModuleDefinition[] = [
         level: 2,
         parentCode: 'settings',
         needsPermission: true,
-        dbCollection: 'departments',
+        dbCollection: 'departments', // ✅ 已确认
         defaultPermission: VIEW_ONLY
       },
       {
@@ -515,7 +561,7 @@ export const SYSTEM_MODULES: ModuleDefinition[] = [
         level: 2,
         parentCode: 'settings',
         needsPermission: true,
-        dbCollection: 'role_permissions',
+        dbCollection: 'role_permissions', // ✅ 已确认
         defaultPermission: VIEW_ONLY
       },
       {
@@ -525,7 +571,8 @@ export const SYSTEM_MODULES: ModuleDefinition[] = [
         level: 2,
         parentCode: 'settings',
         needsPermission: true,
-        dbCollection: 'type_settings',
+        dbCollection: 'type_settings', // ✅ 已确认
+        note: '包含任务类型、商机状态、项目阶段等所有下拉选项',
         defaultPermission: VIEW_ONLY
       },
       {
@@ -535,7 +582,8 @@ export const SYSTEM_MODULES: ModuleDefinition[] = [
         level: 2,
         parentCode: 'settings',
         needsPermission: true,
-        dbCollection: 'operation_logs',
+        dbCollection: 'operation_logs', // ✅ 已确认
+        note: '关联集合: audit_logs(审计日志)',
         defaultPermission: VIEW_ONLY
       },
       {
@@ -547,8 +595,8 @@ export const SYSTEM_MODULES: ModuleDefinition[] = [
         needsPermission: false, // ⚡ 通过 adminOnly 控制
         adminOnly: true, // ⚡ 仅管理员可见
         route: '/module-management',
-        dbCollection: 'modulesConfig',
-        note: '仅管理员可见，用于管理所有功能模块'
+        dbCollection: 'modulesConfig', // ✅ 已确认
+        note: '仅管理员可见，用于管理所有功能模块。关联集合: moduleOrder(模块排序)',
       }
     ]
   }

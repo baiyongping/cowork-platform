@@ -1,5 +1,6 @@
 {
-  "envId": "jihua-oa-dev-3goht9irae4d949f",
+  "version": "3.11.0",
+  "envId": "cowork-9gg9oocb516be5fb",
   "framework": {
     "name": "react",
     "plugins": {
@@ -115,7 +116,7 @@
   "functions": [
     {
       "name": "auth",
-      "description": "用户认证云函数（可选，当前使用前端SDK）"
+      "description": "用户认证云函数(可选,当前使用前端SDK)"
     }
   ]
 }

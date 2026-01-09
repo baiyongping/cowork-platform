@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>快速恢复模块数据</title>
+  <!-- ✅ 引入CloudBase SDK -->
+  <script src="https://imgcache.qq.com/qcloud/cloudbase-js-sdk/1.7.1/cloudbase.full.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .container {
+      background: white;
+      border-radius: 16px;
+      padding: 40px;
+      max-width: 900px;
+      width: 100%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    h1 {
+      color: #667eea;
+      margin-bottom: 10px;
+      font-size: 28px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .subtitle {
+      color: #666;
+      margin-bottom: 30px;
+      font-size: 14px;
+    }
+    .btn {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 16px 32px;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      width: 100%;
+      margin-bottom: 20px;
+    }
+    .btn:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(102,126,234,0.4); }
+    .btn:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      transform: none;
+    }
+    #log {
+      background: #f7f7f7;
+      border-radius: 8px;
+      padding: 20px;
+      max-height: 400px;
+      overflow-y: auto;
+      font-family: 'Monaco', 'Courier New', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      color: #333;
+    }
+    .log-item {
+      padding: 8px 12px;
+      margin: 4px 0;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .log-success { background: #d4edda; color: #155724; }
+    .log-error { background: #f8d7da; color: #721c24; }
+    .log-info { background: #d1ecf1; color: #0c5460; }
+    .log-warning { background: #fff3cd; color: #856404; }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    .stat-card {
+      background: #f7f7f7;
+      padding: 15px;
+      border-radius: 8px;
+      text-align: center;
+    }
+    .stat-number {
+      font-size: 32px;
+      font-weight: bold;
+      color: #667eea;
+    }
+    .stat-label {
+      font-size: 12px;
+      color: #666;
+      margin-top: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔧 快速恢复模块数据</h1>
+    <p class="subtitle">将使用 constants/modules.ts 中的完整定义恢复数据库中的所有模块</p>
+    
+    <div class="stats">
+      <div class="stat-card">
+        <div class="stat-number" id="totalCount">37</div>
+        <div class="stat-label">总模块数</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="successCount">0</div>
+        <div class="stat-label">成功</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="failCount">0</div>
+        <div class="stat-label">失败</div>
+      </div>
+    </div>
+
+    <button id="restoreBtn" class="btn">✨ 确认恢复数据</button>
+    
+    <div id="log"></div>
+  </div>
+
+  <script>
+    const ENV_ID = 'jihua-oa-dev-3goht9irae4d949f';
+    
+    // ✅ 初始化CloudBase
+    const app = cloudbase.init({
+      env: ENV_ID
+    });
+    const db = app.database();
+    
+    let successCount = 0;
+    let failCount = 0;
+
+    function log(message, type = 'info') {
+      const logDiv = document.getElementById('log');
+      const item = document.createElement('div');
+      item.className = `log-item log-${type}`;
+      
+      const icon = {
+        'success': '✅',
+        'error': '❌',
+        'info': 'ℹ️',
+        'warning': '⚠️'
+      }[type] || 'ℹ️';
+      
+      item.innerHTML = `<span>${icon}</span><span>${message}</span>`;
+      logDiv.appendChild(item);
+      logDiv.scrollTop = logDiv.scrollHeight;
+
+      if (type === 'success') {
+        successCount++;
+        document.getElementById('successCount').textContent = successCount;
+      } else if (type === 'error') {
+        failCount++;
+        document.getElementById('failCount').textContent = failCount;
+      }
+    }
+
+    // 完整的模块配置数据
+    const allModules = [
+      { _id: 'module-dashboard', name: '工作台', description: '工作台总览', icon: 'LayoutDashboard', path: '/dashboard', order: 1, level: 1, isEnabled: true, isCustom: false, hasChildren: false },
+      { _id: 'module-opportunities', name: '商机管理', description: '商机全生命周期管理', icon: 'TrendingUp', path: '/opportunities', order: 2, level: 1, isEnabled: true, isCustom: false, hasChildren: false },
+      { _id: 'module-tasks', name: '任务管理', description: '任务分配与跟踪', icon: 'CheckSquare', path: '/tasks', order: 3, level: 1, isEnabled: true, isCustom: false, hasChildren: false },
+      { _id: 'module-projects', name: '项目管理', description: '项目全流程管理', icon: 'FolderKanban', path: '/projects', order: 4, level: 1, isEnabled: true, isCustom: false, hasChildren: false },
+      { _id: 'module-goals', name: '目标管理', description: '目标制定与跟踪', icon: 'Target', path: '/goals', order: 5, level: 1, isEnabled: true, isCustom: false, hasChildren: true },
+      { _id: 'module-goals-annual', name: '年度目标', description: '年度目标', icon: 'Calendar', path: '/goals/annual', parentId: 'module-goals', order: 1, level: 2, isEnabled: true, isCustom: false, hasChildren: false },
+      { _id: 'module-goals-quarterly', name: '季度目标', description: '季度目标', icon: 'CalendarDays', path: '/goals/quarterly', parentId: 'module-goals', order: 2, level: 2, isEnabled: true, isCustom: false, hasChildren: false },
+      { _id: 'module-goals-annual-strategy', name: '年度策略', description: '年度策略', icon: 'Lightbulb', path: '/goals/annual-strategy', parentId: 'module-goals', order: 3, level: 2, isEnabled: true, isCustom: false, hasChildren: false },
+      { _id: 'module-goals-annual-safeguards', name: '年度保障措施', description: '年度保障措施', icon: 'Shield', path: '/goals/annual-safeguards', parentId: 'module-goals', order: 4, level: 2, isEnabled: true, isCustom: false, hasChildren: false },
+      { _id: 'module-goals-quarterly-measures', name: '季度经营措施', description: '季度经营措施', icon: 'ListChecks', path: '/goals/quarterly-measures', parentId: 'module-goals', order: 5, level: 2, isEnabled: true, isCustom: false, hasChildren: false },
+      { _id: 'module-goals-outcome', name: '成果目标', description: '成果目标', icon: 'Award', path: '/goals/outcome', parentId: 'module-goals', order: 6, level: 2, isEnabled: true, isCustom: false, hasChildren: false },
+      { _id: 'module-goals-dimension', name: '维度设置', description: '维度设置', icon: 'Settings', path: '/goals/dimension', parentId: 'module-goals', order: 7, level: 2, isEnabled: true, isCustom: false, hasChildren: false },
+      { _id: 'module-goals-decomposition', name: '目标分解', description: '目标分解', icon: 'GitBranch', path: '/goals/decomposition', parentId: 'module-goals', order: 8, level: 2, isEnabled: true, isCustom: false, hasChildren: false },
+      { _id: 'module-budgets', name: '预算管理', description: '预算编制与执行', icon: 'DollarSign', path: '/budgets', order: 6, level: 1, isEnabled: true, isCustom: false, hasChildren: true },
+      { _id: 'module-budgets-subjects', name: '预算科目', description: '预算科目', icon: 'BookOpen', path: '/budgets/subjects', parentId: 'module-budgets', order: 1, level: 2, isEnabled: true, isCustom: false, hasChildren: false },
+      { _id: 'module-budgets-annual', name: '年度预算表', description: '年度预算表', icon: 'FileText', path: '/budgets/annual', parentId: 'module-budgets', order: 2, level: 2, isEnabled: true, isCustom: false, hasChildren: false },
+      { _id: 'module-budgets-execution', name: '预算执行', description: '预算执行', icon: 'TrendingUp', path: '/budgets/execution', parentId: 'module-budgets', order: 3, level: 2, isEnabled: true, isCustom: false, hasChildren: false },
+      { _id: 'module-budgets-hr-expense', name: '人事费用', description: '人事费用', icon: 'Users', path: '/budgets/hr-expense', parentId: 'module-budgets', order: 4, level: 2, isEnabled: true, isCustom: false, hasChildren: false },
+      { _id: 'module-issues', name: '问题管理', description: '问题跟踪与解决', icon: 'AlertCircle', path: '/issues', order: 7, level: 1, isEnabled: true, isCustom: false, hasChildren: false },
+      { _id: 'module-meetings', name: '会议管理', description: '会议管理', icon: 'Calendar', path: '/meetings', order: 8, level: 1, isEnabled: true, isCustom: false, hasChildren: true },
+      { _id: 'module-meetings-regular', name: '例会管理', description: '例会管理', icon: 'CalendarClock', path: '/meetings/regular', parentId: 'module-meetings', order: 1, level: 2, isEnabled: true, isCustom: false, hasChildren: false },
+      { _id: 'module-meetings-general', name: '会议召开', description: '会议召开', icon: 'Video', path: '/meetings/general', parentId: 'module-meetings', order: 2, level: 2, isEnabled: true, isCustom: false, hasChildren: false },
+      { _id: 'module-messages', name: '消息中心', description: '系统消息与通知', icon: 'Bell', path: '/messages', order: 9, level: 1, isEnabled: true, isCustom: false, hasChildren: false },
+      { _id: 'module-reports', name: '报表中心', description: '数据分析与报表', icon: 'BarChart3', path: '/reports', order: 10, level: 1, isEnabled: true, isCustom: false, hasChildren: false },
+      { _id: 'module-employees', name: '员工管理', description: '员工信息管理', icon: 'Users', path: '/employees', order: 11, level: 1, isEnabled: true, isCustom: false, hasChildren: false },
+      { _id: 'module-system', name: '系统设置', description: '系统配置与管理', icon: 'Settings', path: '/system', order: 12, level: 1, isEnabled: true, isCustom: false, hasChildren: true },
+      { _id: 'module-system-users', name: '用户管理', description: '用户管理', icon: 'UserCog', path: '/system/users', parentId: 'module-system', order: 1, level: 2, isEnabled: true, isCustom: false, hasChildren: false },
+      { _id: 'module-system-roles', name: '角色权限', description: '角色权限', icon: 'Shield', path: '/system/roles', parentId: 'module-system', order: 2, level: 2, isEnabled: true, isCustom: false, hasChildren: false },
+      { _id: 'module-system-modules', name: '功能模块', description: '功能模块', icon: 'Package', path: '/system/modules', parentId: 'module-system', order: 3, level: 2, isEnabled: true, isCustom: false, hasChildren: false },
+      { _id: 'module-system-logs', name: '操作日志', description: '操作日志', icon: 'FileText', path: '/system/logs', parentId: 'module-system', order: 4, level: 2, isEnabled: true, isCustom: false, hasChildren: false },
+      { _id: 'module-system-settings', name: '系统配置', description: '系统配置', icon: 'Cog', path: '/system/settings', parentId: 'module-system', order: 5, level: 2, isEnabled: true, isCustom: false, hasChildren: false },
+      { _id: 'module-account', name: '账号设置', description: '个人账号设置', icon: 'User', path: '/account', order: 13, level: 1, isEnabled: true, isCustom: false, hasChildren: false },
+      { _id: 'module-help', name: '帮助中心', description: '使用帮助与文档', icon: 'HelpCircle', path: '/help', order: 14, level: 1, isEnabled: true, isCustom: false, hasChildren: false },
+      { _id: 'module-about', name: '关于系统', description: '系统信息', icon: 'Info', path: '/about', order: 15, level: 1, isEnabled: true, isCustom: false, hasChildren: false },
+      { _id: 'module-logout', name: '退出登录', description: '退出系统', icon: 'LogOut', path: '/logout', order: 16, level: 1, isEnabled: true, isCustom: false, hasChildren: false },
+      { _id: 'module-user-approval', name: '用户审核', description: '用户审核', icon: 'UserCheck', path: '/user-approval', order: 17, level: 1, isEnabled: true, isCustom: false, hasChildren: false },
+      { _id: 'module-wechat-bind', name: '微信绑定', description: '微信绑定', icon: 'Link', path: '/wechat-bind', order: 18, level: 1, isEnabled: true, isCustom: false, hasChildren: false }
+    ];
+
+    async function restoreModule(module) {
+      try {
+        const { _id, ...restData } = module;
+        
+        await db.collection('modulesConfig')
+          .doc(_id)
+          .update({
+            data: {
+              ...restData,
+              updatedAt: new Date(),
+              lastModifiedBy: 'restore-script'
+            }
+          });
+        
+        log(`✅ ${module.name} (${_id})`, 'success');
+      } catch (error) {
+        log(`❌ ${module.name} (${_id}): ${error.message}`, 'error');
+        throw error;
+      }
+    }
+
+    async function restoreAll() {
+      const btn = document.getElementById('restoreBtn');
+      btn.disabled = true;
+      btn.textContent = '⏳ 正在恢复...';
+      
+      log('🚀 开始恢复模块数据...', 'info');
+      log(`📦 总计 ${allModules.length} 个模块需要恢复`, 'info');
+      
+      successCount = 0;
+      failCount = 0;
+
+      for (let i = 0; i < allModules.length; i++) {
+        const module = allModules[i];
+        log(`[${i + 1}/${allModules.length}] 正在恢复: ${module.name}...`, 'info');
+        
+        try {
+          await restoreModule(module);
+        } catch (error) {
+          console.error('恢复失败:', error);
+        }
+        
+        // 每5个模块休息一下,避免频繁请求
+        if ((i + 1) % 5 === 0) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
+
+      log('', 'info');
+      log(`🎉 恢复完成! 成功: ${successCount}, 失败: ${failCount}`, 'success');
+      
+      btn.disabled = false;
+      btn.textContent = '✨ 再次恢复';
+    }
+
+    document.getElementById('restoreBtn').addEventListener('click', restoreAll);
+  </script>
+</body>
+</html>

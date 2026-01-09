@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>测试创建用户</title>
+  <script src="https://web-9gikcbug35bad3a8-1304825656.tcloudbaseapp.com/sdk/1.7.0/cloud.js"></script>
+</head>
+<body>
+  <h1>测试创建用户云函数</h1>
+  <button onclick="testCreateUser()">测试创建用户</button>
+  <pre id="result"></pre>
+
+  <script>
+    const app = cloudbase.init({
+      env: 'cowork-9gg9oocb516be5fb'
+    });
+
+    async function testCreateUser() {
+      const resultEl = document.getElementById('result');
+      resultEl.textContent = '正在调用云函数...';
+
+      try {
+        const result = await app.callFunction({
+          name: 'auth',
+          data: {
+            action: 'createUser',
+            username: 'testuser' + Date.now(),
+            password: 'test123456',
+            name: '测试用户',
+            phone: '13800138000',
+            status: '在职',
+            createdBy: 'admin'
+          }
+        });
+
+        resultEl.textContent = JSON.stringify(result, null, 2);
+        console.log('云函数返回:', result);
+      } catch (error) {
+        resultEl.textContent = '错误: ' + error.message;
+        console.error('调用失败:', error);
+      }
+    }
+  </script>
+</body>
+</html>

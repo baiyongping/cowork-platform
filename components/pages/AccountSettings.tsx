@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { User, Phone, Lock, Save, Send, Users, ChevronDown, ChevronUp, Building2, Edit2, Mail, Target, Zap, Award } from 'lucide-react';
 import { changePassword, changePhone, sendVerificationCode } from '../../lib/auth-service';
-import { db } from '../../lib/cloudbase';
+import { db, callFunction } from '../../lib/cloudbase';
 import toast, { Toaster } from 'react-hot-toast';
 import { MessageCenter } from '../MessageCenter';
 import { useNotificationStore } from '../../lib/notification-store';
 import WechatBinding from '../WechatBinding';
+import { useNavigate } from 'react-router-dom';
 
 interface AccountSettingsProps {
   currentUser: any;
@@ -14,6 +15,7 @@ interface AccountSettingsProps {
 }
 
 export function AccountSettings({ currentUser, onUserUpdate, onNavigate }: AccountSettingsProps) {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'info' | 'team' | 'message' | 'goals' | 'execution' | 'performance'>('info');
   const [userInfo, setUserInfo] = useState<any>(currentUser);
   const [loadingUserInfo, setLoadingUserInfo] = useState(false);
@@ -159,14 +161,42 @@ export function AccountSettings({ currentUser, onUserUpdate, onNavigate }: Accou
     
     setSaving(true);
     try {
-      console.log(`💾 保存${field}字段:`, value);
+      console.log('=== 开始保存字段 ===');
+      console.log('📝 字段名:', field);
+      console.log('📝 字段值:', value);
+      console.log('📝 用户ID:', currentUser.userId);
       
-      // 更新数据库
-      await db.collection('users').doc(currentUser.userId).update({
-        [field]: value
+      // ✅ 使用新的简化云函数更新个人信息
+      console.log('💾 正在调用云函数更新...');
+      const result = await callFunction({
+        name: 'account-settings',
+        data: {
+          userId: currentUser.userId,
+          field,
+          value
+        }
       });
       
-      // console.log(`✅ ${field}字段保存成功`); // 已禁用保存成功提示
+      console.log('✅ 云函数返回结果:', result);
+      console.log('📊 result 完整结构:', JSON.stringify(result, null, 2));
+      console.log('📊 result.result 类型:', typeof result.result);
+      console.log('📊 result.result 值:', result.result);
+      console.log('📊 result.result 字符串化:', JSON.stringify(result.result, null, 2));
+      
+      // 检查返回结果
+      if (!result.result || !result.result.success) {
+        console.error('❌ 云函数返回失败');
+        console.error('❌ result:', result);
+        console.error('❌ result.result:', result.result);
+        console.error('❌ result.result?.success:', result.result?.success);
+        console.error('❌ result.result?.error:', result.result?.error);
+        throw new Error(result.result?.error || '更新失败');
+      }
+      
+      // 验证更新是否成功
+      if (result.result.updated === 0) {
+        throw new Error('未找到要更新的用户');
+      }
       
       // 更新本地状态
       const updatedUser = { ...userInfo, [field]: value };
@@ -177,13 +207,18 @@ export function AccountSettings({ currentUser, onUserUpdate, onNavigate }: Accou
       setEditingField(null);
       setEditValue(null);
       
+      console.log('=== 保存完成 ===');
+      
       if (!silent) {
-        // 不弹提示,只在控制台输出
-        // console.log('✓ 保存成功'); // 已禁用保存成功提示
+        toast.success('保存成功');
       }
-    } catch (error) {
-      console.error(`❌ 保存${field}失败:`, error);
-      if (!silent) toast.error('保存失败,请重试');
+    } catch (error: any) {
+      console.error('=== 保存失败 ===');
+      console.error('❌ 错误对象:', error);
+      console.error('❌ 错误类型:', error.constructor.name);
+      console.error('❌ 错误消息:', error.message);
+      console.error('❌ 错误代码:', error.code);
+      if (!silent) toast.error(error.message || '保存失败,请重试');
     } finally {
       setSaving(false);
     }
@@ -421,6 +456,15 @@ export function AccountSettings({ currentUser, onUserUpdate, onNavigate }: Accou
           newPassword: '',
           confirmPassword: ''
         });
+
+        // ✅ 延迟1秒后自动返回
+        setTimeout(() => {
+          if (onNavigate) {
+            onNavigate('dashboard');
+          } else {
+            navigate(-1); // 返回上一页
+          }
+        }, 1000);
       } else {
         toast.error(result.message);
       }

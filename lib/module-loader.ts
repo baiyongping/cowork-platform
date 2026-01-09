@@ -20,7 +20,6 @@ import { db } from './cloudbase';
 export interface ModuleConfig {
   _id: string;
   name: string;
-  displayName: string;
   description: string;
   icon?: string;
   parentId?: string;
@@ -121,7 +120,7 @@ export class ModuleLoader {
         // 合并数据库配置
         mergedModule = {
           ...module,
-          name: dbConfig.displayName || module.name,
+          name: dbConfig.name || module.name,
           description: dbConfig.description || module.description,
           order: dbConfig.order,
           icon: dbConfig.icon || undefined,
@@ -136,7 +135,7 @@ export class ModuleLoader {
             if (childDb) {
               return {
                 ...child,
-                name: childDb.displayName || child.name,
+                name: childDb.name || child.name,
                 description: childDb.description || child.description,
                 order: childDb.order,
                 icon: childDb.icon || undefined,
@@ -178,7 +177,7 @@ export class ModuleLoader {
   private static convertToModuleDefinition(dbConfig: ModuleConfig): ExtendedModuleDefinition {
     const module: ExtendedModuleDefinition = {
       id: dbConfig._id,
-      name: dbConfig.displayName,
+      name: dbConfig.name,
       description: dbConfig.description,
       order: dbConfig.order,
       icon: dbConfig.icon || undefined,

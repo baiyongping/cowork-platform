@@ -226,6 +226,151 @@
 | P3 | 数据统计报表 | 🔄 规划中 | 未来版本 |
 | P3 | 移动端优化 | 🔄 规划中 | 未来版本 |
 
+### 3.3 模块配置统计
+
+截至 **2025-01-26**，系统模块配置情况：
+
+#### 总体统计
+- **一级模块总数**: 12个（含Dashboard）
+- **有子模块的一级模块**: 4个（目标管理、预算管理、个人中心、系统设置）
+- **二级子模块总数**: 27个
+- **已配置数据集合**: 24个模块
+- **无数据集合**: 8个模块（待开发功能或纯前端功能）
+- **简单业务模块**（独立一级）: 7个（任务、问题、商机、项目、会议、绩效考核、业务管理）
+
+#### 模块详细统计
+
+**一级模块（12个）**：
+1. Dashboard（智能工作台）
+2. Tasks（任务管理）
+3. Issues（问题管理）
+4. Opportunities（商机管理）
+5. Projects（项目管理）
+6. Goal（目标管理）⭐ 有子模块
+7. Budget（预算管理）⭐ 有子模块
+8. Meetings（会议管理）
+9. Performance（绩效考核）
+10. Business（业务管理）
+11. Profile（个人中心）⭐ 有子模块
+12. Settings（系统设置）⭐ 有子模块
+
+**二级子模块（27个）**：
+
+**目标管理子模块（8个）**：
+1. goal-annual（年度策略）
+2. goal-quarterly（季度措施）
+3. goal-sales（销售目标）
+4. goal-safeguards（保障措施）
+5. goal-decomposition（目标分解）
+6. goal-dimension（维度设置）
+7. goal-attribute（属性设置）
+8. goal-decomposition-tables（分解表管理）
+
+**预算管理子模块（10个）**：
+1. budget-annual（年度预算表）
+2. budget-execution（预算执行表）
+3. budget-subject（预算科目管理）
+4. budget-subject-first-level（一级科目）
+5. budget-subject-second-level（二级科目）
+6. budget-params（财务参数）
+7. budget-process（流程管理）
+8. budget-template（预算模板）
+9. hr-expense（人力费预算）
+10. budget-standard（标准设置）
+
+**个人中心子模块（4个）**：
+1. profile-info（个人信息）
+2. profile-password（密码修改）
+3. profile-notification（消息通知）
+4. profile-team（团队信息）
+
+**系统设置子模块（5个）**：
+1. settings-approval（用户审核）
+2. settings-employee（员工管理）
+3. settings-permissions（角色权限）
+4. settings-account（账户设置）
+5. settings-modules（模块管理）
+
+#### 数据集合配置情况
+
+**已配置数据集合（24个）**：
+
+**业务数据集合（7个）**：
+1. `tasks` - 任务管理
+2. `issues` - 问题管理
+3. `opportunities` - 商机管理
+4. `projects` - 项目管理
+5. `meetings` - 会议管理
+6. `meetingMinutes` - 会议纪要
+7. `safeguardMeasures` - 保障措施
+
+**目标管理集合（3个）**：
+1. `goals` - 目标数据
+2. `goalDimensions` - 目标维度
+3. `goalAttributes` - 维度属性
+
+**目标分解集合（6个）**：
+1. `decompositionTables` - 分解表定义
+2. `decompositionRows` - 行维度数据
+3. `decompositionColumns` - 列维度数据
+4. `decompositionCells` - 单元格数据
+5. `decompositionOutcomes` - 成果目标
+6. `outcomeTasks` - 成果关联任务
+
+**预算管理集合（6个）**：
+1. `budgetSubjects` - 预算科目
+2. `budgetData` - 年度预算数据
+3. `budgetExecution` - 预算执行数据
+4. `budgetParams` - 财务参数
+5. `budgetProcesses` - 预算流程
+6. `budgetTemplates` - 预算模板
+
+**系统管理集合（2个）**：
+1. `users` - 用户数据
+2. `operationLogs` - 操作日志
+
+**无数据集合（8个）**：
+
+**纯前端功能（5个）**：
+1. Dashboard（数据展示）
+2. Profile-Info（个人信息显示）
+3. Profile-Password（密码修改表单）
+4. Profile-Team（团队信息展示）
+5. Settings-Account（账户设置表单）
+
+**待开发功能（3个）**：
+1. Performance（绩效考核）
+2. Business（业务管理）
+3. Profile-Notification（消息通知）
+
+#### 模块层级关系
+
+```
+一级模块（12）
+├── 无子模块（8）- 简单业务模块
+│   ├── Dashboard
+│   ├── Tasks
+│   ├── Issues
+│   ├── Opportunities
+│   ├── Projects
+│   ├── Meetings
+│   ├── Performance
+│   └── Business
+└── 有子模块（4）- 复杂功能模块
+    ├── Goal（8个子模块）
+    ├── Budget（10个子模块）
+    ├── Profile（4个子模块）
+    └── Settings（5个子模块）
+```
+
+#### 配置文件位置
+
+所有模块配置统一管理在：
+- **前端配置**: `/constants/modules.ts`
+- **路由配置**: `/App.tsx`
+- **权限配置**: `/contexts/PermissionContext.tsx`
+- **数据库**: `moduleConfig` 集合（动态启用/禁用）
+
 ---
 
 ## 4. 用户角色与权限

@@ -172,26 +172,31 @@ export function HRExpenseManagement({
     return '';
   };
 
-  // ✅ 加载费用科目配置
-  const loadPayrollAccounts = async () => {
+  // ✅ 加载费用科目配置（按年份过滤）
+  const loadPayrollAccounts = async (year: number) => {
     try {
-      console.log('📋 正在加载费用科目配置...');
+      console.log('📋 正在加载费用科目配置...年份:', year);
       
       const queryResult = await db.collection('payroll_accounts')
+        .where({ year: year })  // ✅ 按年份过滤
         .orderBy('order', 'asc')
         .get();
       
       if (queryResult.data && queryResult.data.length > 0) {
-        console.log(`✅ 找到${queryResult.data.length}个费用科目:`, queryResult.data);
+        console.log(`✅ 找到${queryResult.data.length}个${year}年度费用科目:`, queryResult.data);
         setPayrollAccounts(queryResult.data as PayrollAccount[]);
       } else {
-        console.log('⚠️ 未找到费用科目配置');
+        console.log(`⚠️ ${year}年度未设置薪酬核算参数，无预算数据项`);
         setPayrollAccounts([]);
+        // ✅ 🐛 修复：如果该年度没有科目配置，清空费用数据
+        setExpenses([]);
+        setOriginalExpenses([]);
       }
     } catch (error) {
       console.error('❌ 加载费用科目配置失败:', error);
       toast.error('加载费用科目配置失败');
       setPayrollAccounts([]);
+      setExpenses([]);
     }
   };
 
@@ -237,10 +242,10 @@ export function HRExpenseManagement({
     }
   };
 
-  // ✅ 组件初始化 - 先加载费用科目,再加载数据
+  // ✅ 组件初始化 - 按年份加载费用科目，然后加载数据
   useEffect(() => {
-    loadPayrollAccounts();
-  }, []); // 只在组件挂载时加载一次
+    loadPayrollAccounts(selectedYear);
+  }, [selectedYear]); // ✅ 年份变化时重新加载科目配置
 
   useEffect(() => {
     if (payrollAccounts.length > 0) {

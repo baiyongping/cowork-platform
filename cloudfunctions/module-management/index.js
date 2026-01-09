@@ -21,6 +21,9 @@ exports.main = async (event, context) => {
       case 'list':
         return await listModules(data);
       
+      case 'queryAll':
+        return await queryAllModules();
+      
       case 'get':
         return await getModule(data);
       
@@ -35,12 +38,6 @@ exports.main = async (event, context) => {
       
       case 'reorder':
         return await reorderModules(data, wxContext);
-      
-      case 'syncMetadata':
-        return await syncMetadata(data, wxContext);
-      
-      case 'getMetadata':
-        return await getModuleMetadata(data);
       
       case 'toggleEnable':
         return await toggleModuleEnable(data, wxContext);
@@ -140,6 +137,37 @@ async function checkAdminPermission(openid) {
 /**
  * 列出所有模块（支持筛选和排序）
  */
+/**
+ * 查询所有模块（不做权限检查，用于前端模块管理页面）
+ */
+async function queryAllModules() {
+  try {
+    console.log('📊 [queryAllModules] 开始查询所有模块...');
+    
+    const result = await db.collection('modulesConfig')
+      .orderBy('order', 'asc')
+      .get();
+    
+    console.log('📊 [queryAllModules] 查询到模块数量:', result.data.length);
+    
+    return {
+      success: true,
+      data: result.data,
+      total: result.data.length
+    };
+  } catch (error) {
+    console.error('❌ [queryAllModules] 查询失败:', error);
+    return {
+      success: false,
+      error: error.message,
+      data: []
+    };
+  }
+}
+
+/**
+ * 列出模块（带过滤条件）
+ */
 async function listModules({ filter = {}, sort = {} }) {
   const query = db.collection('modulesConfig');
   
@@ -166,8 +194,7 @@ async function listModules({ filter = {}, sort = {} }) {
   const mappedData = result.data.map(module => ({
     _id: module._id,
     code: module._id || module.code || module.name, // 使用 _id 作为 code
-    name: module.name || module.displayName,
-    displayName: module.displayName || module.name,
+    name: module.name,
     description: module.description || '',
     category: module.category || 'business',
     order: module.order ?? 999,
@@ -253,7 +280,6 @@ async function createModule(moduleData, wxContext) {
   const newModule = {
     _id: moduleData._id,
     name: moduleData.name,
-    displayName: moduleData.displayName || moduleData.name,
     description: moduleData.description || '',
     icon: moduleData.icon || 'Settings',
     parentId: moduleData.parentId || null,
@@ -314,7 +340,7 @@ async function updateModule({ moduleId, updates }, wxContext) {
   
   // 允许更新的字段
   const allowedFields = [
-    'displayName', 'description', 'icon', 'order', 
+    'name', 'description', 'icon', 'order', 
     'isEnabled', 'defaultPermission', 'metadata'
   ];
   
@@ -332,8 +358,8 @@ async function updateModule({ moduleId, updates }, wxContext) {
     });
   
   // 如果名称变更，同步权限
-  if (updates.displayName && updates.displayName !== module.displayName) {
-    await updatePermissionNames(moduleId, updates.displayName);
+  if (updates.name && updates.name !== module.name) {
+    await updatePermissionNames(moduleId, updates.name);
   }
   
   return {
@@ -464,99 +490,6 @@ async function toggleModuleEnable({ moduleId, isEnabled }, wxContext) {
   }
 }
 
-/**
- * 同步元数据（采集集合、字段、路由、API信息）
- */
-async function syncMetadata({ moduleId }, wxContext) {
-  if (!moduleId) {
-    throw new Error('模块ID不能为空');
-  }
-  
-  // 检查模块是否存在
-  const { data: module } = await db.collection('modulesConfig')
-    .doc(moduleId)
-    .get();
-  
-  if (!module) {
-    throw new Error('模块不存在');
-  }
-  
-  // 采集元数据
-  const metadata = {
-    collections: await scanCollections(moduleId),
-    fields: {},
-    routes: await scanRoutes(moduleId),
-    apis: await scanApis(moduleId),
-    lastScanAt: new Date()
-  };
-  
-  // 采集每个集合的字段信息
-  for (const collection of metadata.collections) {
-    metadata.fields[collection] = await scanCollectionFields(collection);
-  }
-  
-  // 更新到数据库
-  await db.collection('modulesConfig')
-    .doc(moduleId)
-    .update({
-      data: {
-        metadata,
-        updatedAt: new Date(),
-        lastModifiedBy: wxContext.OPENID
-      }
-    });
-  
-  return {
-    success: true,
-    message: '元数据同步成功',
-    data: metadata
-  };
-}
-
-/**
- * 获取模块元数据
- */
-async function getModuleMetadata({ moduleId }) {
-  if (!moduleId) {
-    throw new Error('模块ID不能为空');
-  }
-  
-  const { data: module } = await db.collection('modulesConfig')
-    .doc(moduleId)
-    .get();
-  
-  if (!module) {
-    throw new Error('模块不存在');
-  }
-  
-  // 获取统计信息
-  const stats = {};
-  if (module.metadata?.collections) {
-    for (const collection of module.metadata.collections) {
-      try {
-        const { total } = await db.collection(collection).count();
-        stats[collection] = {
-          recordCount: total,
-          lastUpdated: new Date()
-        };
-      } catch (error) {
-        stats[collection] = {
-          recordCount: 0,
-          error: error.message
-        };
-      }
-    }
-  }
-  
-  return {
-    success: true,
-    data: {
-      ...module.metadata,
-      stats
-    }
-  };
-}
-
 // ==================== 辅助函数 ====================
 
 /**
@@ -636,125 +569,6 @@ async function removePermissionsFromRoles(moduleId) {
   } catch (error) {
     console.error('移除权限失败:', error);
   }
-}
-
-/**
- * 扫描模块关联的集合
- */
-async function scanCollections(moduleId) {
-  // 简单实现：根据命名规则推测
-  const possibleCollections = [
-    moduleId + 's',           // tasks
-    moduleId,                 // task
-    moduleId + 'Records',     // taskRecords
-    moduleId + 'History'      // taskHistory
-  ];
-  
-  const existingCollections = [];
-  
-  for (const collection of possibleCollections) {
-    try {
-      await db.collection(collection).limit(1).get();
-      existingCollections.push(collection);
-    } catch (error) {
-      // 集合不存在
-    }
-  }
-  
-  return existingCollections;
-}
-
-/**
- * 扫描集合的字段
- */
-async function scanCollectionFields(collection) {
-  try {
-    // 获取样本数据
-    const { data: samples } = await db.collection(collection).limit(10).get();
-    
-    if (!samples || samples.length === 0) {
-      return [];
-    }
-    
-    // 分析字段
-    const fieldMap = new Map();
-    
-    for (const record of samples) {
-      for (const [key, value] of Object.entries(record)) {
-        if (!fieldMap.has(key)) {
-          fieldMap.set(key, {
-            name: key,
-            type: typeof value,
-            description: getFieldDescription(key),
-            nullable: false,
-            examples: []
-          });
-        }
-        
-        const field = fieldMap.get(key);
-        if (value === null || value === undefined) {
-          field.nullable = true;
-        }
-        
-        // 收集示例值（最多3个）
-        if (field.examples.length < 3 && value !== null) {
-          field.examples.push(value);
-        }
-      }
-    }
-    
-    return Array.from(fieldMap.values());
-  } catch (error) {
-    console.error(`扫描集合 ${collection} 字段失败:`, error);
-    return [];
-  }
-}
-
-/**
- * 获取字段描述（基于命名推测）
- */
-function getFieldDescription(fieldName) {
-  const descriptions = {
-    '_id': '记录ID',
-    '_openid': '用户OpenID',
-    'name': '名称',
-    'title': '标题',
-    'description': '描述',
-    'status': '状态',
-    'type': '类型',
-    'owner': '负责人',
-    'createdAt': '创建时间',
-    'updatedAt': '更新时间',
-    'createdBy': '创建人',
-    'updatedBy': '更新人'
-  };
-  
-  return descriptions[fieldName] || '未知字段';
-}
-
-/**
- * 扫描路由
- */
-async function scanRoutes(moduleId) {
-  // 简单实现：根据命名规则推测
-  return [
-    `/${moduleId}-management`,
-    `/${moduleId}`,
-    `/${moduleId}/detail`
-  ];
-}
-
-/**
- * 扫描API
- */
-async function scanApis(moduleId) {
-  // 简单实现：根据命名规则推测
-  return [
-    `GET /api/${moduleId}`,
-    `POST /api/${moduleId}`,
-    `PUT /api/${moduleId}/:id`,
-    `DELETE /api/${moduleId}/:id`
-  ];
 }
 
 /**

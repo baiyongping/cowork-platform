@@ -2,7 +2,7 @@
 
 > 基于 React + TypeScript + Tailwind CSS + CloudBase 的现代化企业协同办公管理平台
 
-[![Version](https://img.shields.io/badge/version-3.9.0-blue.svg)](https://github.com/your-repo)
+[![Version](https://img.shields.io/badge/version-3.12.0-blue.svg)](https://github.com/your-repo)
 [![React](https://img.shields.io/badge/React-18.2-61dafb.svg)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.2-3178c6.svg)](https://www.typescriptlang.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4.0-38bdf8.svg)](https://tailwindcss.com/)
@@ -10,7 +10,39 @@
 
 ---
 
-## 🎉 v3.9.0 最新更新 (2025-01-07)
+## 🎉 v3.12.0 最新更新 (2026-01-08)
+
+### 1. 蓝绿部署架构升级 ⭐⭐⭐ NEW
+- ✅ **零停机部署** - 用户无感知升级
+- ✅ **Nginx 反向代理** - 统一 3443 端口访问
+- ✅ **自动化升级脚本** - 一键完成蓝绿切换
+- ✅ **健康检查机制** - 自动验证新版本
+- ✅ **快速回滚** - 秒级切换到旧版本
+- ✅ **Docker 容器化** - 轻量级部署和管理
+- ✅ **SSL/TLS 加密** - 安全的 HTTPS 访问
+
+### 部署架构
+```
+用户请求 (HTTPS:3443)
+         ↓
+   Nginx 反向代理
+    (SSL 终止)
+         ↓
+   蓝环境 (3000)
+    jihua-prod-blue
+         ↓
+   Nginx Alpine
+    (静态文件服务)
+```
+
+### 相关文档
+- 📖 **部署方案**: [部署方案-蓝绿部署.md](部署方案-蓝绿部署.md)
+- 📖 **升级脚本**: [blue-green-upgrade.sh](blue-green-upgrade.sh)
+- 📖 **完成报告**: [蓝绿部署完成报告_v1.0.md](蓝绿部署完成报告_v1.0.md)
+
+---
+
+## 🎉 v3.11.0 更新 (2026-01-08)
 
 ### 1. 目标分解表管理系统 ⭐⭐⭐ NEW
 - ✅ **多表格管理** - 支持创建和管理多个目标分解表
@@ -329,6 +361,160 @@ cowork/
 
 ---
 
+## 📊 功能模块架构
+
+### 模块配置总览
+
+系统采用**两级模块架构**：父模块(一级) + 子模块(二级)
+
+#### 一级模块（11个父模块）
+1. 🏠 **工作台** (dashboard) - `module-001`
+2. 💼 **商机管理** (opportunity) - `module-002`  
+3. ✅ **任务管理** (task) - `module-003`
+4. 📁 **项目管理** (project) - `module-004`
+5. 🎯 **目标管理** (goal) - `module-005` - 包含7个子模块
+6. 💰 **预算管理** (budget) - `module-006` - 包含6个子模块
+7. 📅 **会议管理** (meeting) - `module-007`
+8. ❓ **问题管理** (issue) - `module-008`
+9. 👤 **个人信息** (profile) - `module-009` - 包含6个子模块
+10. ⚙️ **系统设置** (settings) - `module-010` - 包含7个子模块
+11. 📊 **数据概览** (analytics) - `module-011`
+
+**总计**: 11个父模块 + 26个子模块 = **37个功能模块**
+
+---
+
+### 🎯 目标管理子模块（7个）
+
+| 模块ID | 模块代码 | 模块名称 | 描述 | 图标 |
+|--------|---------|---------|------|------|
+| goal.salesGoal | goal.salesGoal | 销售目标 | 年度销售目标设定与跟踪 | 📊 Target |
+| goal.productOrder | goal.productOrder | 产品目标 | 产品订单目标管理 | 📦 Package |
+| goal.strategy | goal.strategy | 年度策略 | 年度战略策略制定 | 🎯 TrendingUp |
+| goal.outcome | goal.outcome | 成果目标 | 成果目标设定与跟踪 | ⭐ Trophy |
+| goal.decomposition | goal.decomposition | 目标分解 | 目标分解与分配 | 📐 GitBranch |
+| goal.executionMap | goal.executionMap | 执行力地图 | 执行力可视化展示 | 🗺️ Map |
+| goal.dimensionSettings | goal.dimensionSettings | 维度设置 | 目标维度参数配置 | ⚙️ Settings |
+
+---
+
+### 💰 预算管理子模块（6个）
+
+| 模块ID | 模块代码 | 模块名称 | 描述 | 图标 |
+|--------|---------|---------|------|------|
+| budget.annual | budget.annual | 年度预算 | 年度预算编制与审核 | 📅 Calendar |
+| budget.execution | budget.execution | 预算执行 | 预算执行监控与分析 | 📊 BarChart |
+| budget.asset | budget.asset | 资产预算 | 资产预算管理 | 🏢 Building |
+| budget.cashFlow | budget.cashFlow | 现金流管理 | 现金流预测与管理 | 💵 DollarSign |
+| budget.hr | budget.hr | 薪酬预算 | 人力成本预算 | 👥 Users |
+| budget.parameters | budget.parameters | 预算参数 | 预算参数配置 | ⚙️ Settings |
+
+---
+
+### 👤 个人信息子模块（6个）
+
+| 模块ID | 模块代码 | 模块名称 | 描述 | 图标 |
+|--------|---------|---------|------|------|
+| profile.info | profile.info | 个人信息 | 个人资料管理 | 👤 User |
+| profile.team | profile.team | 我的团队 | 团队成员展示 | 👥 Users |
+| profile.message | profile.message | 消息中心 | 系统消息与通知 | ✉️ Mail |
+| profile.goals | profile.goals | 我的目标 | 个人目标管理 | 🎯 Target |
+| profile.execution | profile.execution | 执行情况 | 任务执行进度 | 📊 TrendingUp |
+| profile.performance | profile.performance | 绩效考核 | 个人绩效评估 | ⭐ Award |
+
+---
+
+### ⚙️ 系统设置子模块（7个）
+
+| 模块ID | 模块代码 | 模块名称 | 描述 | 图标 |
+|--------|---------|---------|------|------|
+| settings.userApproval | settings.userApproval | 用户审核 | 新用户注册审核 | ✅ UserCheck |
+| settings.employees | settings.employees | 员工管理 | 员工信息管理 | 👥 Users |
+| settings.departments | settings.departments | 部门管理 | 部门结构管理 | 🏢 Building |
+| settings.roles | settings.roles | 角色与权限 | 角色权限配置 | 🔐 Shield |
+| settings.typeSettings | settings.typeSettings | 类型配置 | 业务类型配置 | ⚙️ Settings |
+| settings.operationLogs | settings.operationLogs | 操作日志 | 系统操作日志 | 📝 FileText |
+| settings.moduleManagement | settings.moduleManagement | 功能模块管理 | 模块启用/禁用管理 | 🧩 Grid |
+
+---
+
+### 📊 无子模块的父模块（5个）
+
+| 模块代码 | 模块名称 | 描述 | 级别 |
+|---------|---------|------|------|
+| opportunity | 商机管理 | 商机跟进与转化 | 一级 |
+| task | 任务管理 | 任务分配与跟踪 | 一级 |
+| project | 项目管理 | 项目进度管理 | 一级 |
+| meeting | 会议管理 | 会议召开与纪要 | 一级 |
+| issue | 问题管理 | 问题记录与解决 | 一级 |
+
+---
+
+### 模块层级结构
+
+```
+项目根
+├── 工作台 (dashboard) ─────────────── 1级
+├── 商机管理 (opportunity) ──────────── 1级
+├── 任务管理 (task) ───────────────── 1级
+├── 项目管理 (project) ─────────────── 1级
+├── 目标管理 (goal) ───────────────── 1级
+│   ├── 销售目标 ──────────────────── 2级
+│   ├── 产品目标 ──────────────────── 2级
+│   ├── 年度策略 ──────────────────── 2级
+│   ├── 成果目标 ──────────────────── 2级
+│   ├── 目标分解 ──────────────────── 2级
+│   ├── 执行力地图 ────────────────── 2级
+│   └── 维度设置 ──────────────────── 2级
+├── 预算管理 (budget) ─────────────── 1级
+│   ├── 年度预算 ──────────────────── 2级
+│   ├── 预算执行 ──────────────────── 2级
+│   ├── 资产预算 ──────────────────── 2级
+│   ├── 现金流管理 ────────────────── 2级
+│   ├── 薪酬预算 ──────────────────── 2级
+│   └── 预算参数 ──────────────────── 2级
+├── 会议管理 (meeting) ─────────────── 1级
+├── 问题管理 (issue) ──────────────── 1级
+├── 个人信息 (profile) ─────────────── 1级
+│   ├── 个人信息 ──────────────────── 2级
+│   ├── 我的团队 ──────────────────── 2级
+│   ├── 消息中心 ──────────────────── 2级
+│   ├── 我的目标 ──────────────────── 2级
+│   ├── 执行情况 ──────────────────── 2级
+│   └── 绩效考核 ──────────────────── 2级
+├── 系统设置 (settings) ────────────── 1级
+│   ├── 用户审核 ──────────────────── 2级
+│   ├── 员工管理 ──────────────────── 2级
+│   ├── 部门管理 ──────────────────── 2级
+│   ├── 角色与权限 ────────────────── 2级
+│   ├── 类型配置 ──────────────────── 2级
+│   ├── 操作日志 ──────────────────── 2级
+│   └── 功能模块管理 ──────────────── 2级
+└── 数据概览 (analytics) ────────────── 1级
+```
+
+---
+
+### 数据库集合
+
+所有模块配置存储在 `modulesConfig` 集合中，包含以下关键字段：
+
+- `_id`: 唯一标识符（如 `goal.salesGoal`）
+- `unifiedId`: 统一ID（与_id一致）
+- `parentId`: 父模块ID（如 `module-005`）
+- `parentCode`: 父模块代码（如 `goal`）
+- `parentModule`: 父模块标识
+- `moduleType`: 模块类型（`parentModule` 或 `submodule`）
+- `level`: 级别（1=父模块，2=子模块）
+- `order`: 排序序号
+- `isEnabled`: 是否启用
+- `isCustom`: 是否自定义
+- `defaultPermission`: 默认权限（view/edit/create/delete）
+
+**数据完整性**: ✅ 所有26个子模块配置正确，数据结构统一
+
+---
+
 ## 💻 开发指南
 
 ### 开发命令
@@ -430,11 +616,11 @@ npx vite build --mode production
 
 **✅ 已部署到CloudBase静态托管**
 
-**访问地址**: https://cowork-9gg9oocb516be5fb-1301818329.tcloudbaseapp.com/?v=20251230
+**访问地址**: https://cowork-9gg9oocb516be5fb-1301818329.tcloudbaseapp.com/?v=20260108
 
 **部署环境**: cowork-9gg9oocb516be5fb（生产环境）
 
-**最新部署**: 2025-12-30 19:19 (UTC+8)
+**最新部署**: 2026-01-08 20:06 (UTC+8)
 
 **CloudBase资源**:
 - ✅ **静态托管**: 前端应用（React + TypeScript + Tailwind CSS）

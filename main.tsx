@@ -11,12 +11,17 @@ import './lib/cloudbase'
 // 🔧 引入数据库健康检查工具
 import './lib/db-health'
 import { TDesignProvider } from './lib/tdesign-config'
+// 🔧 引入模块配置全局上下文
+import { ModuleConfigProvider } from './contexts/ModuleConfigContext'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     {/* 🎨 TDesign 全局配置 Provider */}
     <TDesignProvider>
-      <App />
+      {/* 🔧 模块配置全局上下文 */}
+      <ModuleConfigProvider>
+        <App />
+      </ModuleConfigProvider>
     </TDesignProvider>
   </React.StrictMode>,
 )

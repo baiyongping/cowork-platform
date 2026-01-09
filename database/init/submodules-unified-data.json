@@ -1,0 +1,221 @@
+{
+  "description": "子模块统一标识数据",
+  "version": "1.0.0",
+  "modules": {
+    "goal": {
+      "name": "目标管理",
+      "icon": "🎯",
+      "submodules": [
+        {
+          "id": "goal.salesGoal",
+          "name": "销售目标",
+          "order": 1,
+          "parentId": "module-goal",
+          "parentCode": "goal"
+        },
+        {
+          "id": "goal.productOrder",
+          "name": "产品目标",
+          "order": 2,
+          "parentId": "module-goal",
+          "parentCode": "goal"
+        },
+        {
+          "id": "goal.strategy",
+          "name": "年度策略",
+          "order": 3,
+          "parentId": "module-goal",
+          "parentCode": "goal"
+        },
+        {
+          "id": "goal.outcome",
+          "name": "成果目标",
+          "order": 4,
+          "parentId": "module-goal",
+          "parentCode": "goal"
+        },
+        {
+          "id": "goal.decomposition",
+          "name": "目标分解",
+          "order": 5,
+          "parentId": "module-goal",
+          "parentCode": "goal"
+        },
+        {
+          "id": "goal.executionMap",
+          "name": "执行力地图",
+          "order": 6,
+          "parentId": "module-goal",
+          "parentCode": "goal"
+        },
+        {
+          "id": "goal.dimensionSettings",
+          "name": "维度设置",
+          "order": 7,
+          "parentId": "module-goal",
+          "parentCode": "goal"
+        }
+      ]
+    },
+    "budget": {
+      "name": "预算管理",
+      "icon": "💰",
+      "submodules": [
+        {
+          "id": "budget.annual",
+          "name": "年度预算",
+          "order": 1,
+          "parentId": "module-budget",
+          "parentCode": "budget"
+        },
+        {
+          "id": "budget.execution",
+          "name": "预算执行",
+          "order": 2,
+          "parentId": "module-budget",
+          "parentCode": "budget"
+        },
+        {
+          "id": "budget.asset",
+          "name": "资产预算",
+          "order": 3,
+          "parentId": "module-budget",
+          "parentCode": "budget"
+        },
+        {
+          "id": "budget.cashFlow",
+          "name": "现金流管理",
+          "order": 4,
+          "parentId": "module-budget",
+          "parentCode": "budget"
+        },
+        {
+          "id": "budget.hr",
+          "name": "薪酬预算",
+          "order": 5,
+          "parentId": "module-budget",
+          "parentCode": "budget"
+        },
+        {
+          "id": "budget.parameters",
+          "name": "预算参数",
+          "order": 6,
+          "parentId": "module-budget",
+          "parentCode": "budget"
+        }
+      ]
+    },
+    "profile": {
+      "name": "个人信息",
+      "icon": "👤",
+      "submodules": [
+        {
+          "id": "profile.info",
+          "name": "基本信息",
+          "order": 1,
+          "parentId": "module-profile",
+          "parentCode": "profile"
+        },
+        {
+          "id": "profile.team",
+          "name": "团队",
+          "order": 2,
+          "parentId": "module-profile",
+          "parentCode": "profile"
+        },
+        {
+          "id": "profile.message",
+          "name": "消息",
+          "order": 3,
+          "parentId": "module-profile",
+          "parentCode": "profile"
+        },
+        {
+          "id": "profile.goals",
+          "name": "我的目标",
+          "order": 4,
+          "parentId": "module-profile",
+          "parentCode": "profile"
+        },
+        {
+          "id": "profile.execution",
+          "name": "执行力",
+          "order": 5,
+          "parentId": "module-profile",
+          "parentCode": "profile"
+        },
+        {
+          "id": "profile.performance",
+          "name": "绩效",
+          "order": 6,
+          "parentId": "module-profile",
+          "parentCode": "profile"
+        }
+      ]
+    },
+    "settings": {
+      "name": "系统设置",
+      "icon": "⚙️",
+      "submodules": [
+        {
+          "id": "settings.userApproval",
+          "name": "用户审核",
+          "order": 1,
+          "parentId": "module-settings",
+          "parentCode": "settings"
+        },
+        {
+          "id": "settings.employees",
+          "name": "员工管理",
+          "order": 2,
+          "parentId": "module-settings",
+          "parentCode": "settings"
+        },
+        {
+          "id": "settings.departments",
+          "name": "部门管理",
+          "order": 3,
+          "parentId": "module-settings",
+          "parentCode": "settings"
+        },
+        {
+          "id": "settings.roles",
+          "name": "角色权限",
+          "order": 4,
+          "parentId": "module-settings",
+          "parentCode": "settings"
+        },
+        {
+          "id": "settings.typeSettings",
+          "name": "参数配置",
+          "order": 5,
+          "parentId": "module-settings",
+          "parentCode": "settings"
+        },
+        {
+          "id": "settings.operationLogs",
+          "name": "操作日志",
+          "order": 6,
+          "parentId": "module-settings",
+          "parentCode": "settings"
+        },
+        {
+          "id": "settings.moduleManagement",
+          "name": "功能模块",
+          "order": 7,
+          "parentId": "module-settings",
+          "parentCode": "settings"
+        }
+      ]
+    }
+  },
+  "summary": {
+    "total": 26,
+    "byParent": {
+      "goal": 7,
+      "budget": 6,
+      "profile": 6,
+      "settings": 7
+    }
+  }
+}

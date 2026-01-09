@@ -356,6 +356,11 @@ const MeetingManagement: React.FC = () => {
                       </div>
                     )}
                     {(() => {
+                      // 🔧 安全处理：如果type未定义，跳过
+                      if (!meeting.type) {
+                        return null;
+                      }
+
                       // 周工作例会、月度工作例会：显示议题数量
                       if (['周工作例会', '月度工作例会'].includes(meeting.type)) {
                         const agendaCount = Array.isArray(meeting.agendas) ? meeting.agendas.length : 0;

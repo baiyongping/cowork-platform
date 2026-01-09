@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>重命名 displayName 字段</title>
+  <script src="https://web-9gikcbug35bad3a8-1253337886.tcloudbaseapp.com/sdk/1.7.0/cloud.js"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      max-width: 1200px;
+      margin: 40px auto;
+      padding: 20px;
+      line-height: 1.6;
+    }
+    h1 { color: #333; }
+    .log-container {
+      background: #f5f5f5;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 15px;
+      margin: 20px 0;
+      max-height: 500px;
+      overflow-y: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+    }
+    .log-line {
+      margin: 2px 0;
+      padding: 2px 0;
+    }
+    .success { color: #28a745; }
+    .error { color: #dc3545; }
+    .info { color: #007bff; }
+    .warning { color: #ffc107; }
+    button {
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    button:hover { background: #0056b3; }
+    button:disabled {
+      background: #6c757d;
+      cursor: not-allowed;
+    }
+    .summary {
+      background: #e7f3ff;
+      border: 1px solid #b8daff;
+      border-radius: 4px;
+      padding: 15px;
+      margin: 20px 0;
+    }
+    .summary h3 { margin-top: 0; color: #004085; }
+    .summary-item {
+      display: inline-block;
+      margin-right: 20px;
+      padding: 5px 10px;
+      background: white;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🔧 重命名 modulesConfig 字段</h1>
+  <p>将 <code>displayName</code> 字段统一重命名为 <code>name</code> 字段</p>
+  
+  <button id="renameBtn" onclick="renameFields()">开始重命名</button>
+  
+  <div id="summary" class="summary" style="display:none;">
+    <h3>📊 执行统计</h3>
+    <div id="summaryContent"></div>
+  </div>
+  
+  <div class="log-container" id="logContainer"></div>
+
+  <script>
+    // 初始化云开发
+    const app = cloudbase.init({
+      env: 'cowork-9gg9oocb516be5fb'
+    });
+    
+    const db = app.database();
+    const logContainer = document.getElementById('logContainer');
+    const renameBtn = document.getElementById('renameBtn');
+    const summaryDiv = document.getElementById('summary');
+    const summaryContent = document.getElementById('summaryContent');
+    
+    function log(message, type = 'info') {
+      const line = document.createElement('div');
+      line.className = `log-line ${type}`;
+      line.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      logContainer.appendChild(line);
+      logContainer.scrollTop = logContainer.scrollHeight;
+      console.log(message);
+    }
+    
+    async function renameFields() {
+      renameBtn.disabled = true;
+      logContainer.innerHTML = '';
+      summaryDiv.style.display = 'none';
+      
+      log('🚀 开始重命名 displayName 字段为 name', 'info');
+      log('═'.repeat(60), 'info');
+      
+      try {
+        // 1. 查询所有模块
+        const { data: modules } = await db.collection('modulesConfig').get();
+        log(`📦 查询到 ${modules.length} 个模块`, 'info');
+        
+        let successCount = 0;
+        let skipCount = 0;
+        let errorCount = 0;
+        
+        // 2. 遍历每个模块
+        for (const module of modules) {
+          try {
+            // 检查是否有 displayName 字段
+            if (!module.displayName) {
+              log(`⏭️  跳过 ${module._id} - 没有 displayName 字段`, 'warning');
+              skipCount++;
+              continue;
+            }
+            
+            // 检查是否已经有 name 字段
+            if (module.name) {
+              log(`⏭️  跳过 ${module._id} - 已经有 name 字段 (${module.name})`, 'warning');
+              skipCount++;
+              continue;
+            }
+            
+            // 更新文档：添加 name 字段，删除 displayName 字段
+            await db.collection('modulesConfig')
+              .doc(module._id)
+              .update({
+                name: module.displayName,
+                displayName: db.command.remove()
+              });
+            
+            log(`✅ 更新 ${module._id}: "${module.displayName}" → name 字段`, 'success');
+            successCount++;
+            
+          } catch (error) {
+            log(`❌ 更新失败 ${module._id}: ${error.message}`, 'error');
+            errorCount++;
+          }
+        }
+        
+        log('═'.repeat(60), 'info');
+        log('📊 更新统计：', 'info');
+        log(`   成功: ${successCount} 个`, successCount > 0 ? 'success' : 'info');
+        log(`   跳过: ${skipCount} 个`, skipCount > 0 ? 'warning' : 'info');
+        log(`   失败: ${errorCount} 个`, errorCount > 0 ? 'error' : 'info');
+        log(`   总计: ${modules.length} 个`, 'info');
+        
+        // 显示统计摘要
+        summaryContent.innerHTML = `
+          <span class="summary-item">✅ 成功: <strong>${successCount}</strong></span>
+          <span class="summary-item">⏭️ 跳过: <strong>${skipCount}</strong></span>
+          <span class="summary-item">❌ 失败: <strong>${errorCount}</strong></span>
+          <span class="summary-item">📦 总计: <strong>${modules.length}</strong></span>
+        `;
+        summaryDiv.style.display = 'block';
+        
+        if (errorCount === 0) {
+          log('✅ 所有字段重命名完成！', 'success');
+        } else {
+          log('⚠️  部分模块更新失败，请检查错误信息', 'warning');
+        }
+        
+      } catch (error) {
+        log(`❌ 执行失败: ${error.message}`, 'error');
+      } finally {
+        renameBtn.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>

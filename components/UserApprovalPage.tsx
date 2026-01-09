@@ -225,12 +225,24 @@ export function UserApprovalPage({ currentUser, onPendingCountChange }: UserAppr
     if (!confirmed) return;
 
     try {
-      await db.collection('users').doc(user._id).remove();
-      await showSuccess(`用户 ${user.name} (@${user.username}) 已删除`);
+      // 调用云函数删除用户
+      const res = await app.callFunction({
+        name: 'user-management',
+        data: {
+          action: 'delete',
+          userId: user._id
+        }
+      });
+
+      if (!res.result.success) {
+        throw new Error(res.result.message || '删除失败');
+      }
+
+      await showSuccess(res.result.message || `用户 ${user.name} (@${user.username}) 已删除`);
       loadUsers();
     } catch (error) {
       console.error('删除用户失败:', error);
-      await showError('删除用户失败，请重试');
+      await showError(error instanceof Error ? error.message : '删除用户失败，请重试');
     }
   };
 
