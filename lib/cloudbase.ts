@@ -13,13 +13,20 @@ console.log('  环境变量 VITE_CLOUDBASE_ENV_ID:', import.meta.env.VITE_CLOUDB
 console.log('  默认环境 CLOUDBASE_ENV_ID:', CLOUDBASE_ENV_ID);
 console.log('='.repeat(80));
 
-// ⚠️ 如果检测到错误的环境，强制清除浏览器缓存
-const EXPECTED_ENV = 'jihua-oa-dev-3goht9irae4d949f'; // 开发环境
-if (ENV_ID !== EXPECTED_ENV && import.meta.env.MODE === 'development') {
-  console.error('❌ 环境配置错误！');
-  console.error(`   期望: ${EXPECTED_ENV}`);
+// ⚠️ 环境配置验证
+const EXPECTED_DEV_ENV = 'jihua-oa-dev-3goht9irae4d949f';
+const EXPECTED_PROD_ENV = 'cowork-9gg9oocb516be5fb';
+
+if (import.meta.env.MODE === 'development' && ENV_ID !== EXPECTED_DEV_ENV) {
+  console.error('❌ 开发环境配置错误！');
+  console.error(`   期望: ${EXPECTED_DEV_ENV}`);
   console.error(`   实际: ${ENV_ID}`);
   console.error('   请刷新页面或清除浏览器缓存');
+} else if (import.meta.env.MODE === 'production' && ENV_ID !== EXPECTED_PROD_ENV) {
+  console.error('❌ 生产环境配置错误！');
+  console.error(`   期望: ${EXPECTED_PROD_ENV}`);
+  console.error(`   实际: ${ENV_ID}`);
+  console.error('   请检查环境配置');
 }
 
 // 初始化CloudBase
