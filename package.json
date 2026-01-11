@@ -1,7 +1,7 @@
 {
   "name": "jihua-oa-platform",
   "private": true,
-  "version": "3.12.1",
+  "version": "3.12.2",
   "type": "module",
   "description": "际华定制协同办公管理平台",
   "scripts": {
@@ -38,6 +38,7 @@
     "@radix-ui/react-toggle-group": "^1.1.11",
     "@radix-ui/react-tooltip": "^1.1.7",
     "@react-pdf/renderer": "^4.3.1",
+    "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.0.0",
     "cmdk": "^1.1.1",
@@ -59,6 +60,7 @@
     "tdesign-icons-react": "^0.6.1",
     "tdesign-react": "^1.16.1",
     "vaul": "^1.1.2",
+    "wx-server-sdk": "^3.0.1",
     "xlsx": "^0.18.5",
     "zustand": "^5.0.9"
   },
