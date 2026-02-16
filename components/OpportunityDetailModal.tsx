@@ -408,6 +408,7 @@ export default function OpportunityDetailModal({ opportunity, onClose, onSuccess
         <div className="space-y-6">
           {/* 基本信息标签页 */}
           {activeTab === 'basic' && (
+            <div className="space-y-6">
               {/* 关键指标 */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="bg-gray-50 rounded-lg p-4">
