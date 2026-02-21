@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react';
-import { X, Edit, Trash2, Calendar, Users, TrendingUp, Target, CheckCircle, Save, Briefcase, DollarSign } from 'lucide-react';
+import { X, Edit, Trash2, Calendar, Users, TrendingUp, Target, CheckCircle, Save, Briefcase, DollarSign, FileText, Globe } from 'lucide-react';
 import { db, app } from '../lib/cloudbase';
 import type { Opportunity } from '../types/opportunity';
+import type { CustomerIntelligence } from '../types/customer-intelligence';
 import EditOpportunityModal from './EditOpportunityModal';
 import OpportunityFollowUpList from './OpportunityFollowUpList';
 import OpportunityRequirements from './OpportunityRequirements';
 import CreateProjectFromOpportunityModal from './CreateProjectFromOpportunityModal';
+import IntelligenceCollector from './IntelligenceCollector';
+import CustomerIntelligenceDetail from './CustomerIntelligenceDetail';
+import IntelligenceReportGenerator from './IntelligenceReportGenerator';
 import { getOpportunityStageColor, getOpportunityLevelColor } from '../types/opportunity';
 import { usePermissionContext } from '../contexts/PermissionContext';
 import Drawer from './Drawer';
@@ -49,11 +53,23 @@ export default function OpportunityDetailModal({ opportunity, onClose, onSuccess
   const [opportunityStages, setOpportunityStages] = useState<string[]>([]);
   const [showCreateProjectModal, setShowCreateProjectModal] = useState(false); // 形成项目modal
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false); // 跟踪是否有未保存的更改
+  
+  // 情报采集相关状态
+  const [activeTab, setActiveTab] = useState<'basic' | 'intelligence'>('basic');
+  const [intelligenceList, setIntelligenceList] = useState<CustomerIntelligence[]>([]);
+  const [intelligenceLoading, setIntelligenceLoading] = useState(false);
 
   // 加载商机阶段设置
   useEffect(() => {
     loadOpportunityStages();
   }, []);
+  
+  // 加载情报数据
+  useEffect(() => {
+    if (activeTab === 'intelligence') {
+      loadIntelligenceData();
+    }
+  }, [activeTab]);
 
   // 打开编辑Modal
   const handleEdit = () => {
@@ -143,6 +159,30 @@ export default function OpportunityDetailModal({ opportunity, onClose, onSuccess
     }
   };
 
+  // 加载情报数据
+  const loadIntelligenceData = async () => {
+    try {
+      setIntelligenceLoading(true);
+      
+      const result = await db.callFunction({
+        name: 'intelligence-collector',
+        data: {
+          action: 'list',
+          filters: {
+            opportunityId: opportunity._id
+          }
+        }
+      });
+      
+      if (result.result && result.result.success) {
+        setIntelligenceList(result.result.data.list || []);
+      }
+    } catch (error) {
+      console.error('加载情报数据失败:', error);
+    } finally {
+      setIntelligenceLoading(false);
+    }
+  };
 
   // 保存并关闭
   const handleSaveAndClose = async () => {
@@ -328,9 +368,47 @@ export default function OpportunityDetailModal({ opportunity, onClose, onSuccess
           </div>
         }
       >
+        {/* Tab切换 */}
+        <div className="border-b border-gray-200 mb-6">
+          <div className="flex space-x-8">
+            <button
+              onClick={() => setActiveTab('basic')}
+              className={`pb-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'basic'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Briefcase className="w-4 h-4" />
+                基本信息
+              </div>
+            </button>
+            <button
+              onClick={() => setActiveTab('intelligence')}
+              className={`pb-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'intelligence'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Globe className="w-4 h-4" />
+                客户情报
+                {intelligenceList.length > 0 && (
+                  <span className="ml-1 bg-blue-100 text-blue-600 text-xs font-semibold px-2 py-0.5 rounded-full">
+                    {intelligenceList.length}
+                  </span>
+                )}
+              </div>
+            </button>
+          </div>
+        </div>
+
         <div className="space-y-6">
-          {/* 查看模式 */}
-          <div className="space-y-6">
+          {/* 基本信息标签页 */}
+          {activeTab === 'basic' && (
+            <div className="space-y-6">
               {/* 关键指标 */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="bg-gray-50 rounded-lg p-4">
@@ -493,6 +571,38 @@ export default function OpportunityDetailModal({ opportunity, onClose, onSuccess
                 />
               </div>
             </div>
+          )}
+
+          {/* 客户情报标签页 */}
+          {activeTab === 'intelligence' && (
+            <div className="space-y-6">
+              {/* 情报采集器 */}
+              <IntelligenceCollector
+                customerName={opportunity.customerName || opportunity.customer || ''}
+                opportunityId={opportunity._id}
+                currentUserId={actualUserId}
+                onSuccess={loadIntelligenceData}
+              />
+
+              {/* 情报列表 */}
+              <CustomerIntelligenceDetail
+                opportunityId={opportunity._id}
+                customerName={opportunity.customerName || opportunity.customer || ''}
+                currentUserId={actualUserId}
+              />
+
+              {/* 生成报告 */}
+              {intelligenceList.length > 0 && (
+                <IntelligenceReportGenerator
+                  customerName={opportunity.customerName || opportunity.customer || ''}
+                  opportunityId={opportunity._id}
+                  intelligenceList={intelligenceList}
+                  currentUserId={actualUserId}
+                  currentUserName={localStorage.getItem('current_user') ? JSON.parse(localStorage.getItem('current_user') || '{}').name : undefined}
+                />
+              )}
+            </div>
+          )}
         </div>
       </Drawer>
 
